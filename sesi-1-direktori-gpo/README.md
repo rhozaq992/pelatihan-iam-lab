@@ -195,8 +195,7 @@ peserta melihat sendiri perubahan `TicketEncryptionType` dari RC4 (`0x17`) ke AE
 — bukti konkret bahwa mitigasi bekerja, bukan sekadar teori.
 
 1. 🪟 Pastikan akun umpan ada: `setspn -L svc-honey` menampilkan `HTTP/honey.iamlab.test`.
-2. 🐳 Jalankan simulasi Kerberoasting (perkakas *open source* Impacket) terhadap DC lab
-   dari container simulasi (`docker compose --profile attack …`).
+2. 🐳 Jalankan simulasi Kerberoasting dari container simulasi (`docker compose --profile attack up -d attacker`). Runner `attack-sim/run.sh` memvalidasi pagar lalu menampilkan perintah **Impacket** (`impacket-GetUserSPNs`) yang **dijalankan instruktur** untuk benar-benar meminta tiket — inilah yang memunculkan Event 4769.
 3. 🪟/🌐 Amati **Event 4769** dengan `TicketEncryptionType = 0x17` (RC4) dari akun
    non-mesin, dan permintaan untuk honey SPN (Event Viewer DC atau dashboard Grafana Sesi 4).
 4. 🪟 Terapkan mitigasi, lalu ulangi — tiket kini AES:

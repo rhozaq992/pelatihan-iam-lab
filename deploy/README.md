@@ -22,7 +22,7 @@ kc.iamlab.test app.iamlab.test saml.iamlab.test grafana.iamlab.test bao.iamlab.t
 | App-Komentar | https://app.iamlab.test |
 | App-SAML | https://saml.iamlab.test |
 | Grafana | https://grafana.iamlab.test |
-| OpenBao | https://bao.iamlab.test |
+| OpenBao | https://bao.iamlab.test (API/CLI saja — image ini tanpa web UI) |
 | Mailpit | https://mail.iamlab.test |
 | Warpgate | https://pam.iamlab.test · ssh -p 2222 |
 | Locust | http://localhost:8089 |
@@ -45,7 +45,7 @@ Infrastruktur **berjalan tetapi belum aman/kosong**; peserta mengonfigurasi keam
 ```bash
 docker compose --profile attack up -d attacker
 # jalankan runner berpagar (allowlist iamlab.test):
-docker compose exec attacker /attack-sim/run.sh dc1.iamlab.test kerberoast
+docker compose exec -e IAMLAB_CONFIRM=1 attacker /attack-sim/run.sh dc1.iamlab.test kerberoast
 ```
 Hanya untuk menguji deteksi/mitigasi di jaringan Host-Only terisolasi. Lihat `../attack-sim/`.
 

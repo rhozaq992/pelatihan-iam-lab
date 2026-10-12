@@ -4,9 +4,11 @@ Status: disiapkan (image + volume). Konfigurasi SSO & target = tugas peserta (La
 
 ## Setup pertama (sekali)
 ```
-docker compose run --rm warpgate warpgate --config /data/warpgate.yaml setup
+docker compose run --rm warpgate unattended-setup --data-path /data --http-port 8888 \
+  --ssh-port 2222 --record-sessions --host-key-verification auto-accept \
+  --admin-password 'Warp#Lab2026' --external-host pam.iamlab.test
 ```
-Ikuti wizard: set admin, port HTTP (8888) & SSH (2222), database SQLite di /data.
+Perintah unattended membuat config /data/warpgate.yaml + akun admin tanpa wizard interaktif.
 
 ## Yang dikonfigurasi peserta
 - SSO OIDC ke Keycloak (https://kc.iamlab.test/realms/iamlab), MFA wajib

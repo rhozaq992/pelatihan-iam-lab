@@ -16,6 +16,9 @@ cp .env.example .env            # sesuaikan DC_IP & sandi
 docker compose up -d --build    # seluruh stack layanan menyala
 docker compose ps
 ```
+> Catatan: setelah `up`, **OpenBao** menyala dalam keadaan *sealed* (perlu init/unseal di
+> Sesi 3) dan **Warpgate** akan keluar sampai di-*setup* sekali (Sesi 3) — ini normal.
+
 Tambahkan subdomain `*.iamlab.test` ke berkas `hosts` (atau DNS DC) → IP host Docker.
 Rincian endpoint & pengelolaan: [`deploy/README.md`](deploy/README.md). Lalu ikuti modul
 mulai [Sesi 0](sesi-0-pengantar/).

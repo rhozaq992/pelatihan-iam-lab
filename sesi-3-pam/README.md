@@ -96,7 +96,7 @@ done
 ### C. 🌐 Warpgate (bastion + rekam sesi)
 Setup sekali di 🖥️ terminal, lalu konfigurasi di 🌐 web UI `https://pam.iamlab.test`:
 ```bash
-docker compose run --rm warpgate warpgate unattended-setup \
+docker compose run --rm warpgate unattended-setup \
   --data-path /data --http-port 8888 --ssh-port 2222 --record-sessions \
   --host-key-verification auto-accept --admin-password 'Warp#Lab2026' --external-host pam.iamlab.test
 docker compose up -d warpgate

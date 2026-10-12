@@ -7,5 +7,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY run.sh /usr/local/bin/run.sh
 COPY TARGETS.lab /opt/TARGETS.lab
 RUN chmod +x /usr/local/bin/run.sh
-# Runner juga di-mount di /attack-sim (compose) agar instruktur dapat mengubahnya.
+# Runner juga tersedia di /attack-sim via mount read-only dari compose (sumber yang sama).
 CMD ["sleep", "infinity"]

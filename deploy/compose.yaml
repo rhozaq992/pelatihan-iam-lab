@@ -164,7 +164,7 @@ services:
     # restart "no": config /data/warpgate.yaml belum ada sampai setup (Lab 4) →
     # cegah crash-loop. Jalankan setup lalu `docker compose up -d warpgate`.
     restart: "no"
-    # Pertama kali: `docker compose run --rm warpgate warpgate --config /data/warpgate.yaml setup`
+    # Pertama kali (sekali): `docker compose run --rm warpgate unattended-setup --data-path /data --http-port 8888 --ssh-port 2222 --record-sessions --host-key-verification auto-accept --admin-password <sandi> --external-host pam.iamlab.test`
     # lalu service ini menjalankan `run`. Peserta mengonfigurasi SSO & target.
     command: ["run"]
     environment:
