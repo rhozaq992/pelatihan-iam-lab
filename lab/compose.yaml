@@ -88,8 +88,12 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
-      # Emit event ke stdout JSON agar bisa dipungut Alloy (peserta aktifkan listener di realm).
+      # Emit event ke stdout JSON agar bisa dipungut Alloy.
       KC_LOG_CONSOLE_OUTPUT: json
+      # Listener jboss-logging mencatat event sukses (LOGIN) di DEBUG → naikkan ke info
+      # agar login berhasil muncul di log/Loki (gagal tetap di warn/error).
+      KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: info
+      KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: warn
     extra_hosts:
       - "${DC_HOST}:${DC_IP}"
     depends_on:

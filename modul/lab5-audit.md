@@ -25,15 +25,14 @@ loki.write "lab" { endpoint { url = "http://<IP-host-docker>:3100/loki/api/v1/pu
 
 ## 3. Dashboard "Identity Audit" di Grafana (`https://grafana.iamlab.test`)
 Buat ≥ 4 panel (datasource Loki sudah terprovision). Label `event` berisi tipe event
-Keycloak (LOGIN, LOGIN_ERROR, dst.); `ipAddress` diekstrak saat query dengan `| regexp`:
+Keycloak (LOGIN, LOGIN_ERROR, dst.); Alloy sudah mengekstrak `ip`/`user` sebagai
+**structured metadata**, jadi bisa langsung dipakai di `sum by (...)`:
 - Login sukses vs gagal: `sum(count_over_time({service="keycloak", event="LOGIN"}[5m]))` vs `event="LOGIN_ERROR"`.
-- Top IP gagal:
-  ```logql
-  topk(10, sum by (ipAddress) (
-    count_over_time({service="keycloak", event="LOGIN_ERROR"}
-      | regexp `ipAddress="?(?P<ipAddress>[0-9.]+)` [15m])))
-  ```
+- Top IP gagal: `topk(10, sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"}[15m])))`.
 - Aktivitas per client · Perubahan grup (dari Windows Event 4728/4732).
+
+> Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
+> `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
 
 ## 4. Alert rules + contact point Mailpit
 - Rule brute force: LOGIN_ERROR per IP > 10 / 5m.

@@ -38,6 +38,11 @@ Uji: buka `https://app.iamlab.test` → *masuk (SSO)* dengan user yang bergrup `
 3. **Bind** flow sebagai *Browser flow* untuk realm (atau override per-client untuk Grafana/Warpgate).
 4. Uji: user biasa login App-Komentar tanpa OTP; **admin dipaksa scan QR Google Authenticator**.
 
+> Catatan: realm Keycloak 26 memiliki aksi default **Verify Profile**. User dari
+> federasi AD sudah lengkap (email/nama). Jika Anda membuat user lokal manual untuk
+> uji, isi email + firstName + lastName + set sandi permanen, atau login akan ditolak
+> "Account is not fully set up".
+
 ## 5. Pertahanan brute force & SMTP
 - **Realm settings → Security defenses → Brute force detection: On**.
 - **Realm settings → Email**: Host `mailpit`, Port `1025`, From `no-reply@iamlab.test` (untuk reset & verifikasi).

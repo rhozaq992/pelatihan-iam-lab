@@ -66,7 +66,11 @@ if _oidc_ready:
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         server_metadata_url=ISSUER.rstrip("/") + "/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid profile email groups"},
+        client_kwargs={
+            "scope": "openid profile email groups",
+            # Client Keycloak mewajibkan PKCE (Lab 2) → kirim code_challenge S256.
+            "code_challenge_method": "S256",
+        },
     )
 
 
