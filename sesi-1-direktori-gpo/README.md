@@ -106,6 +106,10 @@ auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable 
 > (Security Compliance Toolkit) dilakukan lewat GPO pada langkah berikut.
 
 ### 6. GPO: buat → link → verifikasi
+
+> Tangkapan layar GUI Windows (GPMC, ADUC, gpresult) disimpan di [`gambar/`](gambar/)
+> dan diambil langsung di VM DC saat lab berjalan.
+
 1. Buka **GPMC** (`gpmc.msc`), buat GPO `SEC-Audit-Tier1`, edit:
    _Computer Config → Policies → Windows Settings → Security Settings → Advanced Audit Policy_
    (Account Logon, Logon/Logoff, DS Access).

@@ -55,6 +55,8 @@ loki.write "lab" { endpoint { url = "http://<IP-host-docker>:3100/loki/api/v1/pu
 ```
 
 ### 2. Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
+
+![Grafana — halaman masuk](gambar/grafana-login.png)
 Buat ≥ 4 panel (datasource Loki sudah terprovision). Label `event` berisi tipe event
 Keycloak; `ip`/`user` tersedia sebagai _structured metadata_:
 - Login sukses vs gagal: `sum(count_over_time({service="keycloak", event="LOGIN"}[5m]))` vs `event="LOGIN_ERROR"`.
@@ -62,7 +64,10 @@ Keycloak; `ip`/`user` tersedia sebagai _structured metadata_:
 - Aktivitas per klien · Perubahan grup istimewa (Windows Event 4728/4732).
 
 ### 3. Alert & UBA dasar
-Buat aturan alert dengan _contact point_ Mailpit:
+Buat aturan alert dengan _contact point_ Mailpit (kotak surat uji):
+
+![Mailpit — kotak surat uji (menerima email alert & reset sandi)](gambar/mailpit.png)
+
 | Aturan | Logika (disederhanakan) | Ambang |
 |--------|-------------------------|--------|
 | Brute force / spraying | `LOGIN_ERROR` per IP | > 10 gagal / 5 menit |

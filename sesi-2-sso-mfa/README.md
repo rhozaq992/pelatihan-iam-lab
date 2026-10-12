@@ -49,6 +49,8 @@ Buat realm `iamlab`. Lalu **User federation → Add LDAP**:
 - **Mappers → group-ldap-mapper**: LDAP Groups DN `OU=Grup,DC=iamlab,DC=test` →
   **Sync LDAP groups to Keycloak**.
 
+![Keycloak — User federation: provider LDAP ke Active Directory (Enabled)](gambar/kc-user-federation.png)
+
 ### 2. Client OIDC untuk App-Komentar
 - **Clients → Create → OpenID Connect**, Client ID `app-komentar`.
 - Client authentication **On**; Standard flow **On**; **Direct access grants Off**.
@@ -58,8 +60,19 @@ Buat realm `iamlab`. Lalu **User federation → Add LDAP**:
   (agar bernama `GG-App-...`).
 - Salin **Client secret** → isi berkas `.env` lingkungan, lalu muat ulang App-Komentar.
 
+![Keycloak — daftar Clients pada realm iamlab](gambar/kc-clients.png)
+
+![Halaman login Keycloak (SSO) untuk App-Komentar](gambar/kc-login.png)
+
 Uji: buka `https://app.iamlab.test` → *masuk (SSO)* dengan tiga akun berbeda grup;
-amati perbedaan tombol & aksi.
+amati perbedaan tombol & aksi. Perbandingan nyata tiga peran:
+
+| Viewer (hanya lihat) | Editor (tulis + hapus miliknya) | Admin (hapus semua + step-up) |
+|---|---|---|
+| ![Viewer](gambar/app-viewer.png) | ![Editor](gambar/app-editor.png) | ![Admin](gambar/app-admin.png) |
+
+> Perhatikan: Viewer tidak punya kotak tulis/tombol hapus; Admin punya tombol
+> "hapus" per komentar dan "Hapus semua". Penolakan ditegakkan **di server**.
 
 ### 3. Client SAML untuk App-SAML
 **Clients → Create → SAML**. Tukar metadata IdP
@@ -71,6 +84,8 @@ SP (mod_auth_mellon); assertion **signed**.
 - **Flows → Browser (duplikat)** → tambah sub-flow **Conditional OTP** → *OTP Form*
   **Required**, targetkan ke grup admin & client kritikal (Grafana, Warpgate).
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR** Google Authenticator.
+
+![Keycloak — Authentication (Flows & Required actions)](gambar/kc-authentication.png)
 
 ### 5. Brute force, SMTP, dan events
 - **Realm settings → Security defenses → Brute force detection: On**.

@@ -34,6 +34,10 @@ Peserta mampu:
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
+> Antarmuka web OpenBao tersedia di `https://bao.iamlab.test` (status awal: belum di-_init_).
+>
+> ![OpenBao — antarmuka web](gambar/openbao-ui.png)
+
 ### A. OpenBao
 ```bash
 export BAO_ADDR=https://bao.iamlab.test        # atau http://127.0.0.1:8200 internal
