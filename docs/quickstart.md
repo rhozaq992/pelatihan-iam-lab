@@ -1,4 +1,4 @@
-# Lab 0 — Orientasi Lingkungan (20')
+# Prasyarat & Quickstart Lingkungan
 
 **Tujuan:** memastikan semua layanan siap dan waktu tersinkron (Kerberos sensitif skew).
 
@@ -14,7 +14,7 @@
    ```
 2. **Host Docker**:
    ```bash
-   cd lab && cp .env.example .env     # set DC_IP bila berbeda
+   cd deploy && cp .env.example .env     # set DC_IP bila berbeda
    docker compose up -d && docker compose ps
    ```
 3. **Resolusi nama**: tambahkan ke `hosts` (host peserta) → IP host Docker:

@@ -1,4 +1,6 @@
-# Lab 2 — SSO, MFA & App-Komentar (85') · Indikator 2.1, 2.2
+# Sesi 2 — SSO dan MFA (+ App-Komentar RBAC)
+
+> Indikator 2.1 (integrasi SSO SAML/OIDC) & 2.2 (penegakan MFA).
 
 **Tujuan:** integrasi aplikasi ke IdP, beda hak akses (RBAC), dan MFA pada layanan kritikal.
 Dikerjakan di **Keycloak admin** (`https://kc.iamlab.test`, realm master → buat realm `iamlab`).

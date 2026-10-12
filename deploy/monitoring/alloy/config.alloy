@@ -2,7 +2,7 @@
 // Status: SEBAGIAN terisi (sumber Docker + parse Keycloak). Bagian bertanda
 // TODO diselesaikan PESERTA di Lab 5 (OpenBao, Warpgate, sshd, Windows Event DC).
 //
-// Prinsip label (temuan QA M3): label HANYA low-cardinality (service, event).
+// Prinsip label: label HANYA low-cardinality (service, event).
 // user/ip DISIMPAN sebagai field di baris log, dikueri via `| json` di LogQL —
 // JANGAN dijadikan label (ledakan kardinalitas).
 

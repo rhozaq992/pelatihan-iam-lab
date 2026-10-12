@@ -1,4 +1,4 @@
-# lab/ — Stack Docker IAM
+# deploy/ — Stack layanan IAM (Docker)
 
 Jalan di **Docker Desktop (WSL2)** atau **VM Ubuntu** pada VMware.
 AD (Windows Server 2025) ada di VM VMware terpisah (lihat `DC_IP`).
@@ -50,5 +50,4 @@ docker compose exec attacker /attack-sim/run.sh dc1.iamlab.test kerberoast
 Hanya untuk menguji deteksi/mitigasi di jaringan Host-Only terisolasi. Lihat `../attack-sim/`.
 
 ## Catatan
-- Versi image dipin; verifikasi & bump saat build final (lihat dokumen Bab 7).
 - AD tidak di compose; Windows Event dikirim oleh Alloy yang dipasang di VM DC (lihat `monitoring/alloy/config.alloy`).

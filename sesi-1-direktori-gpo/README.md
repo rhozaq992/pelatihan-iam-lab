@@ -1,4 +1,8 @@
-# Lab 1 — Pengamanan AD & GPO (85') · Indikator 1.1, 1.2
+# Sesi 1 — Pengamanan Direktori Terpusat (AD/LDAP) & GPO
+
+> Indikator 1.1 (hardening AD/LDAP) & 1.2 (GPO). Dikerjakan di VM **Windows Server 2025** (DC).
+> Skrip provisioning ada di folder ini (`import-ad.ps1`, `users_dummy.csv`, `gen_dummy_users.py`).
+
 
 **Tujuan:** direktori terstruktur & ter-hardening, bulk import, dan GPO berlaku.
 Dikerjakan di **VM DC** (PowerShell + GPMC). Prioritas: OU/tiering, bulk import, kebijakan sandi, hardening inti. Sisanya lanjut mandiri.
@@ -30,7 +34,7 @@ setspn -S HTTP/honey.iamlab.test svc-honey
 
 ## 2. Bulk import 200 pengguna
 ```powershell
-# dari repo: data\import-ad.ps1 + data\users_dummy.csv
+# skrip & CSV ada di folder sesi ini
 .\import-ad.ps1 -Csv .\users_dummy.csv -UserOU "OU=Pengguna,$dn"
 # latihan mandiri: tambah 20 user
 .\import-ad.ps1 -Csv .\users_batch2.csv -UserOU "OU=Pengguna,$dn"
@@ -81,3 +85,50 @@ auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable 
 - SMBv1 nonaktif; GPO ter-link dan muncul di `gpresult`.
 EOF
 echo "lab1 ok"
+---
+
+## Simulasi Terkendali & Mitigasi (PtH & Kerberoasting)
+
+
+**Tujuan:** mengenali sinyal Kerberoasting/PtH lalu **menutupnya**. Defensif — hanya
+menguji deteksi/mitigasi pada target lab di jaringan Host-Only terisolasi.
+
+### Etika & pagar
+Runner `attack-sim/run.sh` hanya menerima target dari `TARGETS.lab` (iamlab.test /
+10.10.10.0/24), wajib `IAMLAB_CONFIRM=1`, dan menolak bila ada rute internet.
+
+### 1. Prasyarat
+Akun layanan `svc-*` dan honey SPN `HTTP/honey.iamlab.test` sudah dibuat di Lab 1 (langkah 1b). Pastikan ada sebelum lanjut:
+```powershell
+setspn -L svc-honey        # harus menampilkan HTTP/honey.iamlab.test
+```
+
+### 2. Jalankan simulasi Kerberoasting
+```bash
+docker compose --profile attack up -d attacker
+docker compose exec attacker env IAMLAB_CONFIRM=1 /attack-sim/run.sh dc1.iamlab.test kerberoast
+# runner menunjukkan contoh perintah open source (Impacket GetUserSPNs) terhadap DC lab
+```
+
+### 3. Amati sinyal
+- **Event Viewer DC** (atau Grafana bila Lab 5 sudah): Event **4769** dengan
+  `TicketEncryptionType = 0x17` (RC4) dari akun non-mesin, dan permintaan untuk honey SPN.
+
+### 4. Terapkan mitigasi lalu ulangi
+```powershell
+# AES-only pada akun layanan + reset sandi (kunci dibuat ulang)
+Set-ADUser svc-app -KerberosEncryptionType AES128,AES256 ; Set-ADAccountPassword svc-app -Reset
+```
+Jalankan ulang simulasi → tiket kini AES (0x12), bukan RC4.
+
+### (Opsional) Diskusi PtH
+Tanpa langkah ofensif: tinjau mengapa **Windows LAPS** (sandi admin lokal unik),
+**Protected Users**, dan isolasi tier memutus reuse hash NTLM.
+
+### Hasil yang diharapkan
+- Sebelum mitigasi: terlihat 4769 RC4; honey SPN memicu perhatian.
+- Sesudah AES-only: permintaan tiket memakai AES; peserta menjelaskan mengapa mitigasi bekerja.
+
+### Catatan notasi
+`msDS-SupportedEncryptionTypes = 24` (bitmask AES). Field event `TicketEncryptionType`:
+`0x17`=RC4-HMAC, `0x18`=RC4-HMAC-EXP (lemah); AES = `0x11/0x12`.

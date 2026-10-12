@@ -1,47 +1,60 @@
 # Pelatihan: Manajemen Identitas dan Akses Terpusat (IAM)
 
-Laboratorium praktik 8 jam (1 hari) untuk membangun, mengamankan, dan memantau
-sistem identitas terpusat. Seluruh data bersifat **sintetis** (domain `iamlab.test`)
-dan lab berjalan **terisolasi** di PC peserta.
+Laboratorium praktik untuk membangun, mengamankan, dan memantau sistem identitas
+terpusat. Seluruh data bersifat **sintetis** (domain `iamlab.test`) dan lab berjalan
+**terisolasi** di PC peserta.
 
-> ⚠️ **Etika & lingkup:** Topik serangan (Pass-the-Hash, Kerberoasting) dibahas
+> ⚠️ **Etika & lingkup.** Topik serangan (Pass-the-Hash, Kerberoasting) dibahas
 > secara **defensif** — hanya untuk menguji deteksi & mitigasi, memakai perkakas
-> open source standar (Impacket) yang **dikunci ke target lab** dan dijalankan di
+> _open source_ standar (Impacket) yang **dikunci ke target lab** dan dijalankan di
 > jaringan **Host-Only tanpa internet**. Jangan gunakan di luar lab.
 
-## Materi (indikator kompetensi)
-1. Pengamanan Direktori (AD) & GPO — hardening, Pass-the-Hash & Kerberoasting (mitigasi/deteksi)
-2. SSO & MFA — SAML/OIDC dengan Keycloak, federasi LDAP, Google Authenticator (OTP)
-3. Privileged Access Management — OpenBao (vault) + Warpgate (bastion, rekam sesi)
-4. Audit & Monitoring — Alloy → Loki → Grafana, UBA dasar, deteksi akun kompromi
+## Sesi
 
-## Arsitektur (ringkas)
-- **AD**: Windows Server 2025 di VMware Workstation Pro (Tier 0: DC, DNS, Kerberos, GPO)
-- **Stack lain**: Keycloak, OpenBao, Warpgate, Caddy, Mailpit, Grafana/Loki/Alloy,
-  Locust, App-Komentar (RBAC) — di **Docker Desktop (WSL2)** *atau* VM Ubuntu
-- Jaringan Host-Only (VMnet), domain `iamlab.test`
+| Sesi | Topik | Indikator | Folder |
+|------|-------|-----------|--------|
+| 1 | Pengamanan Direktori (AD/LDAP) & GPO; simulasi terkendali | 1.1, 1.2 | [`sesi-1-direktori-gpo/`](sesi-1-direktori-gpo/) |
+| 2 | SSO & MFA (Keycloak) + App-Komentar RBAC | 2.1, 2.2 | [`sesi-2-sso-mfa/`](sesi-2-sso-mfa/) |
+| 3 | Privileged Access Management (OpenBao + Warpgate) | 3.1, 3.2 | [`sesi-3-pam/`](sesi-3-pam/) |
+| 4 | Audit & Monitoring (Alloy/Loki/Grafana) + capstone | 4.1, 4.2 | [`sesi-4-audit-monitoring/`](sesi-4-audit-monitoring/) |
 
-Lihat dokumen riset lengkap + topologi: [`docs/`](docs/).
+## Arsitektur
 
-## Struktur repo
+- **AD**: Windows Server 2025 di VMware (Tier 0: DC, DNS, Kerberos, GPO) — Sesi 1.
+- **Stack layanan** (Docker): Keycloak + PostgreSQL, OpenBao, Warpgate, Caddy
+  (reverse proxy + CA internal), Mailpit, Grafana/Loki/Alloy, Locust, App-Komentar
+  (RBAC), App-SAML, target SSH.
+- Jaringan Host-Only, domain `iamlab.test`.
+
+## Prasyarat & cara menjalankan
+
+1. Baca [`docs/quickstart.md`](docs/quickstart.md) (prasyarat PC + langkah awal).
+2. Siapkan AD (Windows Server 2025) di VMware — lihat Sesi 1.
+3. Jalankan stack layanan:
+   ```bash
+   cd deploy
+   cp .env.example .env          # sesuaikan DC_IP & sandi
+   docker compose up -d --build
+   ```
+   Endpoint & detail: [`deploy/README.md`](deploy/README.md).
+4. Ikuti modul per sesi secara berurutan.
+
+## Struktur
+
 | Folder | Isi |
-|---|---|
-| `docs/` | Dokumen riset & kesiapan lab (DOCX) |
-| `lab/` | compose + konfigurasi stack (dikerjakan pada fase build) |
-| `modul/` | Panduan peserta per lab (Lab 0–6) |
+|--------|-----|
+| `deploy/` | Yang perlu di-deploy: compose + konfigurasi stack + aplikasi |
+| `sesi-1..4/` | Modul praktik per sesi (langkah + hasil yang diharapkan) |
 | `attack-sim/` | Runner simulasi berpagar (allowlist lab) |
-| `data/` | Generator data dummy + CSV |
-| `solutions/` | Konfigurasi solusi (khusus instruktur) |
+| `docs/` | Quickstart & distribusi aset berat |
+| `instruktur/` | Kunci & formulir (khusus instruktur) |
+| `distribusi/` | Tempat aset berat (ISO/OVA/image) yang dibagikan manual |
 
 > File berat (ISO/OVA/image) **tidak** disimpan di Git — dibagikan manual lewat
-> folder `distribusi/` (lihat `distribusi/README.md`).
-
-## Kebutuhan PC peserta
-- Windows, RAM **≥ 16 GB** (disarankan 32 GB), disk ≥ 120 GB, VT-x/AMD-V aktif
-- VMware Workstation Pro (gratis) + VMware Tools, dan Docker Desktop (profil ringan)
-- Google Authenticator / FreeOTP di ponsel
+> `distribusi/` (lihat [`docs/distribusi.md`](docs/distribusi.md)).
 
 ## Lisensi komponen
-Seluruh komponen inti bersifat open source (Keycloak Apache-2.0, OpenBao MPL-2.0,
-Warpgate Apache-2.0, Grafana/Loki AGPL-3.0, Locust MIT, dll.). Windows Server
-memakai edisi evaluasi.
+
+Komponen inti _open source_: Keycloak (Apache-2.0), OpenBao (MPL-2.0), Warpgate
+(Apache-2.0), Grafana/Loki (AGPL-3.0), Caddy (Apache-2.0), Locust (MIT), dll.
+Windows Server memakai edisi evaluasi.

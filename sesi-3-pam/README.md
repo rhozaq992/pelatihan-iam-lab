@@ -1,4 +1,6 @@
-# Lab 4 — Privileged Access (OpenBao + Warpgate) (85') · Indikator 3.1, 3.2
+# Sesi 3 — Privileged Access Management (OpenBao + Warpgate)
+
+> Indikator 3.1 (jump server) & 3.2 (password vault).
 
 **Tujuan:** amankan kredensial & pusatkan akses istimewa via bastion terekam.
 

@@ -1,7 +1,7 @@
 # runtime / lokal
-lab/.env
-lab/caddy/data/
-lab/caddy/config/
+deploy/.env
+deploy/caddy/data/
+deploy/caddy/config/
 **/komentar.db
 
 # aset distribusi berat (dibagikan manual, bukan via git)
