@@ -29,26 +29,26 @@ Peserta memahami:
 - Peserta mengenali posisi dan fungsi tiap komponen pada topologi.
 - Lingkungan lab siap: VM AD berjalan, stack layanan berjalan, nama domain teruji.
 
-## c. Teori Dasar (pendekatan 5W+1H)
+## c. Teori Dasar
 
 ### Apa itu IAM dan mengapa "terpusat"?
 **IAM (Identity & Access Management)** adalah disiplin mengelola *siapa boleh
 mengakses apa, kapan, dan bagaimana membuktikannya*. Rangkanya adalah **IAAA**:
 
-| Pilar | **Apa** (What) | **Mengapa** (Why) | Analogi |
+| Pilar | **Apa** | **Mengapa** | Analogi |
 |------|-----------------|-------------------|---------|
 | **Identifikasi** | Pengguna mengaku sebagai siapa (username) | Titik awal semua kontrol | Menyebut nama di resepsionis |
 | **Autentikasi** | Membuktikan klaim identitas (faktor: sandi, OTP, biometrik) | Mencegah peniruan | Menunjukkan KTP + segel sekali pakai |
 | **Otorisasi** | Menentukan hak (peran/izin) | Membatasi akses sesuai kebutuhan (*least privilege*) | Kartu hanya membuka lantai tertentu |
 | **Audit** | Mencatat aktivitas | Pembuktian & deteksi penyalahgunaan | Buku tamu + CCTV |
 
-- **Siapa (Who)** yang terlibat: pengguna akhir, administrator (akun istimewa), akun
+- **Siapa** yang terlibat: pengguna akhir, administrator (akun istimewa), akun
   layanan (aplikasi), dan auditor.
-- **Kapan (When)** kontrol bekerja: saat login (autentikasi), saat mengakses fitur
+- **Kapan** kontrol bekerja: saat login (autentikasi), saat mengakses fitur
   (otorisasi), dan terus-menerus (audit).
-- **Di mana (Where)**: identitas terpusat memindahkan keempat pilar dari tiap aplikasi
+- **Di mana**: identitas terpusat memindahkan keempat pilar dari tiap aplikasi
   ke **satu direktori** (sumber kebenaran) dan **satu IdP** (gerbang).
-- **Bagaimana (How)**: aplikasi mendelegasikan login ke IdP; IdP memverifikasi ke
+- **Bagaimana**: aplikasi mendelegasikan login ke IdP; IdP memverifikasi ke
   direktori dan menerbitkan token/assertion yang dipercaya aplikasi.
 
 _Analogi:_ dari "tiap pintu punya daftar tamu sendiri" menjadi "satu lobi, satu

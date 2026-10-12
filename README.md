@@ -1,39 +1,60 @@
 # Pelatihan: Manajemen Identitas dan Akses Terpusat (IAM)
 
 Modul praktik untuk membangun, mengamankan, dan memantau sistem identitas terpusat.
-Seluruh data bersifat **sintetis** (domain `iamlab.test`) dan lab berjalan
-**terisolasi** di PC peserta.
+Seluruh data bersifat **sintetis** (domain `iamlab.test`) dan lab berjalan **terisolasi**
+di PC peserta.
 
-> ⚠️ **Etika & lingkup.** Topik serangan (Pass-the-Hash, Kerberoasting) dibahas
-> secara **defensif** — hanya untuk menguji deteksi & mitigasi, memakai perkakas
-> _open source_ standar yang dikunci ke target lab, di jaringan Host-Only tanpa
-> internet. Jangan gunakan di luar lab.
+> ⚠️ **Etika & lingkup.** Topik serangan (Pass-the-Hash, Kerberoasting) dibahas secara
+> **defensif** — hanya untuk menguji deteksi & mitigasi, memakai perkakas *open source*
+> standar yang dikunci ke target lab, di jaringan Host-Only tanpa internet.
 
-## Cara memakai modul
+## Memulai (setelah `git clone`)
 
-Mulai dari **Sesi 0** untuk gambaran utuh sistem dan teori dasar, lalu kerjakan
-Sesi 1–4 berurutan. Tiap sesi disusun dengan struktur yang sama:
+```bash
+cd deploy
+cp .env.example .env            # sesuaikan DC_IP & sandi
+docker compose up -d --build    # seluruh stack layanan menyala
+docker compose ps
+```
+Tambahkan subdomain `*.iamlab.test` ke berkas `hosts` (atau DNS DC) → IP host Docker.
+Rincian endpoint & pengelolaan: [`deploy/README.md`](deploy/README.md). Lalu ikuti modul
+mulai [Sesi 0](sesi-0-pengantar/).
 
-- **a. Tujuan Sesi** — kompetensi yang dituju.
-- **b. Output yang Diharapkan** — hasil yang mesti terlihat.
-- **c. Teori dan Struktur Sistem** — konsep dan posisi komponen.
-- **d. Praktik: Instalasi dan Konfigurasi** — langkah yang dikerjakan peserta.
+## Peta Direktori
 
-## Daftar Sesi
+| Path | Isi | Dijalankan? |
+|------|-----|-------------|
+| `deploy/` | **Yang di-deploy**: `compose.yaml` + konfigurasi (Caddy, Keycloak, OpenBao, Warpgate, monitoring) + aplikasi | `docker compose up -d` |
+| `sesi-0-pengantar/` | Pengantar: topologi + teori dasar | baca dulu |
+| `sesi-1-direktori-gpo/` | Pengamanan AD/LDAP & GPO + simulasi + skrip provisioning (`import-ad.ps1`, CSV) | ikuti modul |
+| `sesi-2-sso-mfa/` | SSO & MFA (Keycloak) + App-Komentar RBAC | ikuti modul |
+| `sesi-3-pam/` | OpenBao (vault) + Warpgate (bastion) | ikuti modul |
+| `sesi-4-audit-monitoring/` | Alloy/Loki/Grafana + capstone | ikuti modul |
+| `attack-sim/` | Runner simulasi berpagar (dipakai Sesi 1) | via compose profil |
+| `distribusi/` | **Kosong di Git** — tempat ISO/OVA/image yang dibagikan manual | lihat README-nya |
 
-| Sesi | Topik | Indikator |
-|------|-------|-----------|
-| [0](sesi-0-pengantar/) | Pengantar: topologi sistem & teori dasar | — |
-| [1](sesi-1-direktori-gpo/) | Pengamanan Direktori (AD/LDAP) & GPO; simulasi terkendali | 1.1, 1.2 |
-| [2](sesi-2-sso-mfa/) | SSO & MFA (Keycloak) + App-Komentar (RBAC) | 2.1, 2.2 |
-| [3](sesi-3-pam/) | Privileged Access Management (OpenBao + Warpgate) | 3.1, 3.2 |
-| [4](sesi-4-audit-monitoring/) | Audit & Monitoring (Alloy/Loki/Grafana) + capstone | 4.1, 4.2 |
+## Alur Sesi (saling menyambung)
 
-## Catatan
+Tiap sesi **membangun di atas sesi sebelumnya** memakai data yang sama:
 
-> Catatan: folder `deploy/` (compose + konfigurasi) TIDAK ada di repo ini — lingkungan
-> disediakan terpisah oleh instruktur (OVA/image). Modul berfokus pada konfigurasi.
+```
+Sesi 1 (AD: OU, grup GG-*, akun svc-*, kebijakan sandi)
+   └─► Sesi 2 (Keycloak federasi ke AD via svc-keycloak; grup GG-App-* → peran; MFA)
+          └─► Sesi 3 (Warpgate SSO ke Keycloak; OpenBao auth LDAP via svc-openbao + GG-Tier1-Admin)
+                 └─► Sesi 4 (audit semua event Sesi 1–3 → dashboard & deteksi)
+```
 
-Lingkungan lab (VM Active Directory dan stack layanan Docker) disiapkan terlebih
-dahulu; peserta berfokus pada **konfigurasi keamanan** di tiap sesi, bukan instalasi
-dari nol. Detail arsitektur dan aliran data ada di [Sesi 0](sesi-0-pengantar/).
+## Prasyarat PC peserta
+
+- Windows, RAM ≥ 16 GB (disarankan 32 GB), disk ≥ 120 GB, virtualisasi (VT-x/AMD-V) aktif.
+- VMware Workstation Pro (gratis) untuk VM Windows Server 2025 (DC); Docker untuk stack layanan.
+- Google Authenticator / FreeOTP di ponsel.
+
+> Aset berat (ISO/OVA/image) **tidak** di Git — dibagikan manual lewat `distribusi/`
+> (lihat [`distribusi/README.md`](distribusi/README.md)).
+
+## Lisensi komponen
+
+Komponen inti *open source*: Keycloak (Apache-2.0), OpenBao (MPL-2.0), Warpgate
+(Apache-2.0), Grafana/Loki (AGPL-3.0), Caddy (Apache-2.0), Locust (MIT), dll. Windows
+Server memakai edisi evaluasi.

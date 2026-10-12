@@ -4,6 +4,14 @@ Indikator 4.1 (audit autentikasi/otorisasi) dan 4.2 (deteksi anomali). Membangun
 audit identitas *end-to-end* dan dashboard pemantauan. Penanda: 🖥️ **terminal peserta**
 · 🐳 **container** · 🌐 **web UI (Grafana)**.
 
+## Keterhubungan dengan sesi sebelumnya
+
+Sesi ini **menutup rangkaian**: ia memanen event dari **Sesi 1** (Windows AD: logon,
+Kerberos, perubahan grup), **Sesi 2** (Keycloak: LOGIN/LOGIN_ERROR, perubahan MFA), dan
+**Sesi 3** (OpenBao: akses vault; Warpgate: sesi bastion; sshd target). Tanpa konfigurasi
+audit di sesi-sesi itu (mis. Events Keycloak di Sesi 2, audit device OpenBao di Sesi 3),
+dashboard di sini akan kosong — jadi pastikan sumbernya sudah aktif.
+
 ## a. Tujuan Sesi
 
 Peserta mampu:
@@ -19,21 +27,41 @@ Peserta mampu:
 - Minimal 4 aturan alert aktif; alert memicu email uji di Mailpit.
 - Pada capstone: akun terindikasi kompromi dikunci di semua layanan + laporan insiden.
 
-## c. Teori dan Struktur Sistem (5W+1H)
+## c. Teori dan Struktur Sistem
 
-**Apa (What).** *Jejak audit identitas* menjawab "**siapa** mengakses **apa**, **kapan**,
+**Apa.** *Jejak audit identitas* menjawab "**siapa** mengakses **apa**, **kapan**,
 dari **mana**, berhasil/gagal". **UBA (User Behavior Analytics) dasar** mencari
 penyimpangan dari kebiasaan.
 
-**Mengapa (Why).** Kontrol pencegahan tidak pernah 100%; deteksi + respons memperpendek
+**Mengapa.** Kontrol pencegahan tidak pernah 100%; deteksi + respons memperpendek
 waktu tinggal penyerang dan memenuhi kewajiban audit (mis. Peraturan BSSN tentang audit SPBE).
 
-**Apa yang dicari (Which signals).** Ledakan kegagalan login (brute force), gagal lalu
+**Apa yang dicari.** Ledakan kegagalan login (brute force), gagal lalu
 tiba-tiba berhasil, login di jam/IP tak lazim, perubahan keanggotaan grup istimewa,
 tiket Kerberos RC4. *Analogi:* satpam yang hafal pola normal dan curiga saat ada yang
 mencoba 100 pintu dalam semenit.
 
-**Bagaimana (How) pipeline bekerja:** tiap komponen menulis log → **Alloy** memungut,
+### Standar audit trail yang diterapkan
+
+Rancangan audit lab mengikuti kerangka yang diakui luas sehingga jejaknya cukup untuk
+investigasi pasca-insiden:
+
+- **Peristiwa apa yang dicatat** (mengacu NIST SP 800-53 **AU-2** & CIS Control 8): login
+  sukses/gagal, logoff, pembuatan/perubahan/penghapusan akun, perubahan hak & keanggotaan
+  grup istimewa, akses kredensial (vault), serta start/stop layanan.
+- **Isi tiap catatan** (mengacu NIST SP 800-53 **AU-3**): *apa* jenis event, *kapan*
+  (timestamp tersinkron), *di mana* (host/sumber), *sumber* (IP/akun), *hasil*
+  (sukses/gagal), dan *identitas* pelaku. Pipeline Alloy mengekstrak field ini (mis.
+  `event`, `user`, `ip`) dari tiap sumber.
+- **Pengelolaan** (mengacu NIST SP 800-92 & CIS Control 8): kumpulkan terpusat (Loki),
+  **sinkronkan waktu** antar-komponen, tetapkan **retensi** (lab: 7 hari; produksi minimal
+  90 hari), dan **tinjau berkala**. Di Indonesia hal ini selaras dengan kewajiban audit
+  keamanan SPBE (Peraturan BSSN tentang audit).
+
+> Rujukan: NIST SP 800-92 (manajemen log), NIST SP 800-53 AU-2/AU-3/AU-6/AU-9/AU-12,
+> CIS Control 8 (Audit Log Management).
+
+**Bagaimana pipeline bekerja:** tiap komponen menulis log → **Alloy** memungut,
 mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & memberi alert.
 
 ![Pipeline log identitas: sumber → Alloy → Loki → Grafana → notifikasi](gambar/pipeline-log.png)
@@ -42,7 +70,7 @@ mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & 
 `event`); nilai seperti `user`/`ip` disimpan sebagai *structured metadata*/field (dikueri
 LogQL), **bukan** label — agar kardinalitas tidak meledak dan Loki tetap cepat.
 
-**Sumber log kunci (Where):** Windows AD (Event 4624/4625, 4768/4769 Kerberos, 4728/4732
+**Sumber log kunci:** Windows AD (Event 4624/4625, 4768/4769 Kerberos, 4728/4732
 grup), Keycloak (LOGIN, LOGIN_ERROR), OpenBao (audit device), Warpgate, sshd, Caddy.
 
 ## d. Praktik: Instalasi dan Konfigurasi

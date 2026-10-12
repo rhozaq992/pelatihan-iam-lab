@@ -4,6 +4,13 @@ Indikator 3.1 (jump server/bastion) dan 3.2 (password vault). Mengamankan kreden
 administratif dan memusatkan akses istimewa melalui bastion yang merekam sesi.
 Penanda: 🖥️ **terminal peserta** · 🐳 **container** · 🌐 **web UI**.
 
+## Keterhubungan dengan sesi sebelumnya
+
+Sesi ini **memakai Sesi 1 & 2**: Warpgate login memakai **SSO Keycloak** (Sesi 2, MFA
+wajib), dan OpenBao berautentikasi ke **AD** (Sesi 1) memakai `svc-openbao`, memetakan grup
+`GG-Tier1-Admin` (Sesi 1) ke *policy*. Email serah-terima memakai **Mailpit** (sudah diset
+di Sesi 2). **Dipakai Sesi 4:** audit OpenBao, sesi Warpgate, dan sshd menjadi sumber log.
+
 ## a. Tujuan Sesi
 
 Peserta mampu:
@@ -19,23 +26,23 @@ Peserta mampu:
 - Target SSH menolak autentikasi sandi; akses hanya via sertifikat CA / bastion.
 - Sesi admin melalui Warpgate **terekam** dan dapat diputar ulang.
 
-## c. Teori dan Struktur Sistem (5W+1H)
+## c. Teori dan Struktur Sistem
 
-**Apa (What).** *Privileged Access Management* memperlakukan akun admin ("kunci induk")
+**Apa.** *Privileged Access Management* memperlakukan akun admin ("kunci induk")
 secara khusus. **Vault** menyimpan kredensial terenkripsi, memberi akses berbasis
 kebijakan, mencatat tiap pengambilan, dan dapat menerbitkan kredensial berumur pendek.
 **Jump server/bastion** memaksa semua akses admin lewat satu pintu yang merekam sesi.
 
-**Mengapa (Why).** Kredensial admin statis yang tersebar = permukaan serang besar; akses
+**Mengapa.** Kredensial admin statis yang tersebar = permukaan serang besar; akses
 langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
-**Bagaimana (How) alurnya:**
+**Bagaimana alurnya:**
 
 ![Alur PAM: SSO + MFA → Warpgate (bastion) → target; OpenBao untuk kredensial & SSH CA](gambar/alur-pam.png)
 
-**SSH CA (How, lanjutan).** Alih-alih menyebar kunci publik ke tiap server, server cukup
+**SSH CA.** Alih-alih menyebar kunci publik ke tiap server, server cukup
 memercayai satu *Certificate Authority*; OpenBao menandatangani sertifikat SSH berumur
-pendek (mis. 30 menit) untuk pengguna yang berhak — **Kapan (When)** kadaluwarsa cepat
+pendek (mis. 30 menit) untuk pengguna yang berhak — **Kapan** kadaluwarsa cepat
 sehingga kredensial curian tak berguna lama.
 
 ## d. Praktik: Instalasi dan Konfigurasi
@@ -94,8 +101,12 @@ docker compose run --rm warpgate warpgate unattended-setup \
   --host-key-verification auto-accept --admin-password 'Warp#Lab2026' --external-host pam.iamlab.test
 docker compose up -d warpgate
 ```
-Login admin ke web UI; tambahkan **SSO OIDC** ke Keycloak (MFA wajib), **target** SSH
-`srv-app01`/`srv-db01` dengan **role** terbatas, dan aktifkan **perekaman sesi**:
+Agar login ke bastion **terkendali dan seragam**, arahkan autentikasi Warpgate ke
+**SSO Keycloak** (bukan akun lokal Warpgate): di admin → *Config → Global parameters →
+SSO providers*, tambahkan provider OIDC ke realm `iamlab`
+(`https://kc.iamlab.test/realms/iamlab`), sehingga **MFA dari Sesi 2 ikut berlaku** saat
+masuk bastion. Lalu tambahkan **target** SSH `srv-app01`/`srv-db01` dengan **role**
+terbatas, dan aktifkan **perekaman sesi**:
 
 ![Warpgate — konsol admin (Config): tambah target SSH, Users, Access roles, perekaman sesi](gambar/warpgate-admin.png)
 
@@ -109,10 +120,16 @@ Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate m
 ssh -p 2222 <user>:srv-app01@pam.iamlab.test     # bastion mencegat, minta SSO/MFA, lalu teruskan
 ```
 
-### D. Serah-terima kredensial (sikap: tertib dokumentasi)
-Permintaan tercatat → persetujuan (dual control untuk Tier 0) → pengambilan dari OpenBao
-(teraudit) → pakai via bastion (terekam) → rotasi pasca *break-glass* → review. Gunakan
-formulir serah-terima dari instruktur.
+### D. Serah-terima kredensial via email + formulir
+Akses istimewa tidak diberikan lisan. Alurnya **berbasis email dan formulir yang
+dikembalikan**:
+1. Pemohon mengisi [`formulir-serah-terima.md`](formulir-serah-terima.md) lalu mengirimnya
+   via email ke pemberi persetujuan (di lab: lewat Mailpit `https://mail.iamlab.test`).
+2. Pemberi persetujuan (dual control untuk Tier 0) **membalas email** dengan kolom
+   *Status dikembalikan = Disetujui* terisi — inilah bukti formulir kembali.
+3. Barulah kredensial diambil dari **OpenBao** (teraudit) dan akses dibuka lewat **bastion**
+   (sesi terekam).
+4. Setelah selesai: **rotasi** sandi *break-glass* dan kirim buktinya; pihak independen meninjau log.
 
 **Hasil yang diharapkan:** OpenBao unsealed & audit aktif; root token tak valid; target
 menolak sandi; akses hanya via bastion dan **terekam**.

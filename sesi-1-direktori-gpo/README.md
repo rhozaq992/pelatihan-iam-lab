@@ -7,6 +7,13 @@ provisioning ada di folder ini (`import-ad.ps1`, `users_dummy.csv`, `gen_dummy_u
 Penanda tempat menjalankan: 🪟 **DC (PowerShell/GPMC)** · 🐳 **container (host)** ·
 🖥️ **terminal peserta**. (Lihat Sesi 0 untuk arti lengkap.)
 
+## Keterhubungan dengan sesi lain
+
+Ini sesi praktik pertama; ia memakai konsep identitas dari **Sesi 0** (IAAA, tiering).
+**Yang dibuat di sini dipakai sesi berikutnya:** OU & grup `GG-*`, akun layanan `svc-keycloak`
+(dipakai Sesi 2 untuk federasi), `svc-openbao` + grup `GG-Tier1-Admin` (Sesi 3), kebijakan
+sandi, serta event audit AD yang akan dipantau di Sesi 4. Jadi selesaikan sesi ini lebih dulu.
+
 ## a. Tujuan Sesi
 
 Peserta mampu:
@@ -24,21 +31,21 @@ Peserta mampu:
 - Pada simulasi: sebelum mitigasi terlihat tiket Kerberos RC4 (event 4769, enctype `0x17`);
   setelah AES-only, permintaan tiket memakai AES (`0x12`) dan akun umpan memicu perhatian.
 
-## c. Teori dan Struktur Sistem (5W+1H)
+## c. Teori dan Struktur Sistem
 
-**Apa (What).** *Active Directory* adalah direktori + *control plane* identitas Windows:
+**Apa.** *Active Directory* adalah direktori + *control plane* identitas Windows:
 menyimpan pengguna/grup/komputer (LDAP), menerbitkan tiket **Kerberos** (KDC),
 menyediakan DNS, dan menyebar kebijakan lewat **GPO** (objek LDAP + berkas di SYSVOL).
 
-**Mengapa penting (Why).** Kompromi DC atau akun Tier 0 = kompromi seluruh domain.
+**Mengapa penting.** Kompromi DC atau akun Tier 0 = kompromi seluruh domain.
 Karena itu direktori adalah aset paling bernilai yang harus dikeraskan lebih dulu.
 
-**Siapa (Who) & Di mana (Where) — model tiering (Enterprise Access Model):**
+**Siapa & Di mana — model tiering (Enterprise Access Model):**
 Tier 0 (DC, AD CS, sinkronisasi identitas) = bidang kendali tertinggi; Tier 1
 (server/aplikasi); Tier 2 (perangkat pengguna). **Prinsip:** kredensial tier tinggi
 tidak boleh terpapar di tier rendah, agar kompromi bidang bawah tidak naik ke atas.
 
-**Kapan GPO berlaku & Bagaimana diproses (When/How) — LSDOU:** Local → Site → Domain
+**Kapan GPO berlaku & Bagaimana diproses — LSDOU:** Local → Site → Domain
 → OU, dengan pewarisan, *Enforced*, *Block Inheritance*, *security filtering*, dan WMI
 filtering. GPO yang ditautkan lebih dekat ke objek menang kecuali di-*Enforce*.
 
@@ -147,16 +154,45 @@ auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable 
 2. **Tautkan** ke `OU=Tier1-Servers`; atur **Security Filtering** (grup komputer).
 3. Verifikasi: `gpupdate /force` lalu `gpresult /h C:\gpreport.html`.
 
-> Tangkapan layar GUI Windows (GPMC, ADUC, `gpresult`) diambil langsung di VM DC
-> saat sesi berlangsung (instruktur mendemokan di layar).
+> Lihat diagram siklus GPO di atas untuk gambaran alurnya. Tangkapan layar GUI Windows
+> (GPMC, ADUC, hasil `gpresult`) diambil langsung di VM DC saat sesi berlangsung — simpan
+> di `gambar/` dengan nama berurutan (mis. `06-gpo-edit.png`, `06-gpresult.png`) sebagai bukti.
+
+### 7. 🪟 Hardening endpoint lewat GPO (standar keamanan)
+
+Selain mengeraskan DC, kebijakan berikut didorong ke seluruh workstation/anggota domain
+lewat GPO agar sesuai standar (CIS Benchmark, Microsoft Security Baseline, NIST SP 800-53).
+Terapkan dari GPMC dan tautkan ke OU workstation:
+
+| Kebijakan | Apa & mengapa | Letak di GPO / cara |
+|-----------|---------------|---------------------|
+| **BitLocker + TPM** | Enkripsi disk penuh; kunci terikat TPM agar data tetap aman bila perangkat hilang. Kunci pemulihan di-*escrow* ke AD. | *Computer Config → Policies → Administrative Templates → Windows Components → BitLocker Drive Encryption*; aktifkan "Store recovery information in AD DS". |
+| **TPM, Secure Boot, sandi BIOS/UEFI** | Mencegah boot perangkat tak tepercaya & perubahan firmware; TPM prasyarat BitLocker. | Disetel di firmware perangkat (prosedur baku pengadaan); verifikasi via *msinfo32* / Intune/GPO reporting. |
+| **Least privilege (tanpa admin lokal)** | Pengguna biasa **tidak** boleh memasang aplikasi; kurangi dampak malware & salah pakai. | *Restricted Groups*/*Group Policy Preferences → Local Users and Groups*: pastikan hanya grup admin tier yang masuk `Administrators` lokal; cabut hak pengguna. |
+| **Application allowlisting (AppLocker / WDAC)** | Hanya aplikasi yang disetujui yang boleh berjalan; blokir biner/skrip tak dikenal. | *Computer Config → Policies → Windows Settings → Security Settings → Application Control Policies → AppLocker* (atau WDAC untuk kontrol lebih kuat). Batasi juga PowerShell/macro. |
+| **UAC, LAPS, nonaktif SMBv1, audit** | Perkuat kontrol akun & kredensial lokal unik; matikan protokol lemah; aktifkan audit lanjutan. | Impor **Microsoft Security Baseline WS2025** sebagai GPO; aktifkan Windows LAPS. |
+
+> Rujukan: CIS Microsoft Windows Benchmarks (Level 1 umum, Level 2 ketat), Microsoft
+> Security Compliance Toolkit (baseline), NIST SP 800-53 (AC-6 least privilege, SC-28
+> enkripsi saat diam). Simpan kunci pemulihan BitLocker secara ter-*escrow* dan uji
+> pemulihannya.
+
 
 ---
 
 ## Simulasi Terkendali & Mitigasi (PtH & Kerberoasting)
 
-Defensif — hanya menguji **deteksi** dan **mitigasi** pada target lab di jaringan
-Host-Only terisolasi. Runner mengunci target ke allowlist `iamlab.test`, mewajibkan
-`IAMLAB_CONFIRM=1`, dan menolak bila internet terjangkau.
+Bagian ini memperlihatkan **bagaimana serangan tampak dari sisi log**, lalu membuktikan
+bahwa kontrol yang Anda pasang menutupnya. Sepenuhnya defensif dan berjalan di jaringan
+Host-Only terisolasi: runner `attack-sim/run.sh` hanya menerima target dari allowlist
+`iamlab.test`, mewajibkan variabel `IAMLAB_CONFIRM=1`, dan menolak berjalan bila internet
+terjangkau. Peserta **tidak** menyerang sistem di luar lab — tujuannya melatih mata
+mengenali pola Kerberoasting/PtH pada Event 4769/4624 dan merasakan efek mitigasi secara langsung.
+
+**Mengapa ini penting:** akun layanan ber-SPN dan hash NTLM adalah dua jalur eskalasi
+paling umum di Active Directory. Dengan menjalankan simulasi lalu menerapkan AES-only,
+peserta melihat sendiri perubahan `TicketEncryptionType` dari RC4 (`0x17`) ke AES (`0x12`)
+— bukti konkret bahwa mitigasi bekerja, bukan sekadar teori.
 
 1. 🪟 Pastikan akun umpan ada: `setspn -L svc-honey` menampilkan `HTTP/honey.iamlab.test`.
 2. 🐳 Jalankan simulasi Kerberoasting (perkakas *open source* Impacket) terhadap DC lab

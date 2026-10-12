@@ -1,0 +1,100 @@
+// Grafana Alloy — pipeline log lab IAM.
+// Status: SEBAGIAN terisi (sumber Docker + parse Keycloak). Bagian bertanda
+// TODO diselesaikan PESERTA di Lab 5 (OpenBao, Warpgate, sshd, Windows Event DC).
+//
+// Prinsip label: label HANYA low-cardinality (service, event).
+// user/ip DISIMPAN sebagai field di baris log, dikueri via `| json` di LogQL —
+// JANGAN dijadikan label (ledakan kardinalitas).
+
+// ---------- Sumber: seluruh log container Docker ----------
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	// Ambil nama service compose sebagai label 'service'
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label  = "container"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.relabel.containers.output
+	relabel_rules = discovery.relabel.containers.rules
+	forward_to    = [loki.process.router.receiver]
+}
+
+// ---------- Router: arahkan per service ke pipeline yang sesuai ----------
+loki.process "router" {
+	// Keycloak: dengan KC_LOG_CONSOLE_OUTPUT=json, tiap baris adalah JSON dengan
+	// data event BERADA DI DALAM field "message" (mis.
+	//   message = "type=\"LOGIN\", realmId=\"..\", userId=\"..\", ipAddress=\"1.2.3.4\", .."),
+	// BUKAN sebagai key JSON tingkat atas. Jadi: ambil message + loggerName,
+	// saring logger event, lalu regex untuk type/ipAddress/userId.
+	stage.match {
+		selector = "{service=\"keycloak\"}"
+
+		stage.json {
+			expressions = { message = "message", logger = "loggerName" }
+		}
+		// Baris non-event tidak memuat 'type=' sehingga kc_type kosong (tak berlabel).
+		// Catatan River: atribut block dipisah BARIS BARU, bukan koma.
+		stage.regex {
+			source     = "message"
+			expression = "type=\"?(?P<kc_type>[A-Z_]+)"
+		}
+		stage.regex {
+			source     = "message"
+			expression = "ipAddress=\"?(?P<ipAddress>[0-9a-fA-F:.]+)"
+		}
+		stage.regex {
+			source     = "message"
+			expression = "userId=\"?(?P<userId>[0-9a-f-]+)"
+		}
+		stage.regex {
+			source     = "message"
+			expression = "error=\"?(?P<kc_error>[a-z_]+)"
+		}
+		// label hanya low-cardinality:
+		stage.labels {
+			values = { event = "kc_type" }
+		}
+		// user/ip/error sebagai structured metadata (bukan label):
+		stage.structured_metadata {
+			values = { user = "userId", ip = "ipAddress", error = "kc_error" }
+		}
+	}
+
+	// TODO PESERTA (Lab 5): tambahkan stage.match untuk service="openbao"
+	//   parse JSON audit device → field request.path, auth.display_name, remote_address
+	// stage.match { selector = "{service=\"openbao\"}" ... }
+
+	// TODO PESERTA: service="warpgate" → login, buka sesi target, gagal auth
+	// TODO PESERTA: service=~"srv-app01|srv-db01" → sshd Accepted/Failed, sudo
+
+	forward_to = [loki.write.default.receiver]
+}
+
+// ---------- Sumber: Windows Event dari DC (dijalankan di VM DC, BUKAN di sini) ----------
+// Di VM Windows Server, pasang Grafana Alloy dan konfigurasikan:
+//   loki.source.windowsevent "security" {
+//     eventlog_name = "Security"
+//     forward_to = [loki.write.dc.receiver]   // kirim ke Loki lab (http://<docker-host>:3100)
+//   }
+// Event kunci: 4624/4625 logon, 4768/4769 Kerberos, 4728/4732 grup, 5136 perubahan objek.
+// (Didokumentasikan di Lab 5; tidak dapat berjalan di container Linux.)
+
+// ---------- Tujuan ----------
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

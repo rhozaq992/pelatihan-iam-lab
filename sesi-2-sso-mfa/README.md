@@ -4,6 +4,14 @@ Indikator 2.1 (integrasi SSO SAML/OIDC) dan 2.2 (penegakan MFA). Sebagian besar
 dikerjakan di 🌐 **Keycloak admin** (`https://kc.iamlab.test`); beberapa langkah di
 🖥️ **terminal peserta** dan 🐳 **container**.
 
+## Keterhubungan dengan sesi sebelumnya
+
+Sesi ini **memakai direktori hasil Sesi 1**: Keycloak berfederasi ke AD memakai akun
+layanan `svc-keycloak` (dibuat di Sesi 1), dan memetakan grup `GG-App-Viewer/Editor/Admin`
+(juga dari Sesi 1) menjadi peran aplikasi. Jadi pastikan Sesi 1 selesai (akun & grup ada)
+sebelum mulai. **Dipakai sesi berikutnya:** SSO Keycloak ini menjadi login untuk Warpgate
+(Sesi 3) dan Grafana (Sesi 4); event login yang dihasilkan di sini dipantau di Sesi 4.
+
 ## a. Tujuan Sesi
 
 Peserta mampu:
@@ -20,17 +28,19 @@ Peserta mampu:
   *Admin* menghapus semua. Penolakan ditegakkan **di sisi server**.
 - Akun admin/realm dipaksa memindai OTP; brute force aktif; *event* login tercatat.
 
-## c. Teori dan Struktur Sistem (5W+1H)
+## c. Teori dan Struktur Sistem
 
-**Apa (What) itu SSO.** Satu kali autentikasi ke *Identity Provider* (IdP), lalu banyak
-aplikasi (*Service Provider*/*Relying Party*) memercayainya. **Mengapa (Why):** mengurangi
+**Apa itu SSO.** Satu kali autentikasi ke *Identity Provider* (IdP), lalu banyak
+aplikasi (*Service Provider*/*Relying Party*) memercayainya. **Mengapa:** mengurangi
 jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun serentak.
 
-**Bagaimana (How) alur datanya:**
+**Bagaimana alur datanya:**
 
 ![Alur SSO: aplikasi → Keycloak → federasi LDAP AD → MFA → token/assertion](gambar/alur-sso.png)
 
-**Protokol (Which):**
+*Gambar: pengguna menekan login di aplikasi → diarahkan ke Keycloak → Keycloak memeriksa kredensial ke AD lewat LDAPS, meminta OTP bila perlu → menerbitkan token yang dipercaya aplikasi.*
+
+**Protokol:**
 - *SAML 2.0* — XML Assertion bertanda tangan (App-SAML).
 - *OIDC* — ID Token (JWT) di atas OAuth 2.0 (App-Komentar, Grafana, Warpgate). Alur aman:
   **Authorization Code + PKCE** (`state`, `nonce`). *Analogi PKCE:* saat menitip kunci
@@ -46,6 +56,8 @@ membaca klaim itu untuk menentukan izin. *Analogi:* gelang berwarna yang menentu
 panggung mana yang boleh dimasuki.
 
 ![Alur RBAC App-Komentar: grup AD/Keycloak → klaim token → izin aplikasi](gambar/alur-rbac.png)
+
+*Gambar: grup tempat pengguna berada (Viewer/Editor/Admin) ikut dalam token sebagai klaim `groups`; aplikasi membaca klaim itu untuk memutuskan tombol & aksi yang boleh.*
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
@@ -73,6 +85,8 @@ Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu **Save → Test
 connection & authentication → Synchronize all users**:
 
 ![Keycloak — form User federation LDAP terisi (Vendor AD, Connection URL ke AD)](gambar/kc-ldap-detail.png)
+
+*Gambar: form federasi LDAP terisi — Vendor *Active Directory*, Connection URL `ldaps://dc1.iamlab.test:636`. Cocokkan nilai di layar Anda dengan ini sebelum menekan Save.*
 
 Tambahkan **Mappers → group-ldap-mapper** (LDAP Groups DN `OU=Grup,DC=iamlab,DC=test`)
 lalu **Sync LDAP groups**. Daftar provider federasi:
@@ -126,6 +140,20 @@ ulang aplikasi: `docker compose up -d app-komentar`.
 - **Realm settings → Email**: Host `mailpit`, Port `1025` (reset & verifikasi sandi).
 - **Realm settings → Sessions/Tokens**: perpendek masa hidup sesi & token.
 - **Realm settings → Events**: *Save events* (user + admin) + listener `jboss-logging`.
+
+Cocokkan layar Anda dengan tiga tangkapan berikut:
+
+![Keycloak — Security defenses: Brute force detection aktif](gambar/kc-bruteforce.png)
+
+*Gambar: proteksi brute force menyala — akun dikunci sementara setelah sejumlah kegagalan login (mis. 10), waktu tunggu bertambah.*
+
+![Keycloak — Realm settings → Email (SMTP ke Mailpit)](gambar/kc-email.png)
+
+*Gambar: SMTP diarahkan ke Mailpit (`mailpit:1025`) agar email reset/verifikasi tertangkap di kotak surat uji, bukan terkirim ke internet.*
+
+![Keycloak — konfigurasi Events (user + admin, listener jboss-logging)](gambar/kc-events.png)
+
+*Gambar: pencatatan event diaktifkan sehingga login/perubahan admin terekam dan bisa dipanen Alloy → Loki di Sesi 4.*
 
 ### Hasil: beda hak akses (RBAC) pada App-Komentar
 Login `https://app.iamlab.test` dengan tiga akun berbeda grup — perhatikan tombol/aksi

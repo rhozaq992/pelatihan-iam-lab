@@ -1,0 +1,6 @@
+{% extends "_base.html" %}{% block body %}
+<h3>OIDC belum dikonfigurasi</h3>
+<p class="warn">Issuer: <code>{{ issuer }}</code>. Peserta membuat client OIDC
+<code>app-komentar</code> di realm <code>iamlab</code>, lalu mengisi
+<code>OIDC_CLIENT_SECRET</code> di <code>.env</code> dan menjalankan ulang:
+<code>docker compose up -d app-komentar</code>.</p>{% endblock %}
