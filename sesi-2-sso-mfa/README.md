@@ -1,98 +1,143 @@
 # Sesi 2 — SSO dan MFA (+ App-Komentar RBAC)
 
-Indikator 2.1 (integrasi SSO SAML/OIDC) dan 2.2 (penegakan MFA). Dikerjakan pada
-**Keycloak admin** (`https://kc.iamlab.test`).
+Indikator 2.1 (integrasi SSO SAML/OIDC) dan 2.2 (penegakan MFA). Sebagian besar
+dikerjakan di 🌐 **Keycloak admin** (`https://kc.iamlab.test`); beberapa langkah di
+🖥️ **terminal peserta** dan 🐳 **container**.
 
 ## a. Tujuan Sesi
 
 Peserta mampu:
-- Membuat _realm_ dan **federasi LDAP** Keycloak ke Active Directory.
+- Memahami cara sistem SSO di-*deploy*, lalu **mengonfigurasinya** sendiri.
+- Membuat *realm* dan **federasi LDAP** Keycloak ke Active Directory.
 - Mengintegrasikan aplikasi via **OIDC** (Authorization Code + PKCE) dan **SAML 2.0**.
 - Memetakan **grup → peran** sehingga beda hak akses terlihat nyata (RBAC).
-- Menegakkan **MFA (Google Authenticator)** secara bersyarat pada layanan kritikal.
-- Mengaktifkan pertahanan brute force dan pencatatan _event_.
+- Menegakkan **MFA (Google Authenticator)** bersyarat pada layanan kritikal.
 
 ## b. Output yang Diharapkan
 
 - Pengguna AD tersinkron ke Keycloak dan dapat login SSO.
-- Pada **App-Komentar**: _Viewer_ hanya melihat; _Editor_ menulis & menghapus miliknya;
-  _Admin_ menghapus semua. Penolakan ditegakkan **di sisi server** (bukan sekadar
-  menyembunyikan tombol).
-- Akun admin/realm dipaksa memindai OTP; brute force aktif; _event_ login tercatat.
+- Pada **App-Komentar**: *Viewer* hanya melihat; *Editor* menulis & menghapus miliknya;
+  *Admin* menghapus semua. Penolakan ditegakkan **di sisi server**.
+- Akun admin/realm dipaksa memindai OTP; brute force aktif; *event* login tercatat.
 
-## c. Teori dan Struktur Sistem
+## c. Teori dan Struktur Sistem (5W+1H)
 
-- **SSO (Single Sign-On):** satu kali autentikasi ke _Identity Provider_ (IdP), lalu
-  banyak aplikasi (_Service Provider_/_Relying Party_) memercayainya.
-- **Protokol:**
-  - *SAML 2.0* — XML Assertion bertanda tangan (App-SAML).
-  - *OIDC* — ID Token (JWT) di atas OAuth 2.0 (App-Komentar, Grafana, Warpgate).
-  - Alur aman: **Authorization Code + PKCE** (`state`, `nonce`). _Analogi PKCE:_ saat
-    menitip kunci Anda juga memberi teka-teki yang hanya Anda bisa jawab, agar tiket
-    tak bisa dipakai pihak yang mencegatnya.
-- **MFA & tingkat jaminan (NIST SP 800-63B-4):** AAL2 mewajibkan MFA; peran istimewa
-  sebaiknya memakai autentikator _phishing-resistant_ (WebAuthn/passkey). **Google
-  Authenticator** menghasilkan kode TOTP (RFC 6238) — faktor "sesuatu yang dimiliki".
-- **Federasi LDAP:** Keycloak memverifikasi kredensial langsung ke direktori dan
-  mengimpor pengguna sebagai representasi lokal; grup dipetakan untuk otorisasi.
+**Apa (What) itu SSO.** Satu kali autentikasi ke *Identity Provider* (IdP), lalu banyak
+aplikasi (*Service Provider*/*Relying Party*) memercayainya. **Mengapa (Why):** mengurangi
+jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun serentak.
+
+**Bagaimana (How) alur datanya:**
+
+![Alur SSO: aplikasi → Keycloak → federasi LDAP AD → MFA → token/assertion](gambar/alur-sso.png)
+
+**Protokol (Which):**
+- *SAML 2.0* — XML Assertion bertanda tangan (App-SAML).
+- *OIDC* — ID Token (JWT) di atas OAuth 2.0 (App-Komentar, Grafana, Warpgate). Alur aman:
+  **Authorization Code + PKCE** (`state`, `nonce`). *Analogi PKCE:* saat menitip kunci
+  Anda juga memberi teka-teki yang hanya Anda bisa jawab, agar tiket tak bisa dipakai
+  pihak yang mencegatnya.
+
+**MFA & tingkat jaminan (NIST SP 800-63B-4).** AAL2 mewajibkan MFA; peran istimewa
+sebaiknya memakai autentikator *phishing-resistant* (WebAuthn/passkey). **Google
+Authenticator** menghasilkan kode TOTP (RFC 6238) — faktor "sesuatu yang dimiliki".
+
+**RBAC via klaim grup.** Keycloak menyertakan daftar grup pengguna di token; aplikasi
+membaca klaim itu untuk menentukan izin. *Analogi:* gelang berwarna yang menentukan
+panggung mana yang boleh dimasuki.
+
+![Alur RBAC App-Komentar: grup AD/Keycloak → klaim token → izin aplikasi](gambar/alur-rbac.png)
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
-### 1. Realm + federasi LDAP ke AD
-Buat realm `iamlab`. Lalu **User federation → Add LDAP**:
+### 0. 🖥️ Deploy (sudah disiapkan — tetap dipahami)
+Infrastruktur dinyalakan sekali dengan perintah di bawah; **ini bukan bagian yang
+dinilai**, tetapi peserta perlu tahu cara sistem hidup. Konfigurasi detail (langkah
+1–5) yang dikerjakan peserta.
+```bash
+cd deploy
+cp .env.example .env            # sesuaikan DC_IP & sandi
+docker compose up -d            # Keycloak + PostgreSQL + aplikasi + proxy berjalan (kosong)
+```
+Setelah ini Keycloak hidup di `https://kc.iamlab.test` tetapi **belum punya realm/
+federasi/MFA** — semua itu Anda buat berikut.
+
+### 1. 🌐 Realm + federasi LDAP ke AD
+Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis seperti ini:
 - Vendor: *Active Directory* · Connection URL: `ldaps://dc1.iamlab.test:636`
 - Bind DN: `CN=svc-keycloak,OU=AkunLayanan,DC=iamlab,DC=test` (sandi svc-keycloak)
 - Edit mode: **READ_ONLY** · **Users DN: `DC=iamlab,DC=test`** (root — mencakup akun
-  admin & layanan; jika hanya `OU=Pengguna`, login SSO admin akan gagal diam-diam)
-- Username attr: `sAMAccountName` · UUID: `objectGUID`
-- **Save → Test connection & authentication → Synchronize all users**
-- **Mappers → group-ldap-mapper**: LDAP Groups DN `OU=Grup,DC=iamlab,DC=test` →
-  **Sync LDAP groups to Keycloak**.
+  admin & layanan; jika hanya `OU=Pengguna`, login SSO admin gagal diam-diam)
+- Username LDAP attr: `sAMAccountName` · UUID: `objectGUID`
 
-![Keycloak — User federation: provider LDAP ke Active Directory (Enabled)](gambar/kc-user-federation.png)
+Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu **Save → Test
+connection & authentication → Synchronize all users**:
 
-### 2. Client OIDC untuk App-Komentar
-- **Clients → Create → OpenID Connect**, Client ID `app-komentar`.
+![Keycloak — form User federation LDAP terisi (Vendor AD, Connection URL ke AD)](gambar/kc-ldap-detail.png)
+
+Tambahkan **Mappers → group-ldap-mapper** (LDAP Groups DN `OU=Grup,DC=iamlab,DC=test`)
+lalu **Sync LDAP groups**. Daftar provider federasi:
+
+![Keycloak — User federation: provider LDAP (Enabled)](gambar/kc-user-federation.png)
+
+### 2. 🌐 Client OIDC untuk App-Komentar
+**Clients → Create → OpenID Connect**, Client ID `app-komentar`:
 - Client authentication **On**; Standard flow **On**; **Direct access grants Off**.
 - Valid redirect URIs: `https://app.iamlab.test/callback` · Web origins: `https://app.iamlab.test`.
-- **Advanced → PKCE: S256** (aplikasi mewajibkannya).
-- Tambah **Group Membership mapper**: claim `groups`, **Full group path = Off**
-  (agar bernama `GG-App-...`).
-- Salin **Client secret** → isi berkas `.env` lingkungan, lalu muat ulang App-Komentar.
+- **Advanced → PKCE: S256** (aplikasi mewajibkannya — tanpa ini login gagal
+  "Missing parameter: code_challenge_method").
+- Tambah **Group Membership mapper**: claim `groups`, **Full group path = Off**.
 
-![Keycloak — daftar Clients pada realm iamlab](gambar/kc-clients.png)
+Cocokkan layar pengaturan client:
 
-![Halaman login Keycloak (SSO) untuk App-Komentar](gambar/kc-login.png)
+![Keycloak — detail Client app-komentar (redirect URI, PKCE, akses)](gambar/kc-client-detail.png)
 
-Uji: buka `https://app.iamlab.test` → *masuk (SSO)* dengan tiga akun berbeda grup;
-amati perbedaan tombol & aksi. Perbandingan nyata tiga peran:
+![Keycloak — daftar Clients realm iamlab](gambar/kc-clients.png)
+
+Lalu 🖥️ salin **Client secret** ke `deploy/.env` (`APP_OIDC_CLIENT_SECRET=…`) dan muat
+ulang aplikasi: `docker compose up -d app-komentar`.
+
+### 3. 🌐 Client SAML untuk App-SAML
+**Clients → Create → SAML**. Tukar metadata IdP
+(`https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`) untuk konfigurasi SP
+(mod_auth_mellon); assertion **signed**.
+
+### 4. 🌐 MFA bersyarat (Google Authenticator)
+- **Authentication → Required actions**: *Configure OTP* = On.
+
+  ![Keycloak — Required actions (Configure OTP aktif)](gambar/kc-required-actions.png)
+
+- **Authentication → Flows**: duplikat *Browser*, tambah sub-flow **Conditional OTP** →
+  *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Grafana, Warpgate).
+
+  ![Keycloak — Authentication flows](gambar/kc-auth-flows.png)
+
+- Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
+  Google Authenticator.
+
+### 5. 🌐 Brute force, SMTP, events
+- **Realm settings → Security defenses → Brute force detection: On**.
+- **Realm settings → Email**: Host `mailpit`, Port `1025` (reset & verifikasi sandi).
+- **Realm settings → Sessions/Tokens**: perpendek masa hidup sesi & token.
+- **Realm settings → Events**: *Save events* (user + admin) + listener `jboss-logging`.
+
+### Hasil: beda hak akses (RBAC) pada App-Komentar
+Login `https://app.iamlab.test` dengan tiga akun berbeda grup — perhatikan tombol/aksi
+yang tersedia berbeda, dan penolakan ditegakkan **di server** (bukan sekadar tombol disembunyikan):
 
 | Viewer (hanya lihat) | Editor (tulis + hapus miliknya) | Admin (hapus semua + step-up) |
 |---|---|---|
 | ![Viewer](gambar/app-viewer.png) | ![Editor](gambar/app-editor.png) | ![Admin](gambar/app-admin.png) |
 
-> Perhatikan: Viewer tidak punya kotak tulis/tombol hapus; Admin punya tombol
-> "hapus" per komentar dan "Hapus semua". Penolakan ditegakkan **di server**.
+Halaman login SSO Keycloak yang muncul saat menekan "masuk":
 
-### 3. Client SAML untuk App-SAML
-**Clients → Create → SAML**. Tukar metadata IdP
-(`https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`) untuk konfigurasi
-SP (mod_auth_mellon); assertion **signed**.
+![Halaman login Keycloak (SSO)](gambar/kc-login.png)
 
-### 4. MFA bersyarat (Google Authenticator)
-- **Authentication → Required actions**: *Configure OTP* = On.
-- **Flows → Browser (duplikat)** → tambah sub-flow **Conditional OTP** → *OTP Form*
-  **Required**, targetkan ke grup admin & client kritikal (Grafana, Warpgate).
-- Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR** Google Authenticator.
+### (Terkait) Distribusi kata sandi awal via email
+Saat *bulk import* (Sesi 1), sandi awal dikirim ke **Mailpit** (kotak surat uji), dan
+Keycloak juga mengirim email aksi akun (set sandi/verifikasi). Alurnya:
 
-![Keycloak — Authentication (Flows & Required actions)](gambar/kc-authentication.png)
+![Distribusi kata sandi awal via email (Mailpit) untuk akun AD & Keycloak](gambar/distribusi-sandi.png)
 
-### 5. Brute force, SMTP, dan events
-- **Realm settings → Security defenses → Brute force detection: On**.
-- **Realm settings → Email**: Host `mailpit`, Port `1025` (reset & verifikasi sandi).
-- **Realm settings → Sessions/Tokens**: perpendek masa hidup sesi & token.
-- **Realm settings → Events**: aktifkan *Save events* (user + admin) + listener `jboss-logging`.
-
-> Catatan: realm Keycloak 26 memiliki aksi default **Verify Profile**. Pengguna AD
-> sudah lengkap (email/nama); jika membuat pengguna lokal untuk uji, isi email +
-> firstName + lastName + sandi permanen, atau login ditolak "Account is not fully set up".
+> Catatan: realm Keycloak 26 punya aksi default **Verify Profile**. Pengguna AD sudah
+> lengkap (email/nama); jika membuat pengguna lokal untuk uji, isi email + firstName +
+> lastName + sandi permanen, atau login ditolak "Account is not fully set up".
