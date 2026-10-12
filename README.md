@@ -31,6 +31,9 @@ Sesi 1–4 berurutan. Tiap sesi disusun dengan struktur yang sama:
 
 ## Catatan
 
+> Catatan: folder `deploy/` (compose + konfigurasi) TIDAK ada di repo ini — lingkungan
+> disediakan terpisah oleh instruktur (OVA/image). Modul berfokus pada konfigurasi.
+
 Lingkungan lab (VM Active Directory dan stack layanan Docker) disiapkan terlebih
 dahulu; peserta berfokus pada **konfigurasi keamanan** di tiap sesi, bukan instalasi
 dari nol. Detail arsitektur dan aliran data ada di [Sesi 0](sesi-0-pengantar/).

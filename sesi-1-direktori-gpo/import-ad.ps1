@@ -1,7 +1,7 @@
 <#
   import-ad.ps1 — bulk import pengguna dummy ke Active Directory (dijalankan di DC).
   Lab IAM. Membuat user dari CSV, menetapkan grup, sandi awal acak, flag ganti saat
-  login pertama, dan mengirim email sandi awal via SMTP (Mailpit) -> Bab 11 dokumen.
+  login pertama, dan mengirim email sandi awal via SMTP (Mailpit)
 
   Jalankan di VM Windows Server 2025 (sebagai Domain Admin):
     .\import-ad.ps1 -Csv .\users_dummy.csv -SmtpServer <IP-docker-host> -SmtpPort 1025

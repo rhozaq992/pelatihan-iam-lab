@@ -97,7 +97,7 @@ docker compose up -d warpgate
 Login admin ke web UI; tambahkan **SSO OIDC** ke Keycloak (MFA wajib), **target** SSH
 `srv-app01`/`srv-db01` dengan **role** terbatas, dan aktifkan **perekaman sesi**:
 
-![Warpgate — halaman masuk web UI (admin mengelola target, role, rekaman)](gambar/warpgate-login.png)
+![Warpgate — konsol admin (Config): tambah target SSH, Users, Access roles, perekaman sesi](gambar/warpgate-admin.png)
 
 ### C.1 🖥️ Akses target via SSH melalui bastion (sesuai silabus)
 Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate memakai

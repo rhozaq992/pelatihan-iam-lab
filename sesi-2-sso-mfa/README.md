@@ -91,6 +91,10 @@ Cocokkan layar pengaturan client:
 
 ![Keycloak — detail Client app-komentar (redirect URI, PKCE, akses)](gambar/kc-client-detail.png)
 
+Tab Advanced menampilkan PKCE S256 (wajib):
+
+![Keycloak — Client app-komentar tab Advanced (PKCE S256)](gambar/kc-client-advanced.png)
+
 ![Keycloak — daftar Clients realm iamlab](gambar/kc-clients.png)
 
 Lalu 🖥️ salin **Client secret** ke `deploy/.env` (`APP_OIDC_CLIENT_SECRET=…`) dan muat
@@ -109,10 +113,13 @@ ulang aplikasi: `docker compose up -d app-komentar`.
 - **Authentication → Flows**: duplikat *Browser*, tambah sub-flow **Conditional OTP** →
   *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Grafana, Warpgate).
 
-  ![Keycloak — Authentication flows](gambar/kc-auth-flows.png)
+  ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
 
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
   Google Authenticator.
+
+> Keamanan: Keycloak menampilkan banner "temporary admin user". Buat akun admin
+> permanen (Realm master → Users) lalu hapus akun sementara sebelum produksi.
 
 ### 5. 🌐 Brute force, SMTP, events
 - **Realm settings → Security defenses → Brute force detection: On**.

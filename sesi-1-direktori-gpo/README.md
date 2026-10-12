@@ -147,8 +147,8 @@ auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable 
 2. **Tautkan** ke `OU=Tier1-Servers`; atur **Security Filtering** (grup komputer).
 3. Verifikasi: `gpupdate /force` lalu `gpresult /h C:\gpreport.html`.
 
-> Tangkapan layar GUI Windows (GPMC/ADUC/gpresult) disimpan di [`gambar/`](gambar/) dan
-> diambil di VM DC saat lab berjalan.
+> Tangkapan layar GUI Windows (GPMC, ADUC, `gpresult`) diambil langsung di VM DC
+> saat sesi berlangsung (instruktur mendemokan di layar).
 
 ---
 
