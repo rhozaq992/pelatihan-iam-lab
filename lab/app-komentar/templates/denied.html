@@ -1,0 +1,5 @@
+{% extends "_base.html" %}{% block body %}
+<h3>403 — Akses ditolak</h3>
+<p class="warn">Role Anda (<b>{{ role or 'tanpa role' }}</b>) tidak berhak atas aksi ini.
+Penegakan dilakukan di <b>sisi server</b> (skenario S2/S3), bukan sekadar menyembunyikan tombol.</p>
+<a href="/">kembali</a>{% endblock %}

@@ -1,0 +1,19 @@
+# runtime / lokal
+lab/.env
+lab/caddy/data/
+lab/caddy/config/
+**/komentar.db
+
+# aset distribusi berat (dibagikan manual, bukan via git)
+distribusi/iso/*
+distribusi/ova/*
+distribusi/offline-images/*
+distribusi/installer/*
+!distribusi/**/.gitkeep
+
+# os / python / word
+.DS_Store
+**/.DS_Store
+__pycache__/
+*.pyc
+~$*

@@ -1,0 +1,33 @@
+# Reverse proxy lab IAM. CA internal Caddy menandatangani semua sertifikat (local_certs).
+# Peserta menambah entri hosts (atau DNS DC) agar subdomain → IP host Docker.
+# Nama host di-hardcode ke iamlab.test (LAB_DOMAIN efektif tetap).
+{
+	local_certs
+	admin off
+}
+
+kc.iamlab.test {
+	reverse_proxy keycloak:8080
+}
+app.iamlab.test {
+	reverse_proxy app-komentar:5000
+}
+saml.iamlab.test {
+	reverse_proxy app-saml:80
+}
+grafana.iamlab.test {
+	reverse_proxy grafana:3000
+}
+bao.iamlab.test {
+	reverse_proxy openbao:8200
+}
+mail.iamlab.test {
+	reverse_proxy mailpit:8025
+}
+pam.iamlab.test {
+	reverse_proxy https://warpgate:8888 {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
+}

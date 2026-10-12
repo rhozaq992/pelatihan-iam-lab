@@ -1,0 +1,21 @@
+username,given_name,surname,department,title,email,employee_id,groups,enabled
+hadi.rahayu201,Hadi,Rahayu,SDM,Penyelia,hadi.rahayu201@iamlab.test,EMP0201,GG-SDM,true
+eko.utami202,Eko,Utami,Pimpinan,Analis,eko.utami202@iamlab.test,EMP0202,GG-Pimpinan,true
+maya.santoso203,Maya,Santoso,Keuangan,Pelaksana,maya.santoso203@iamlab.test,EMP0203,GG-Keuangan,true
+sari.hartono204,Sari,Hartono,SDM,Staf,sari.hartono204@iamlab.test,EMP0204,GG-SDM;GG-App-Admin,false
+putri.hidayat205,Putri,Hidayat,Keuangan,Staf,putri.hidayat205@iamlab.test,EMP0205,GG-Keuangan,true
+lia.nugroho206,Lia,Nugroho,TI,Kepala Seksi,lia.nugroho206@iamlab.test,EMP0206,GG-TI,true
+lia.rahayu207,Lia,Rahayu,TI,Staf,lia.rahayu207@iamlab.test,EMP0207,GG-TI,true
+lia.rahayu208,Lia,Rahayu,Pimpinan,Analis,lia.rahayu208@iamlab.test,EMP0208,GG-Pimpinan,true
+joko.utami209,Joko,Utami,Pimpinan,Kepala Seksi,joko.utami209@iamlab.test,EMP0209,GG-Pimpinan,true
+eko.utami210,Eko,Utami,Hukum,Staf,eko.utami210@iamlab.test,EMP0210,GG-Hukum,true
+joko.rahayu211,Joko,Rahayu,Operasional,Kepala Seksi,joko.rahayu211@iamlab.test,EMP0211,GG-Operasional,true
+dian.hidayat212,Dian,Hidayat,TI,Kepala Seksi,dian.hidayat212@iamlab.test,EMP0212,GG-TI,true
+rina.halim213,Rina,Halim,Operasional,Analis,rina.halim213@iamlab.test,EMP0213,GG-Operasional;GG-App-Viewer,true
+ani.wulandari214,Ani,Wulandari,Layanan,Penyelia,ani.wulandari214@iamlab.test,EMP0214,GG-Layanan;GG-App-Admin,true
+bayu.hidayat215,Bayu,Hidayat,Pimpinan,Penyelia,bayu.hidayat215@iamlab.test,EMP0215,GG-Pimpinan;GG-App-Editor,true
+yusuf.wulandari216,Yusuf,Wulandari,TI,Koordinator,yusuf.wulandari216@iamlab.test,EMP0216,GG-TI,true
+maya.kurniawan217,Maya,Kurniawan,SDM,Analis,maya.kurniawan217@iamlab.test,EMP0217,GG-SDM,true
+joko.ramadhan218,Joko,Ramadhan,Hukum,Pelaksana,joko.ramadhan218@iamlab.test,EMP0218,GG-Hukum,true
+dewi.puspita219,Dewi,Puspita,SDM,Penyelia,dewi.puspita219@iamlab.test,EMP0219,GG-SDM,false
+rina.hidayat220,Rina,Hidayat,Hukum,Pelaksana,rina.hidayat220@iamlab.test,EMP0220,GG-Hukum;GG-App-Viewer,true

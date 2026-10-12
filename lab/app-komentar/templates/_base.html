@@ -1,0 +1,26 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App-Komentar — Lab IAM</title>
+<style>
+ body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;color:#1f2a37}
+ header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e5e7eb;padding-bottom:.6rem}
+ .role{font-size:.8rem;padding:.15rem .5rem;border-radius:999px;color:#fff}
+ .admin{background:#b45309}.editor{background:#2563eb}.viewer{background:#6b7280}.none{background:#9ca3af}
+ .c{border:1px solid #e5e7eb;border-radius:8px;padding:.6rem .8rem;margin:.5rem 0}
+ .c small{color:#6b7280}
+ button{cursor:pointer;border:0;border-radius:6px;padding:.35rem .7rem}
+ .danger{background:#dc2626;color:#fff}.primary{background:#2563eb;color:#fff}
+ textarea{width:100%;box-sizing:border-box}
+ .warn{background:#fff4d6;border:1px solid #e3b57e;padding:.6rem .8rem;border-radius:8px}
+</style></head><body>
+<header>
+ <h2 style="margin:0">Komentar</h2>
+ <div>
+  {% if user %}<span>{{ user.username }}</span>
+   <span class="role {{ role or 'none' }}">{{ role or 'tanpa role' }}</span>
+   <a href="/logout">keluar</a>
+  {% else %}<a href="/login">masuk (SSO)</a>{% endif %}
+ </div>
+</header>
+{% block body %}{% endblock %}
+</body></html>

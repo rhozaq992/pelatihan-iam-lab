@@ -1,0 +1,201 @@
+username,given_name,surname,department,title,email,employee_id,groups,enabled
+dewi.puspita001,Dewi,Puspita,Pimpinan,Analis,dewi.puspita001@iamlab.test,EMP0001,GG-Pimpinan;GG-App-Viewer,true
+dian.hartono002,Dian,Hartono,SDM,Penyelia,dian.hartono002@iamlab.test,EMP0002,GG-SDM,true
+tono.pratama003,Tono,Pratama,Layanan,Koordinator,tono.pratama003@iamlab.test,EMP0003,GG-Layanan,true
+hadi.maulana004,Hadi,Maulana,Operasional,Koordinator,hadi.maulana004@iamlab.test,EMP0004,GG-Operasional;GG-App-Editor,true
+ani.hidayat005,Ani,Hidayat,TI,Kepala Seksi,ani.hidayat005@iamlab.test,EMP0005,GG-TI,true
+putri.permana006,Putri,Permana,Operasional,Analis,putri.permana006@iamlab.test,EMP0006,GG-Operasional,true
+siti.permana007,Siti,Permana,TI,Kepala Seksi,siti.permana007@iamlab.test,EMP0007,GG-TI;GG-App-Viewer,true
+dian.halim008,Dian,Halim,Pimpinan,Staf,dian.halim008@iamlab.test,EMP0008,GG-Pimpinan,true
+agus.ramadhan009,Agus,Ramadhan,Operasional,Staf,agus.ramadhan009@iamlab.test,EMP0009,GG-Operasional,true
+yusuf.anggraini010,Yusuf,Anggraini,Keuangan,Pelaksana,yusuf.anggraini010@iamlab.test,EMP0010,GG-Keuangan;GG-App-Viewer,true
+agus.firmansyah011,Agus,Firmansyah,Pimpinan,Analis,agus.firmansyah011@iamlab.test,EMP0011,GG-Pimpinan,true
+rizki.puspita012,Rizki,Puspita,Pimpinan,Koordinator,rizki.puspita012@iamlab.test,EMP0012,GG-Pimpinan;GG-App-Viewer,true
+nina.utami013,Nina,Utami,Operasional,Analis,nina.utami013@iamlab.test,EMP0013,GG-Operasional,true
+dian.puspita014,Dian,Puspita,Keuangan,Pelaksana,dian.puspita014@iamlab.test,EMP0014,GG-Keuangan,true
+budi.setiawan015,Budi,Setiawan,Layanan,Penyelia,budi.setiawan015@iamlab.test,EMP0015,GG-Layanan,true
+sari.firmansyah016,Sari,Firmansyah,Keuangan,Staf,sari.firmansyah016@iamlab.test,EMP0016,GG-Keuangan;GG-App-Editor,true
+agus.utami017,Agus,Utami,TI,Kepala Seksi,agus.utami017@iamlab.test,EMP0017,GG-TI,true
+eko.kurniawan018,Eko,Kurniawan,Layanan,Koordinator,eko.kurniawan018@iamlab.test,EMP0018,GG-Layanan,true
+ani.halim019,Ani,Halim,Operasional,Staf,ani.halim019@iamlab.test,EMP0019,GG-Operasional,true
+joko.puspita020,Joko,Puspita,Keuangan,Analis,joko.puspita020@iamlab.test,EMP0020,GG-Keuangan,true
+eko.hidayat021,Eko,Hidayat,Operasional,Pelaksana,eko.hidayat021@iamlab.test,EMP0021,GG-Operasional,true
+joko.ramadhan022,Joko,Ramadhan,TI,Staf,joko.ramadhan022@iamlab.test,EMP0022,GG-TI;GG-App-Viewer,true
+dewi.anggraini023,Dewi,Anggraini,SDM,Staf,dewi.anggraini023@iamlab.test,EMP0023,GG-SDM,false
+eko.santoso024,Eko,Santoso,TI,Pelaksana,eko.santoso024@iamlab.test,EMP0024,GG-TI,true
+hadi.firmansyah025,Hadi,Firmansyah,TI,Koordinator,hadi.firmansyah025@iamlab.test,EMP0025,GG-TI;GG-App-Viewer,true
+agus.saputra026,Agus,Saputra,TI,Analis,agus.saputra026@iamlab.test,EMP0026,GG-TI,true
+eko.pratama027,Eko,Pratama,Operasional,Kepala Seksi,eko.pratama027@iamlab.test,EMP0027,GG-Operasional;GG-App-Admin,true
+dian.nugroho028,Dian,Nugroho,Layanan,Penyelia,dian.nugroho028@iamlab.test,EMP0028,GG-Layanan;GG-App-Viewer,true
+nina.permana029,Nina,Permana,Keuangan,Analis,nina.permana029@iamlab.test,EMP0029,GG-Keuangan;GG-App-Viewer,true
+ani.pratama030,Ani,Pratama,SDM,Penyelia,ani.pratama030@iamlab.test,EMP0030,GG-SDM;GG-App-Viewer,true
+nina.nugroho031,Nina,Nugroho,TI,Penyelia,nina.nugroho031@iamlab.test,EMP0031,GG-TI;GG-App-Viewer,true
+bayu.wijaya032,Bayu,Wijaya,Hukum,Analis,bayu.wijaya032@iamlab.test,EMP0032,GG-Hukum,true
+maya.setiawan033,Maya,Setiawan,Keuangan,Penyelia,maya.setiawan033@iamlab.test,EMP0033,GG-Keuangan,true
+sari.utami034,Sari,Utami,Operasional,Analis,sari.utami034@iamlab.test,EMP0034,GG-Operasional,true
+sari.puspita035,Sari,Puspita,Hukum,Pelaksana,sari.puspita035@iamlab.test,EMP0035,GG-Hukum;GG-App-Viewer,true
+lia.puspita036,Lia,Puspita,Hukum,Analis,lia.puspita036@iamlab.test,EMP0036,GG-Hukum,true
+dian.hartono037,Dian,Hartono,Operasional,Koordinator,dian.hartono037@iamlab.test,EMP0037,GG-Operasional,true
+siti.maulana038,Siti,Maulana,Keuangan,Koordinator,siti.maulana038@iamlab.test,EMP0038,GG-Keuangan,true
+fajar.setiawan039,Fajar,Setiawan,SDM,Penyelia,fajar.setiawan039@iamlab.test,EMP0039,GG-SDM;GG-App-Viewer,true
+budi.wijaya040,Budi,Wijaya,Pimpinan,Penyelia,budi.wijaya040@iamlab.test,EMP0040,GG-Pimpinan,true
+bayu.wulandari041,Bayu,Wulandari,Hukum,Analis,bayu.wulandari041@iamlab.test,EMP0041,GG-Hukum,true
+hadi.setiawan042,Hadi,Setiawan,Keuangan,Pelaksana,hadi.setiawan042@iamlab.test,EMP0042,GG-Keuangan,true
+joko.permana043,Joko,Permana,Layanan,Koordinator,joko.permana043@iamlab.test,EMP0043,GG-Layanan,true
+maya.rahayu044,Maya,Rahayu,Pimpinan,Kepala Seksi,maya.rahayu044@iamlab.test,EMP0044,GG-Pimpinan;GG-App-Viewer,true
+siti.permana045,Siti,Permana,Layanan,Pelaksana,siti.permana045@iamlab.test,EMP0045,GG-Layanan;GG-App-Editor,true
+maya.maulana046,Maya,Maulana,SDM,Koordinator,maya.maulana046@iamlab.test,EMP0046,GG-SDM,true
+rizki.halim047,Rizki,Halim,Pimpinan,Staf,rizki.halim047@iamlab.test,EMP0047,GG-Pimpinan,false
+maya.puspita048,Maya,Puspita,Pimpinan,Kepala Seksi,maya.puspita048@iamlab.test,EMP0048,GG-Pimpinan,true
+budi.pratama049,Budi,Pratama,Operasional,Penyelia,budi.pratama049@iamlab.test,EMP0049,GG-Operasional,true
+hadi.hidayat050,Hadi,Hidayat,Hukum,Kepala Seksi,hadi.hidayat050@iamlab.test,EMP0050,GG-Hukum,true
+agus.rahayu051,Agus,Rahayu,Operasional,Kepala Seksi,agus.rahayu051@iamlab.test,EMP0051,GG-Operasional,true
+dian.kurniawan052,Dian,Kurniawan,Pimpinan,Koordinator,dian.kurniawan052@iamlab.test,EMP0052,GG-Pimpinan,true
+sari.pratama053,Sari,Pratama,SDM,Staf,sari.pratama053@iamlab.test,EMP0053,GG-SDM,true
+nina.maulana054,Nina,Maulana,Keuangan,Staf,nina.maulana054@iamlab.test,EMP0054,GG-Keuangan,true
+nina.firmansyah055,Nina,Firmansyah,Keuangan,Staf,nina.firmansyah055@iamlab.test,EMP0055,GG-Keuangan;GG-App-Viewer,true
+yusuf.halim056,Yusuf,Halim,Hukum,Penyelia,yusuf.halim056@iamlab.test,EMP0056,GG-Hukum;GG-App-Viewer,true
+budi.setiawan057,Budi,Setiawan,Keuangan,Kepala Seksi,budi.setiawan057@iamlab.test,EMP0057,GG-Keuangan,true
+putri.nugroho058,Putri,Nugroho,TI,Kepala Seksi,putri.nugroho058@iamlab.test,EMP0058,GG-TI,true
+rina.firmansyah059,Rina,Firmansyah,Operasional,Staf,rina.firmansyah059@iamlab.test,EMP0059,GG-Operasional,true
+budi.puspita060,Budi,Puspita,Layanan,Penyelia,budi.puspita060@iamlab.test,EMP0060,GG-Layanan,true
+nina.saputra061,Nina,Saputra,Operasional,Kepala Seksi,nina.saputra061@iamlab.test,EMP0061,GG-Operasional,true
+yusuf.hidayat062,Yusuf,Hidayat,SDM,Staf,yusuf.hidayat062@iamlab.test,EMP0062,GG-SDM,false
+rina.hartono063,Rina,Hartono,Layanan,Penyelia,rina.hartono063@iamlab.test,EMP0063,GG-Layanan,true
+joko.anggraini064,Joko,Anggraini,Operasional,Pelaksana,joko.anggraini064@iamlab.test,EMP0064,GG-Operasional;GG-App-Viewer,true
+yusuf.setiawan065,Yusuf,Setiawan,Layanan,Penyelia,yusuf.setiawan065@iamlab.test,EMP0065,GG-Layanan,true
+tono.halim066,Tono,Halim,Pimpinan,Pelaksana,tono.halim066@iamlab.test,EMP0066,GG-Pimpinan,true
+joko.firmansyah067,Joko,Firmansyah,Pimpinan,Pelaksana,joko.firmansyah067@iamlab.test,EMP0067,GG-Pimpinan,true
+agus.firmansyah068,Agus,Firmansyah,Hukum,Pelaksana,agus.firmansyah068@iamlab.test,EMP0068,GG-Hukum,true
+eko.permana069,Eko,Permana,Keuangan,Analis,eko.permana069@iamlab.test,EMP0069,GG-Keuangan,true
+ani.puspita070,Ani,Puspita,SDM,Koordinator,ani.puspita070@iamlab.test,EMP0070,GG-SDM,true
+joko.wijaya071,Joko,Wijaya,SDM,Koordinator,joko.wijaya071@iamlab.test,EMP0071,GG-SDM;GG-App-Viewer,true
+putri.hidayat072,Putri,Hidayat,Operasional,Analis,putri.hidayat072@iamlab.test,EMP0072,GG-Operasional;GG-App-Admin,true
+fajar.permana073,Fajar,Permana,Operasional,Kepala Seksi,fajar.permana073@iamlab.test,EMP0073,GG-Operasional,true
+maya.nugroho074,Maya,Nugroho,TI,Koordinator,maya.nugroho074@iamlab.test,EMP0074,GG-TI,true
+eko.nugroho075,Eko,Nugroho,Operasional,Koordinator,eko.nugroho075@iamlab.test,EMP0075,GG-Operasional,true
+tono.saputra076,Tono,Saputra,Pimpinan,Analis,tono.saputra076@iamlab.test,EMP0076,GG-Pimpinan;GG-App-Editor,true
+putri.lestari077,Putri,Lestari,Pimpinan,Penyelia,putri.lestari077@iamlab.test,EMP0077,GG-Pimpinan,true
+bayu.nugroho078,Bayu,Nugroho,Hukum,Koordinator,bayu.nugroho078@iamlab.test,EMP0078,GG-Hukum,true
+nina.firmansyah079,Nina,Firmansyah,Operasional,Staf,nina.firmansyah079@iamlab.test,EMP0079,GG-Operasional,true
+lia.pratama080,Lia,Pratama,SDM,Penyelia,lia.pratama080@iamlab.test,EMP0080,GG-SDM,true
+maya.halim081,Maya,Halim,SDM,Pelaksana,maya.halim081@iamlab.test,EMP0081,GG-SDM,true
+dian.halim082,Dian,Halim,Keuangan,Kepala Seksi,dian.halim082@iamlab.test,EMP0082,GG-Keuangan;GG-App-Viewer,true
+agus.maulana083,Agus,Maulana,Keuangan,Kepala Seksi,agus.maulana083@iamlab.test,EMP0083,GG-Keuangan,true
+dian.anggraini084,Dian,Anggraini,Layanan,Staf,dian.anggraini084@iamlab.test,EMP0084,GG-Layanan,true
+agus.pratama085,Agus,Pratama,Layanan,Pelaksana,agus.pratama085@iamlab.test,EMP0085,GG-Layanan;GG-App-Viewer,true
+rina.wulandari086,Rina,Wulandari,Pimpinan,Penyelia,rina.wulandari086@iamlab.test,EMP0086,GG-Pimpinan;GG-App-Viewer,true
+rizki.pratama087,Rizki,Pratama,Keuangan,Pelaksana,rizki.pratama087@iamlab.test,EMP0087,GG-Keuangan,true
+agus.rahayu088,Agus,Rahayu,TI,Koordinator,agus.rahayu088@iamlab.test,EMP0088,GG-TI,true
+ani.rahayu089,Ani,Rahayu,Layanan,Koordinator,ani.rahayu089@iamlab.test,EMP0089,GG-Layanan,true
+maya.kurniawan090,Maya,Kurniawan,TI,Staf,maya.kurniawan090@iamlab.test,EMP0090,GG-TI;GG-App-Viewer,true
+ani.anggraini091,Ani,Anggraini,Layanan,Penyelia,ani.anggraini091@iamlab.test,EMP0091,GG-Layanan,true
+ani.wulandari092,Ani,Wulandari,Layanan,Analis,ani.wulandari092@iamlab.test,EMP0092,GG-Layanan,true
+lia.saputra093,Lia,Saputra,Hukum,Penyelia,lia.saputra093@iamlab.test,EMP0093,GG-Hukum,true
+dewi.nugroho094,Dewi,Nugroho,TI,Analis,dewi.nugroho094@iamlab.test,EMP0094,GG-TI,true
+agus.wulandari095,Agus,Wulandari,Hukum,Penyelia,agus.wulandari095@iamlab.test,EMP0095,GG-Hukum,true
+yusuf.hidayat096,Yusuf,Hidayat,Hukum,Pelaksana,yusuf.hidayat096@iamlab.test,EMP0096,GG-Hukum,true
+rizki.hidayat097,Rizki,Hidayat,TI,Koordinator,rizki.hidayat097@iamlab.test,EMP0097,GG-TI,true
+fajar.firmansyah098,Fajar,Firmansyah,Operasional,Kepala Seksi,fajar.firmansyah098@iamlab.test,EMP0098,GG-Operasional,true
+bayu.anggraini099,Bayu,Anggraini,SDM,Pelaksana,bayu.anggraini099@iamlab.test,EMP0099,GG-SDM,true
+agus.santoso100,Agus,Santoso,Keuangan,Penyelia,agus.santoso100@iamlab.test,EMP0100,GG-Keuangan,true
+rina.hidayat101,Rina,Hidayat,Layanan,Penyelia,rina.hidayat101@iamlab.test,EMP0101,GG-Layanan,true
+siti.saputra102,Siti,Saputra,Hukum,Pelaksana,siti.saputra102@iamlab.test,EMP0102,GG-Hukum,true
+dian.pratama103,Dian,Pratama,Layanan,Penyelia,dian.pratama103@iamlab.test,EMP0103,GG-Layanan;GG-App-Editor,true
+lia.halim104,Lia,Halim,Hukum,Pelaksana,lia.halim104@iamlab.test,EMP0104,GG-Hukum,true
+sari.halim105,Sari,Halim,Layanan,Koordinator,sari.halim105@iamlab.test,EMP0105,GG-Layanan,true
+putri.permana106,Putri,Permana,Keuangan,Koordinator,putri.permana106@iamlab.test,EMP0106,GG-Keuangan,true
+hadi.saputra107,Hadi,Saputra,Pimpinan,Kepala Seksi,hadi.saputra107@iamlab.test,EMP0107,GG-Pimpinan;GG-App-Viewer,true
+joko.ramadhan108,Joko,Ramadhan,Keuangan,Kepala Seksi,joko.ramadhan108@iamlab.test,EMP0108,GG-Keuangan,true
+hadi.nugroho109,Hadi,Nugroho,Pimpinan,Staf,hadi.nugroho109@iamlab.test,EMP0109,GG-Pimpinan,true
+dian.saputra110,Dian,Saputra,Keuangan,Koordinator,dian.saputra110@iamlab.test,EMP0110,GG-Keuangan,true
+eko.halim111,Eko,Halim,Pimpinan,Penyelia,eko.halim111@iamlab.test,EMP0111,GG-Pimpinan,true
+ani.hartono112,Ani,Hartono,Pimpinan,Koordinator,ani.hartono112@iamlab.test,EMP0112,GG-Pimpinan,false
+tono.utami113,Tono,Utami,TI,Penyelia,tono.utami113@iamlab.test,EMP0113,GG-TI;GG-App-Editor,true
+maya.rahayu114,Maya,Rahayu,Operasional,Analis,maya.rahayu114@iamlab.test,EMP0114,GG-Operasional,true
+eko.puspita115,Eko,Puspita,SDM,Staf,eko.puspita115@iamlab.test,EMP0115,GG-SDM;GG-App-Editor,true
+agus.lestari116,Agus,Lestari,Layanan,Staf,agus.lestari116@iamlab.test,EMP0116,GG-Layanan,true
+nina.utami117,Nina,Utami,SDM,Pelaksana,nina.utami117@iamlab.test,EMP0117,GG-SDM,true
+bayu.kurniawan118,Bayu,Kurniawan,SDM,Analis,bayu.kurniawan118@iamlab.test,EMP0118,GG-SDM,true
+bayu.santoso119,Bayu,Santoso,Hukum,Analis,bayu.santoso119@iamlab.test,EMP0119,GG-Hukum,true
+budi.rahayu120,Budi,Rahayu,Keuangan,Koordinator,budi.rahayu120@iamlab.test,EMP0120,GG-Keuangan,true
+ani.santoso121,Ani,Santoso,SDM,Penyelia,ani.santoso121@iamlab.test,EMP0121,GG-SDM;GG-App-Viewer,true
+eko.saputra122,Eko,Saputra,SDM,Staf,eko.saputra122@iamlab.test,EMP0122,GG-SDM,true
+nina.hartono123,Nina,Hartono,Operasional,Penyelia,nina.hartono123@iamlab.test,EMP0123,GG-Operasional;GG-App-Viewer,true
+lia.wijaya124,Lia,Wijaya,Hukum,Koordinator,lia.wijaya124@iamlab.test,EMP0124,GG-Hukum,true
+putri.puspita125,Putri,Puspita,SDM,Koordinator,putri.puspita125@iamlab.test,EMP0125,GG-SDM;GG-App-Viewer,true
+fajar.setiawan126,Fajar,Setiawan,Layanan,Kepala Seksi,fajar.setiawan126@iamlab.test,EMP0126,GG-Layanan;GG-App-Viewer,true
+rina.kurniawan127,Rina,Kurniawan,TI,Staf,rina.kurniawan127@iamlab.test,EMP0127,GG-TI,true
+rizki.hidayat128,Rizki,Hidayat,SDM,Koordinator,rizki.hidayat128@iamlab.test,EMP0128,GG-SDM,true
+hadi.utami129,Hadi,Utami,Operasional,Koordinator,hadi.utami129@iamlab.test,EMP0129,GG-Operasional,true
+nina.lestari130,Nina,Lestari,Keuangan,Penyelia,nina.lestari130@iamlab.test,EMP0130,GG-Keuangan,true
+nina.lestari131,Nina,Lestari,Keuangan,Kepala Seksi,nina.lestari131@iamlab.test,EMP0131,GG-Keuangan;GG-App-Viewer,true
+eko.santoso132,Eko,Santoso,Operasional,Staf,eko.santoso132@iamlab.test,EMP0132,GG-Operasional;GG-App-Viewer,true
+tono.rahayu133,Tono,Rahayu,Layanan,Kepala Seksi,tono.rahayu133@iamlab.test,EMP0133,GG-Layanan,true
+rina.maulana134,Rina,Maulana,TI,Koordinator,rina.maulana134@iamlab.test,EMP0134,GG-TI,true
+putri.halim135,Putri,Halim,Pimpinan,Pelaksana,putri.halim135@iamlab.test,EMP0135,GG-Pimpinan,true
+nina.saputra136,Nina,Saputra,Pimpinan,Koordinator,nina.saputra136@iamlab.test,EMP0136,GG-Pimpinan;GG-App-Viewer,true
+fajar.hartono137,Fajar,Hartono,TI,Staf,fajar.hartono137@iamlab.test,EMP0137,GG-TI,true
+nina.wijaya138,Nina,Wijaya,Hukum,Analis,nina.wijaya138@iamlab.test,EMP0138,GG-Hukum,true
+rizki.wulandari139,Rizki,Wulandari,Hukum,Analis,rizki.wulandari139@iamlab.test,EMP0139,GG-Hukum;GG-App-Admin,true
+rina.permana140,Rina,Permana,TI,Pelaksana,rina.permana140@iamlab.test,EMP0140,GG-TI,true
+sari.hidayat141,Sari,Hidayat,Keuangan,Analis,sari.hidayat141@iamlab.test,EMP0141,GG-Keuangan,true
+fajar.saputra142,Fajar,Saputra,Layanan,Staf,fajar.saputra142@iamlab.test,EMP0142,GG-Layanan;GG-App-Admin,true
+sari.hidayat143,Sari,Hidayat,Layanan,Kepala Seksi,sari.hidayat143@iamlab.test,EMP0143,GG-Layanan,true
+ani.santoso144,Ani,Santoso,TI,Analis,ani.santoso144@iamlab.test,EMP0144,GG-TI;GG-App-Viewer,true
+fajar.pratama145,Fajar,Pratama,SDM,Penyelia,fajar.pratama145@iamlab.test,EMP0145,GG-SDM,false
+joko.hidayat146,Joko,Hidayat,SDM,Pelaksana,joko.hidayat146@iamlab.test,EMP0146,GG-SDM,true
+rina.hidayat147,Rina,Hidayat,SDM,Kepala Seksi,rina.hidayat147@iamlab.test,EMP0147,GG-SDM,true
+nina.firmansyah148,Nina,Firmansyah,SDM,Penyelia,nina.firmansyah148@iamlab.test,EMP0148,GG-SDM;GG-App-Editor,true
+tono.setiawan149,Tono,Setiawan,TI,Staf,tono.setiawan149@iamlab.test,EMP0149,GG-TI;GG-App-Admin,true
+joko.hidayat150,Joko,Hidayat,Hukum,Koordinator,joko.hidayat150@iamlab.test,EMP0150,GG-Hukum;GG-App-Editor,true
+siti.wijaya151,Siti,Wijaya,TI,Kepala Seksi,siti.wijaya151@iamlab.test,EMP0151,GG-TI,true
+budi.firmansyah152,Budi,Firmansyah,TI,Staf,budi.firmansyah152@iamlab.test,EMP0152,GG-TI,true
+siti.ramadhan153,Siti,Ramadhan,SDM,Pelaksana,siti.ramadhan153@iamlab.test,EMP0153,GG-SDM,true
+dewi.ramadhan154,Dewi,Ramadhan,TI,Kepala Seksi,dewi.ramadhan154@iamlab.test,EMP0154,GG-TI,true
+yusuf.anggraini155,Yusuf,Anggraini,SDM,Kepala Seksi,yusuf.anggraini155@iamlab.test,EMP0155,GG-SDM;GG-App-Editor,true
+fajar.ramadhan156,Fajar,Ramadhan,Layanan,Analis,fajar.ramadhan156@iamlab.test,EMP0156,GG-Layanan,true
+nina.utami157,Nina,Utami,Layanan,Penyelia,nina.utami157@iamlab.test,EMP0157,GG-Layanan,true
+putri.santoso158,Putri,Santoso,Layanan,Analis,putri.santoso158@iamlab.test,EMP0158,GG-Layanan,true
+sari.wijaya159,Sari,Wijaya,Layanan,Kepala Seksi,sari.wijaya159@iamlab.test,EMP0159,GG-Layanan,true
+sari.maulana160,Sari,Maulana,Keuangan,Pelaksana,sari.maulana160@iamlab.test,EMP0160,GG-Keuangan,true
+rizki.lestari161,Rizki,Lestari,Operasional,Penyelia,rizki.lestari161@iamlab.test,EMP0161,GG-Operasional,true
+lia.permana162,Lia,Permana,Hukum,Kepala Seksi,lia.permana162@iamlab.test,EMP0162,GG-Hukum,true
+fajar.wijaya163,Fajar,Wijaya,SDM,Penyelia,fajar.wijaya163@iamlab.test,EMP0163,GG-SDM,true
+yusuf.anggraini164,Yusuf,Anggraini,Operasional,Penyelia,yusuf.anggraini164@iamlab.test,EMP0164,GG-Operasional,false
+lia.lestari165,Lia,Lestari,Layanan,Kepala Seksi,lia.lestari165@iamlab.test,EMP0165,GG-Layanan,true
+nina.santoso166,Nina,Santoso,Layanan,Koordinator,nina.santoso166@iamlab.test,EMP0166,GG-Layanan;GG-App-Viewer,true
+nina.nugroho167,Nina,Nugroho,Keuangan,Staf,nina.nugroho167@iamlab.test,EMP0167,GG-Keuangan,true
+rina.santoso168,Rina,Santoso,SDM,Staf,rina.santoso168@iamlab.test,EMP0168,GG-SDM;GG-App-Editor,true
+lia.hartono169,Lia,Hartono,SDM,Pelaksana,lia.hartono169@iamlab.test,EMP0169,GG-SDM,true
+ani.maulana170,Ani,Maulana,Keuangan,Staf,ani.maulana170@iamlab.test,EMP0170,GG-Keuangan;GG-App-Editor,true
+agus.hidayat171,Agus,Hidayat,Pimpinan,Staf,agus.hidayat171@iamlab.test,EMP0171,GG-Pimpinan,true
+dian.utami172,Dian,Utami,SDM,Penyelia,dian.utami172@iamlab.test,EMP0172,GG-SDM;GG-App-Viewer,true
+yusuf.anggraini173,Yusuf,Anggraini,Operasional,Analis,yusuf.anggraini173@iamlab.test,EMP0173,GG-Operasional,true
+tono.wulandari174,Tono,Wulandari,Operasional,Pelaksana,tono.wulandari174@iamlab.test,EMP0174,GG-Operasional,true
+tono.setiawan175,Tono,Setiawan,Layanan,Koordinator,tono.setiawan175@iamlab.test,EMP0175,GG-Layanan,true
+budi.firmansyah176,Budi,Firmansyah,Layanan,Koordinator,budi.firmansyah176@iamlab.test,EMP0176,GG-Layanan,true
+bayu.saputra177,Bayu,Saputra,Operasional,Pelaksana,bayu.saputra177@iamlab.test,EMP0177,GG-Operasional,true
+bayu.hidayat178,Bayu,Hidayat,Layanan,Kepala Seksi,bayu.hidayat178@iamlab.test,EMP0178,GG-Layanan,true
+eko.santoso179,Eko,Santoso,Pimpinan,Staf,eko.santoso179@iamlab.test,EMP0179,GG-Pimpinan,true
+bayu.rahayu180,Bayu,Rahayu,Keuangan,Koordinator,bayu.rahayu180@iamlab.test,EMP0180,GG-Keuangan,true
+nina.permana181,Nina,Permana,Keuangan,Koordinator,nina.permana181@iamlab.test,EMP0181,GG-Keuangan,true
+hadi.nugroho182,Hadi,Nugroho,Keuangan,Pelaksana,hadi.nugroho182@iamlab.test,EMP0182,GG-Keuangan,true
+dian.ramadhan183,Dian,Ramadhan,Pimpinan,Kepala Seksi,dian.ramadhan183@iamlab.test,EMP0183,GG-Pimpinan,true
+tono.maulana184,Tono,Maulana,Hukum,Analis,tono.maulana184@iamlab.test,EMP0184,GG-Hukum;GG-App-Viewer,true
+eko.hidayat185,Eko,Hidayat,Pimpinan,Penyelia,eko.hidayat185@iamlab.test,EMP0185,GG-Pimpinan,true
+ani.utami186,Ani,Utami,Hukum,Staf,ani.utami186@iamlab.test,EMP0186,GG-Hukum;GG-App-Viewer,true
+dian.hidayat187,Dian,Hidayat,Layanan,Staf,dian.hidayat187@iamlab.test,EMP0187,GG-Layanan,true
+eko.lestari188,Eko,Lestari,Pimpinan,Staf,eko.lestari188@iamlab.test,EMP0188,GG-Pimpinan,true
+tono.firmansyah189,Tono,Firmansyah,TI,Pelaksana,tono.firmansyah189@iamlab.test,EMP0189,GG-TI;GG-App-Editor,false
+budi.hidayat190,Budi,Hidayat,TI,Kepala Seksi,budi.hidayat190@iamlab.test,EMP0190,GG-TI;GG-App-Admin,false
+agus.lestari191,Agus,Lestari,Layanan,Kepala Seksi,agus.lestari191@iamlab.test,EMP0191,GG-Layanan,true
+eko.setiawan192,Eko,Setiawan,SDM,Analis,eko.setiawan192@iamlab.test,EMP0192,GG-SDM,true
+dian.maulana193,Dian,Maulana,TI,Analis,dian.maulana193@iamlab.test,EMP0193,GG-TI,true
+budi.setiawan194,Budi,Setiawan,TI,Analis,budi.setiawan194@iamlab.test,EMP0194,GG-TI,true
+fajar.saputra195,Fajar,Saputra,TI,Koordinator,fajar.saputra195@iamlab.test,EMP0195,GG-TI,true
+hadi.anggraini196,Hadi,Anggraini,Hukum,Analis,hadi.anggraini196@iamlab.test,EMP0196,GG-Hukum;GG-App-Viewer,true
+joko.puspita197,Joko,Puspita,Hukum,Penyelia,joko.puspita197@iamlab.test,EMP0197,GG-Hukum;GG-App-Editor,true
+dian.nugroho198,Dian,Nugroho,TI,Pelaksana,dian.nugroho198@iamlab.test,EMP0198,GG-TI,true
+siti.saputra199,Siti,Saputra,SDM,Staf,siti.saputra199@iamlab.test,EMP0199,GG-SDM,true
+fajar.ramadhan200,Fajar,Ramadhan,Operasional,Koordinator,fajar.ramadhan200@iamlab.test,EMP0200,GG-Operasional,true
