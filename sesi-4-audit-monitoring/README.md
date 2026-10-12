@@ -1,14 +1,44 @@
 # Sesi 4 — Audit & Monitoring Aktivitas Identitas
 
-> Indikator 4.1 (audit autentikasi/otorisasi) & 4.2 (deteksi anomali).
+Indikator 4.1 (audit autentikasi/otorisasi) dan 4.2 (deteksi anomali). Membangun
+jejak audit identitas _end-to-end_ dan dashboard pemantauan sederhana.
 
+## a. Tujuan Sesi
 
-**Tujuan:** jejak audit end-to-end + dashboard pemantauan sederhana.
+Peserta mampu:
+- Mengumpulkan log identitas dari seluruh komponen ke satu tempat (Loki).
+- Membuat **dashboard** audit identitas dan **aturan alert** di Grafana.
+- Menerapkan **UBA dasar** untuk mendeteksi perilaku tak lazim / akun kompromi.
+- Melakukan respons insiden lintas layanan (capstone).
 
-## 1. Lengkapi pipeline Alloy
-Edit `lab/monitoring/alloy/config.alloy` — tambah `stage.match` untuk sumber lain
-(bagian **TODO PESERTA**). Prinsip label: **hanya low-cardinality** (`service`, `event`);
-`user`/`ip` sebagai field (`| json` di LogQL), jangan dijadikan label.
+## b. Output yang Diharapkan
+
+- ≥ 5 sumber log tampil di Loki; dashboard menampilkan login sukses vs gagal, top IP
+  gagal, aktivitas per klien, dan perubahan grup istimewa.
+- Minimal 4 aturan alert aktif; alert memicu email uji di Mailpit.
+- Pada capstone: akun terindikasi kompromi dikunci di semua layanan, disertai
+  laporan insiden berisi bukti query.
+
+## c. Teori dan Struktur Sistem
+
+- **Jejak audit identitas** menjawab "siapa mengakses apa, kapan, dari mana,
+  berhasil/gagal". **UBA (User Behavior Analytics) dasar** mencari penyimpangan dari
+  kebiasaan: ledakan kegagalan login (brute force), gagal lalu tiba-tiba berhasil,
+  login di jam/IP tak lazim, atau perubahan keanggotaan grup istimewa. _Analogi:_
+  satpam yang hafal pola normal dan curiga saat ada yang mencoba 100 pintu dalam semenit.
+- **Pipeline:** tiap komponen menulis log → **Alloy** memungut, mem-_parse_, dan
+  memberi label → **Loki** menyimpan → **Grafana** menampilkan & memberi alert.
+- **Prinsip label (penting):** jadikan label hanya dimensi _low-cardinality_
+  (`service`, `event`); nilai seperti `user`/`ip` disimpan sebagai _field_ (dikueri
+  dengan LogQL), bukan label — agar kardinalitas tidak meledak.
+
+**Sumber log kunci:** Windows AD (Event 4624/4625, 4768/4769 Kerberos, 4728/4732 grup),
+Keycloak (LOGIN, LOGIN_ERROR, dsb.), OpenBao (audit device), Warpgate, sshd, Caddy.
+
+## d. Praktik: Instalasi dan Konfigurasi
+
+### 1. Lengkapi pipeline Alloy
+Untuk tiap sumber, tambahkan tahap _parse_ + label (hanya `service`, `event`):
 ```alloy
 stage.match {
   selector = "{service=\"openbao\"}"
@@ -17,69 +47,49 @@ stage.match {
   stage.structured_metadata { values = { user = "bao_user", ip = "ip" } }
 }
 ```
-Reload: `docker compose restart alloy`.
-
-## 2. Windows Event dari DC
-Pasang **Grafana Alloy** di VM DC → kirim log Security ke Loki lab:
+Lakukan serupa untuk Warpgate dan sshd. Untuk **Windows Event dari DC**, pasang Grafana
+Alloy di VM DC dan kirim ke Loki lab:
 ```alloy
 loki.source.windowsevent "sec" { eventlog_name = "Security" forward_to = [loki.write.lab.receiver] }
 loki.write "lab" { endpoint { url = "http://<IP-host-docker>:3100/loki/api/v1/push" } }
 ```
 
-## 3. Dashboard "Identity Audit" di Grafana (`https://grafana.iamlab.test`)
+### 2. Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
 Buat ≥ 4 panel (datasource Loki sudah terprovision). Label `event` berisi tipe event
-Keycloak (LOGIN, LOGIN_ERROR, dst.); Alloy sudah mengekstrak `ip`/`user` sebagai
-**structured metadata**, jadi bisa langsung dipakai di `sum by (...)`:
+Keycloak; `ip`/`user` tersedia sebagai _structured metadata_:
 - Login sukses vs gagal: `sum(count_over_time({service="keycloak", event="LOGIN"}[5m]))` vs `event="LOGIN_ERROR"`.
 - Top IP gagal: `topk(10, sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"}[15m])))`.
-- Aktivitas per client · Perubahan grup (dari Windows Event 4728/4732).
+- Aktivitas per klien · Perubahan grup istimewa (Windows Event 4728/4732).
 
-> Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
-> `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
-
-## 4. Alert rules + contact point Mailpit
-- Rule brute force: LOGIN_ERROR per IP > 10 / 5m.
-- Contact point: SMTP `mailpit:1025` → uji kirim.
-
-## 5. Telusur satu login end-to-end
-Login App-Komentar → lihat jejaknya di Keycloak (LOGIN) lalu LDAP bind di AD (Windows Event 4768/4769).
-
-## Hasil yang diharapkan
-- ≥ 5 sumber log tampil di Loki; dashboard menampilkan data; alert memicu email uji di Mailpit.
+### 3. Alert & UBA dasar
+Buat aturan alert dengan _contact point_ Mailpit:
+| Aturan | Logika (disederhanakan) | Ambang |
+|--------|-------------------------|--------|
+| Brute force / spraying | `LOGIN_ERROR` per IP | > 10 gagal / 5 menit |
+| Gagal → sukses | ≥5 gagal lalu sukses (user sama) | 1 kejadian |
+| Perubahan grup istimewa | Event 4728/4732 ke Domain Admins/GG-Tier0 | tiap kejadian |
+| Tiket Kerberos RC4 | 4769 enctype `0x17` dari akun non-mesin | tiap kejadian |
 
 ---
 
 ## Capstone — Deteksi & Respons
 
+### 1. Bangkitkan lalu lintas (Locust)
+Jalankan profil `normal` sebagai baseline, lalu profil anomali yang dipilih instruktur
+(`spray`, `fail-then-success`, `off-hours`), digabung dengan hasil simulasi Sesi 1.
 
-**Tujuan:** deteksi anomali dari lalu lintas realistis + respons + hardening review.
-
-### 1. Bangkitkan lalu lintas (Locust, `http://localhost:8089`)
-Jalankan baseline lalu profil anomali (pilih salah satu via env `LAB_PROFILE`):
-```bash
-LAB_PROFILE=normal docker compose up -d locust       # baseline
-# ganti profil:
-docker compose run --rm -e LAB_PROFILE=spray locust -f /mnt/locust/locustfile.py --host https://app.iamlab.test --headless -u 20 -r 5 -t 2m
-```
-Profil: `normal | spray | fail-then-success | off-hours`. Gabungkan dengan hasil simulasi Lab 3.
-
-### 2. Deteksi
-Dari dashboard & alert (Lab 5): identifikasi akun/IP terindikasi (brute force, gagal→sukses,
-perubahan grup istimewa, tiket RC4).
-
-### 3. Respons (kunci akun kompromi di SEMUA layanan)
+### 2. Deteksi & respons
+Dari dashboard & alert: identifikasi akun/IP terindikasi. Lalu kunci di **semua** layanan:
 ```powershell
-Disable-ADAccount -Identity <user>          # AD
+Disable-ADAccount -Identity <user>        # AD
 ```
 - Keycloak: verifikasi user ter-disable (sync) + *Sessions → Logout all*.
 - OpenBao: `bao token revoke` token terkait.
 - Warpgate: hapus akses/role user.
 
-### 4. Laporan insiden
-Tulis ringkas: timeline, bukti (query LogQL), tindakan. Templat di `solutions/`.
+### 3. Laporan insiden
+Tulis ringkas: _timeline_, bukti (query LogQL), tindakan. Tinjau juga checklist
+_hardening_ secara mandiri.
 
-### 5. Hardening review
-Jalankan checklist Bab 6 dokumen secara mandiri; catat gap.
-
-### Hasil yang diharapkan
-- Akun kompromi terkunci di semua layanan; laporan memuat bukti query; checklist terisi.
+**Hasil yang diharapkan:** akun kompromi terkunci di semua layanan; laporan memuat
+bukti query.
