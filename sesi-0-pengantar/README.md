@@ -84,6 +84,16 @@ sebagai container Docker di belakang satu reverse proxy (Caddy) dengan TLS dari 
 
 ![Topologi sistem IAM — 4 sistem (Windows Server AD, Samba AD, klien Windows & Linux) + layanan IAM, domain iamlab.test](gambar/topologi.png)
 
+**Legenda:**
+- 🟦 **Zona Endpoint/Klien** — perangkat pengguna (klien Windows 11 & Linux).
+- 🟥 **Zona Direktori (Tier 0)** — server identitas: Windows Server 2025 (`dc1`) untuk sisi
+  Windows, Samba AD DC (`dc2`) untuk sisi Linux.
+- 🟩 **Blok Layanan IAM (Docker)** — Keycloak, OpenBao, Warpgate, Grafana/Loki/Alloy, di
+  belakang **Caddy** (reverse proxy + TLS CA internal).
+- **Garis panah:** garis penuh = akses pengguna/aplikasi (HTTPS); **putus-putus** =
+  federasi/autentikasi ke direktori (LDAPS 636); **teal** = aliran event audit ke pemantauan.
+- Kotak **box-3D** = server/direktori; kotak biasa = klien; kotak membulat = layanan/proxy.
+
 **Aliran data inti:** pengguna membuka aplikasi → diarahkan ke **Keycloak** →
 Keycloak memverifikasi kredensial ke **AD** (LDAPS) dan meminta **MFA** bila perlu →
 menerbitkan token → aplikasi memberi akses sesuai peran (klaim grup). Semua aktivitas
