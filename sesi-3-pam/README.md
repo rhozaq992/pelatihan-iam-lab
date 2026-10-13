@@ -156,7 +156,7 @@ ssh -p 2222 <user>:srv-app01@pam.iamlab.test     # bastion mencegat, minta SSO/M
 ### D. Serah-terima kredensial via email + formulir
 Akses istimewa tidak diberikan lisan. Alurnya **berbasis email dan formulir yang
 dikembalikan**:
-1. Pemohon mengisi [`formulir-serah-terima.md`](formulir-serah-terima.md) lalu mengirimnya
+1. Pemohon mengisi [`formulir-serah-terima.docx`](formulir-serah-terima.docx) lalu mengirimnya
    via email ke pemberi persetujuan (di lab: lewat Mailpit `https://mail.iamlab.test`).
 2. Pemberi persetujuan (dual control untuk Tier 0) **membalas email** dengan kolom
    *Status dikembalikan = Disetujui* terisi — inilah bukti formulir kembali.
