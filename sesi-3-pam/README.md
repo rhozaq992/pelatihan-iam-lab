@@ -89,7 +89,11 @@ bao secrets enable -path=kv kv-v2                            # brankas KV
 bao kv put kv/breakglass/srv-app01 user=root pass='BreakGlass#2026'
 bao secrets enable ssh                                       # mesin SSH CA
 bao write ssh/config/ca generate_signing_key=true
-bao write ssh/roles/t1 key_type=ca allow_user_certificates=true default_user=labadmin ttl=30m
+# Role sign SSH: allowed_users WAJIB (OpenBao 2.x menolak sign tanpa principal), permit-pty
+# agar sesi interaktif. Dikirim sbg JSON via stdin karena field map tak bisa inline di CLI.
+bao write ssh/roles/t1 - <<'JSON'
+{"key_type":"ca","allow_user_certificates":true,"allowed_users":"labadmin","default_user":"labadmin","default_extensions":{"permit-pty":""},"ttl":"30m"}
+JSON
 # GATED: pastikan login LDAP admin BERHASIL dulu, simpan unseal key, BARU cabut root:
 bao token revoke <root-token>
 ```
