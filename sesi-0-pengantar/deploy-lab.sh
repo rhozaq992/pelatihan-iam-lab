@@ -172,15 +172,36 @@ deploy_vms(){
         vmx="$(find "$OVADIR/$name" -name '*.vmx' 2>/dev/null | head -1 || true)"
       fi
       [ -n "$vmx" ] || die "VMX tak ditemukan setelah impor $name."
-      # ovftool menyetel guestOS="other" untuk OVA arm → Fusion Apple Silicon menolak start.
-      # Paksa profil ARM (guestOS + EFI) agar VM mau dinyalakan.
+      # OVA arm: (1) ovftool menyetel guestOS="other" → Fusion Apple Silicon menolak start;
+      # (2) controller PVSCSI tak punya driver di initramfs arm → root gagal mount (stall di
+      # initramfs). Paksa guestOS=arm-ubuntu-64 + EFI + pindahkan disk ke NVMe (driver nvme
+      # selalu ada di initramfs) agar VM benar-benar boot. Idempoten.
       case "$name" in *-arm64)
-        grep -qi 'guestOS *= *"arm-ubuntu-64"' "$vmx" || {
-          perl -i -pe 's/^\s*guest[Oo][Ss]\s*=.*/guestOS = "arm-ubuntu-64"/i' "$vmx"
-          grep -qi '^guestOS' "$vmx" || printf 'guestOS = "arm-ubuntu-64"\n' >> "$vmx"
-          grep -qi '^firmware' "$vmx" || printf 'firmware = "efi"\n' >> "$vmx"
-          ok "VMX disetel profil ARM (guestOS arm-ubuntu-64, EFI)"
-        } ;;
+        python3 - "$vmx" <<'PYVMX' && ok "VMX disetel profil ARM (guestOS arm-ubuntu-64, EFI, disk NVMe)"
+import sys,re
+p=sys.argv[1]; L=open(p).read().splitlines()
+disk=None
+for l in L:
+    m=re.match(r'(?i)^\s*scsi0:0\.fileName\s*=\s*"(.+)"',l)
+    if m: disk=m.group(1)
+    m=re.match(r'(?i)^\s*nvme0:0\.fileName\s*=\s*"(.+)"',l)
+    if m: disk=m.group(1)
+def setkv(lines,key,val):
+    out=[];seen=False
+    for l in lines:
+        if re.match(r'(?i)^\s*'+re.escape(key)+r'\s*=',l): out.append('%s = "%s"'%(key,val));seen=True
+        else: out.append(l)
+    if not seen: out.append('%s = "%s"'%(key,val))
+    return out
+# buang semua baris scsi0*, set profil arm + disk nvme
+L=[l for l in L if not re.match(r'(?i)^\s*scsi0',l)]
+L=setkv(L,'guestOS','arm-ubuntu-64'); L=setkv(L,'firmware','efi')
+if disk:
+    L=setkv(L,'nvme0.present','TRUE'); L=setkv(L,'nvme0:0.present','TRUE')
+    L=setkv(L,'nvme0:0.fileName',disk); L=setkv(L,'nvme0:0.deviceType','disk')
+open(p,'w').write("\n".join(L)+"\n")
+PYVMX
+        ;;
       esac
       if vmrun -T "$vmtype" list | grep -qF "$vmx"; then ok "VM '$name' sudah berjalan";
       else ok "start '$name' (headless)"; vmrun -T "$vmtype" start "$vmx" nogui; fi
