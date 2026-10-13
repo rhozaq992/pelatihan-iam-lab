@@ -71,6 +71,7 @@ packages:
   - oddjob-mkhomedir
   - packagekit
   - krb5-user
+  - open-vm-tools
 write_files:
   - path: /usr/local/sbin/join-domain.sh
     permissions: '0755'
@@ -87,7 +88,7 @@ write_files:
       Klien Ubuntu Lab IAM — gabung domain: sudo join-domain.sh  (Sesi 1)
 runcmd:
   - systemctl enable sssd || true
-  - [ sh, -c, "if command -v realm >/dev/null && command -v adcli >/dev/null && command -v sssd >/dev/null; then echo BUILD_DONE_$HOSTNAME_VM; else echo BUILD_FAIL_$HOSTNAME_VM; fi > /dev/console" ]
+  - [ sh, -c, "if command -v realm >/dev/null && command -v adcli >/dev/null && command -v sssd >/dev/null && command -v vmtoolsd >/dev/null; then echo BUILD_DONE_$HOSTNAME_VM; else echo BUILD_FAIL_$HOSTNAME_VM; fi > /dev/console" ]
 power_state:
   mode: poweroff
   timeout: 60
