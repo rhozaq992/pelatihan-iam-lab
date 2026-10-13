@@ -105,15 +105,30 @@ Untuk **Windows Event dari DC**: 🪟 pasang Grafana Alloy di VM DC dan kirim ke
 (`loki.source.windowsevent` → `http://<IP-host-docker>:3100`).
 
 ### 2. 🌐 Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
-Buat ≥ 4 panel (datasource Loki sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
-tersedia sebagai *structured metadata* sehingga langsung dipakai di `sum by (...)`:
+Buat panel di datasource Loki (sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
+tersedia sebagai *structured metadata* sehingga langsung dipakai di `sum by (...)`.
+
+**Empat panel ringkas (stat) di baris atas** — indikator identitas 24 jam:
+
+| Panel | Arti | Kueri (LogQL) |
+|---|---|---|
+| **Jumlah User** | user unik yang terlihat di event | `count(sum by (user) (count_over_time({service="keycloak", event=~"LOGIN|LOGIN_ERROR"}[24h])))` |
+| **User Aktif** | user unik dengan login **sukses** | `count(sum by (user) (count_over_time({service="keycloak", event="LOGIN"}[24h])))` |
+| **Notifikasi Email Terkirim** | email akun terkirim (reset/verify/aksi) | `sum(count_over_time({service="keycloak"} \|~ "execute-actions-email\|SEND_" [24h]))` |
+| **User Password Expired/Reset** | reset/ganti sandi (admin & self-service) | `sum(count_over_time({service="keycloak"} \|~ "reset-password\|UPDATE_PASSWORD\|RESET_PASSWORD" [24h]))` |
+
+**Panel tren (timeseries/bargauge) di bawahnya:**
 - Login sukses vs gagal: `sum(count_over_time({service="keycloak", event="LOGIN"}[5m]))` vs `event="LOGIN_ERROR"`.
 - Top IP gagal: `topk(10, sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"}[15m])))`.
-- Aktivitas per klien · Perubahan grup (Windows Event 4728/4732).
+- Aktivitas per layanan · Perubahan grup (Windows Event 4728/4732).
+
+> Dua panel email & password memakai **line-filter** (`|~`) karena email akun dan reset sandi
+> dipicu via Admin API Keycloak (tercatat sebagai operasi `ACTION`, bukan event `type=` biasa).
+> Semua stat diberi `noValue: "0"` agar menampilkan angka, bukan "No data", saat jendela kosong.
 
 Dashboard akhir yang diharapkan (berisi data nyata dari lalu lintas lab):
 
-![Grafana — dashboard Identity Audit: login sukses vs gagal, top IP gagal, aktivitas per klien](gambar/grafana-dashboard.png)
+![Grafana — dashboard Identity Audit: jumlah user, user aktif, email terkirim, password reset, login sukses vs gagal, top IP gagal, aktivitas per layanan](gambar/grafana-dashboard.png)
 
 > Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
 > `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
