@@ -139,12 +139,19 @@ compose_down(){ step "Hentikan stack"; cd "$DEPLOY"; docker compose --profile di
 # ---- deploy VM klien dari OVA (DIJALANKAN DI HOST FISIK ber-hypervisor) ----
 # Jaringan VM sudah dikonfigurasi panitia → cukup impor + nyalakan. Nama VM = nama file OVA.
 deploy_vms(){
-  step "Deploy VM dari OVA ($OVADIR)"
-  shopt -s nullglob; local ovas=("$OVADIR"/*.ova); shopt -u nullglob
-  if [ ${#ovas[@]} -eq 0 ]; then
-    warn "tak ada *.ova di $OVADIR — salin OVA klien (mis. ubuntu-client.ova) dari USB/share lalu ulangi."
+  step "Deploy VM dari OVA ($OVADIR) — arch host: $ARCH"
+  shopt -s nullglob; local all=("$OVADIR"/*.ova); shopt -u nullglob
+  if [ ${#all[@]} -eq 0 ]; then
+    warn "tak ada *.ova di $OVADIR — salin OVA klien (mis. ubuntu-client-$ARCH.ova) dari USB/share lalu ulangi."
     return 0
   fi
+  # pilih OVA yang cocok arch host: lewati ubuntu-client-<arch lain>.ova; impor sisanya apa adanya.
+  local ovas=() f base other
+  other=$([ "$ARCH" = amd64 ] && echo arm64 || echo amd64)
+  for f in "${all[@]}"; do base="$(basename "$f")"
+    case "$base" in *-"$other".ova) ok "lewati $base (bukan arch host)"; continue;; esac
+    ovas+=("$f")
+  done
   if command -v VBoxManage >/dev/null 2>&1; then
     for ova in "${ovas[@]}"; do
       local name; name="$(basename "$ova" .ova)"
