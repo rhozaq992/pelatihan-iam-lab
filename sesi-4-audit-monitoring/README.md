@@ -91,6 +91,28 @@ Loki, Grafana, dan Alloy berjalan dari `docker compose up -d`; datasource Loki s
 ter-*provision* di Grafana. Pipeline Keycloak sudah terisi sebagai contoh; sumber lain
 Anda lengkapi.
 
+> **✅ Validasi / Output yang diharapkan.** Pastikan pipeline log hidup sebelum membuat
+> panel. Uji nyata (amd64):
+> ```bash
+> # 🐳 Loki & Grafana sehat
+> docker compose exec -T loki    wget -qO- http://localhost:3100/ready        # → "ready"
+> docker compose exec -T grafana wget -qO- http://localhost:3000/api/health   # → {"database":"ok",...}
+> # 🐳 Loki benar-benar menerima log dari semua container (Alloy → Loki)
+> docker compose exec -T loki wget -qO- 'http://localhost:3100/loki/api/v1/label/service_name/values'
+> ```
+> Keluaran query terakhir harus memuat layanan-layanan yang berjalan, mis.:
+> ```json
+> {"status":"success","data":["alloy","app-komentar","app-saml","caddy","grafana",
+>  "keycloak","loki","mailpit","openbao","postgres","samba-dc","srv-app01","srv-db01","warpgate"]}
+> ```
+> Jumlahnya 13–14 tergantung tahap: `warpgate` muncul **setelah** setup Sesi 3; `attacker`
+> hanya saat profil `attack` aktif (dan memang tak perlu diaudit). Yang penting **titik akses
+> inti** ada: `caddy` (semua HTTPS), `keycloak` (SSO), `openbao` (vault), `warpgate` (bastion),
+> `srv-app01/db01` (SSH).
+> **Jika** `/ready` membalas `503 Service Unavailable` → Loki masih pemanasan; tunggu
+> ±30–60 dtk lalu ulangi. **Jika** `data` kosong `[]` → Alloy belum mengirim; cek
+> `docker compose logs alloy` dan pastikan `/var/run/docker.sock` ter-mount.
+
 ### 1. 🐳 Lengkapi pipeline Alloy
 Edit `deploy/monitoring/alloy/config.alloy`, tambahkan satu blok per sumber. Label hanya
 `service`/`event`; `user`/`ip` sebagai *structured metadata*:

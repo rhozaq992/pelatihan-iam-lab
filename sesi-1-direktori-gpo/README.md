@@ -134,6 +134,24 @@ samba-tool group addmembers GG-App-Viewer budi.contoh
 samba-tool domain passwordsettings set --min-pwd-length=14 --complexity=on
 samba-tool domain passwordsettings show        # verifikasi
 ```
+
+> **✅ Validasi / Output yang diharapkan** (ditangkap nyata, amd64). Tiap perintah harus
+> membalas seperti ini — bila berbeda, periksa pesan error:
+> ```text
+> samba-tool ou create "OU=Pengguna,..."   → Added ou "OU=Pengguna,DC=iamlab,DC=test"
+> samba-tool group add GG-App-Viewer       → Added group GG-App-Viewer   (×4 grup)
+> samba-tool user create budi.contoh ...    → User 'budi.contoh' added successfully
+> samba-tool group addmembers GG-App-Viewer budi.contoh → Added members to group GG-App-Viewer
+> samba-tool domain passwordsettings set ... → Password complexity activated!
+>                                              Minimum password length changed!
+>                                              All changes applied successfully!
+> ```
+> `samba-tool domain passwordsettings show` harus menampilkan `Password complexity: on`
+> dan `Minimum password length: 14`. Cek anggota: `samba-tool user list` memuat
+> `budi.contoh`, `Administrator`, `krbtgt`, `Guest`.
+> **Jika muncul** `ERROR: Could not … No such Base DN: CN=Schema,…` → provisioning Samba
+> belum selesai; tunggu ±30–60 dtk lalu ulangi (jangan jalankan saat container baru `Up` beberapa detik).
+
 Verifikasi direktori (keluaran nyata):
 
 ![Terminal — Samba AD DC: domain, OU, grup, kebijakan sandi](gambar/samba-cli.png)
@@ -266,6 +284,22 @@ peserta melihat sendiri perubahan `TicketEncryptionType` dari RC4 (`0x17`) ke AE
 
 1. 🪟 Pastikan akun umpan ada: `setspn -L svc-honey` menampilkan `HTTP/honey.iamlab.test`.
 2. 🐳 Jalankan simulasi Kerberoasting dari container simulasi (`docker compose --profile attack up -d attacker`). Runner `attack-sim/run.sh` memvalidasi pagar lalu menampilkan perintah **Impacket** (`impacket-GetUserSPNs`) yang **dijalankan instruktur** untuk benar-benar meminta tiket — inilah yang memunculkan Event 4769.
+   ```bash
+   # 🐳 contoh (target harus ada di attack-sim/TARGETS.lab; konfirmasi wajib)
+   docker compose exec -e IAMLAB_CONFIRM=1 attacker bash /attack-sim/run.sh dc1.iamlab.test kerberoast
+   ```
+   > **✅ Validasi / Output yang diharapkan.** Di lab **Host-Only terisolasi** (benar), runner
+   > lolos pagar dan **mencetak** perintah (tidak mengeksekusi sendiri):
+   > ```text
+   > [lab] (kerberoast) simulasi terhadap dc1.iamlab.test untuk menguji deteksi/mitigasi.
+   > [lab] Contoh perintah open source (jalankan manual oleh instruktur di lab):
+   >       impacket-GetUserSPNs iamlab.test/<user>:<pass> -request -dc-ip dc1.iamlab.test
+   > ```
+   > **Jika muncul** `DITOLAK: internet terjangkau — lab HARUS Host-Only terisolasi` →
+   > mesin masih punya jalur keluar internet (NAT/bridge aktif). Ini **pengaman yang benar**:
+   > putus akses internet VM/host (jadikan Host-Only) lalu ulangi.
+   > `Tolak: set IAMLAB_CONFIRM=1` → lupa menambahkan `-e IAMLAB_CONFIRM=1`.
+   > `DITOLAK: <target> di luar allowlist lab` → target tidak terdaftar di `attack-sim/TARGETS.lab`.
 3. 🪟/🌐 Amati **Event 4769** dengan `TicketEncryptionType = 0x17` (RC4) dari akun
    non-mesin, dan permintaan untuk honey SPN (Event Viewer DC atau dashboard Grafana Sesi 4).
 4. 🪟 Terapkan mitigasi, lalu ulangi — tiket kini AES:

@@ -4,27 +4,48 @@
 {
 	local_certs
 	admin off
+	# Audit: semua log runtime Caddy sebagai JSON ke stdout → dipanen Alloy (service=caddy).
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Snippet access-log: dipasang di tiap site agar SETIAP permintaan HTTPS (siapa, kapan,
+# dari IP mana, ke path apa, status) tercatat di titik masuk tunggal → audit terpusat.
+(akses) {
+	log {
+		output stdout
+		format json
+	}
 }
 
 kc.iamlab.test {
+	import akses
 	reverse_proxy keycloak:8080
 }
 app.iamlab.test {
+	import akses
 	reverse_proxy app-komentar:5000
 }
 saml.iamlab.test {
+	import akses
 	reverse_proxy app-saml:80
 }
 grafana.iamlab.test {
+	import akses
 	reverse_proxy grafana:3000
 }
 bao.iamlab.test {
+	import akses
 	reverse_proxy openbao:8200
 }
 mail.iamlab.test {
+	import akses
 	reverse_proxy mailpit:8025
 }
 pam.iamlab.test {
+	import akses
 	reverse_proxy https://warpgate:8888 {
 		transport http {
 			tls_insecure_skip_verify

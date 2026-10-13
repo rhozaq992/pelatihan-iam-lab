@@ -146,11 +146,61 @@ mengaturnya. Dari direktori ini (🖥️ **terminal host / VM Docker**), jalanka
 [`deploy-lab.sh`](deploy-lab.sh): ia mendeteksi OS & arsitektur, memasang Docker bila belum
 ada, memuat image offline (`distribusi/offline-images/iam-images.tar`), lalu `docker compose up -d`.
 
+> ### ⚠️ Prasyarat & Cek Kesiapan Host Windows (WAJIB dibaca)
+> Lab ini diuji pada **Windows + VirtualBox + Docker Desktop** (sama seperti PC peserta).
+> Sebelum `deploy-lab.sh`, pastikan:
+>
+> 1. **Git Bash: matikan konversi path otomatis.** Git Bash (MSYS) mengubah argumen
+>    berawalan `/` (mis. `/openbao/file/audit.log`, `/data`) menjadi path Windows
+>    sebelum sampai ke dalam container → perintah `docker … exec` bisa **gagal**
+>    (`mkdir C:: permission denied`). Jalankan **sekali** di awal tiap sesi:
+>    ```bash
+>    export MSYS_NO_PATHCONV=1      # wajib di Git Bash Windows (abaikan di Linux/macOS)
+>    ```
+> 2. **Port 80 & 443 harus bebas.** Caddy (reverse proxy) mengikatnya. Jika **VMware**
+>    terpasang, layanan `vmware-hostd` merebut `:443` dan browser akan menampilkan
+>    halaman yang salah. Cek & bebaskan:
+>    ```bash
+>    netstat -ano | grep -E ":(80|443)\b"   # pastikan hanya com.docker.backend yang LISTEN
+>    ```
+>    Bila ada `vmware-hostd`/aplikasi lain: hentikan layanan itu (Services.msc → *VMware
+>    Workstation Server* → Stop) sebelum lanjut.
+> 3. **Docker Desktop berjalan** (ikon paus hijau) dan memakai image **amd64** (lihat di bawah).
+> 4. **Untuk `--vms` (VirtualBox):** pastikan `VBoxManage` ada di PATH
+>    (`export PATH="$PATH:/c/Program Files/Oracle/VirtualBox"`) dan panitia telah membuat
+>    **Host-Only network `10.10.10.0/24`** (DC=10.10.10.10, host-Docker=10.10.10.5).
+
 ```bash
 # 🖥️ terminal host (Linux/Ubuntu, macOS, atau Windows via Git Bash)
+export MSYS_NO_PATHCONV=1   # Windows/Git Bash saja (cegah path mangling)
 cd sesi-0-pengantar
 ./deploy-lab.sh            # cek deps → pasang Docker (bila perlu) → muat image → nyalakan stack
 ```
+
+> **✅ Validasi / Output yang diharapkan.** Di akhir skrip, `docker compose ps` menampilkan
+> seluruh layanan `running` (Keycloak `healthy` setelah ±1 menit). Contoh nyata (amd64):
+> ```text
+> NAME                    STATUS
+> iamlab-caddy-1          Up (running)
+> iamlab-postgres-1       Up (healthy)
+> iamlab-keycloak-1       Up (healthy)        # ±60 dtk sampai healthy
+> iamlab-grafana-1        Up
+> iamlab-loki-1           Up
+> iamlab-alloy-1          Up
+> iamlab-mailpit-1        Up (healthy)
+> iamlab-openbao-1        Up                  # sealed — di-init di Sesi 3 (normal)
+> iamlab-app-komentar-1   Up (unhealthy)      # normal: realm OIDC belum dibuat (Sesi 2)
+> iamlab-srv-app01-1      Up
+> iamlab-srv-db01-1       Up
+> iamlab-app-saml-1       Up
+> iamlab-samba-dc-1       Up (healthy)        # DC Samba Sesi 1A (profil 'direktori')
+> iamlab-warpgate-1       Up (healthy)        # muncul/healthy setelah setup Sesi 3
+> ```
+> (Daftar di atas contoh ringkas; pada deploy default muncul ±14 kontainer — itu normal.)
+> Pesan `✓ Selesai. Endpoint: https://kc.iamlab.test · …` menandakan sukses.
+> **Pastikan TIDAK ada baris** `The requested image's platform (linux/arm64) does not match …`
+> — bila muncul, image Anda masih arm64 (salah); minta tar `iam-images.tar` versi **amd64**.
+> Verifikasi cepat arsitektur: `docker image inspect quay.io/keycloak/keycloak:26.1 --format '{{.Architecture}}'` → harus `amd64`.
 
 | Opsi | Guna |
 |------|------|

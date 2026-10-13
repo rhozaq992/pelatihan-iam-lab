@@ -95,6 +95,24 @@ docker compose up -d            # Keycloak + PostgreSQL + aplikasi + proxy berja
 Setelah ini Keycloak hidup di `https://kc.iamlab.test` tetapi **belum punya realm/
 federasi/MFA** — semua itu Anda buat berikut.
 
+> **✅ Validasi / Output yang diharapkan.** Keycloak butuh ±60 dtk sampai `healthy`:
+> ```bash
+> docker compose ps keycloak                       # → Up … (healthy)
+> # dari host (setelah healthy); sertifikat CA internal → pakai -k
+> curl -sk -o /dev/null -w "%{http_code}\n" https://kc.iamlab.test/realms/master   # → 200
+> ```
+> Di browser, `https://kc.iamlab.test` menampilkan halaman *Welcome to Keycloak*
+> (login admin: `admin` / sandi dari `.env`).
+> **⚠️ Jika dari host dapat `404`/halaman asing padahal container `healthy`:** ada
+> aplikasi lain memegang **port 443** (sering `vmware-hostd` dari VMware Workstation).
+> Uji cepat bahwa stack sebenarnya sehat dari dalam jaringan Docker:
+> ```bash
+> docker run --rm --network iamlab_iamnet curlimages/curl -s http://keycloak:8080/realms/master | head -c 80
+> # → {"realm":"master","public_key":"MIIB…   (artinya Keycloak OK; masalah hanya di port host)
+> ```
+> Perbaikan: bebaskan port 443 di host (hentikan `vmware-hostd`/aplikasi lain) — lihat
+> cek kesiapan host di **Sesi 0**.
+
 ### 1. 🌐 Realm + federasi LDAP ke AD
 Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis seperti ini:
 - Vendor: *Active Directory* · Connection URL: `ldaps://dc1.iamlab.test:636`

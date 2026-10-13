@@ -76,6 +76,7 @@ bao operator init -key-shares=3 -key-threshold=2   # pecah master key jadi 3, bu
 bao operator unseal <key1> ; bao operator unseal <key2>   # buka brankas (2 dari 3)
 bao login <root-token>
 bao audit enable file file_path=/openbao/file/audit.log    # catat SEMUA akses (sebelum isi rahasia)
+bao audit enable -path=stdout file file_path=stdout        # salin audit ke STDOUT → Alloy→Loki (audit TERPUSAT)
 bao auth enable ldap                                        # login pakai akun AD
 bao write auth/ldap/config url="ldaps://dc1.iamlab.test:636" \
   userdn="OU=Pengguna,DC=iamlab,DC=test" groupdn="OU=Grup,DC=iamlab,DC=test" \
@@ -97,6 +98,31 @@ JSON
 # GATED: pastikan login LDAP admin BERHASIL dulu, simpan unseal key, BARU cabut root:
 bao token revoke <root-token>
 ```
+
+> **⚠️ Windows/Git Bash:** perintah `bao audit enable file file_path=/openbao/file/audit.log`
+> akan **gagal** (`unable to open "C:/Program Files/Git/openbao/…": mkdir C:: permission denied`)
+> karena Git Bash menerjemahkan `/openbao/…` jadi path Windows. Jalankan
+> `export MSYS_NO_PATHCONV=1` **sekali** di awal sesi (lihat Sesi 0), atau prefiks perintahnya:
+> `MSYS_NO_PATHCONV=1 bao audit enable file file_path=/openbao/file/audit.log`.
+>
+> **✅ Validasi / Output yang diharapkan** (ditangkap nyata, amd64):
+> ```text
+> bao operator init …          → Unseal Key 1..3 + Initial Root Token (SIMPAN! tak bisa diulang)
+> bao operator unseal <key1>   → Sealed true  · Unseal Progress 1/2
+> bao operator unseal <key2>   → Sealed false            ← brankas terbuka
+> bao audit enable file …      → Success! Enabled the file audit device at: file/
+> bao auth enable ldap         → Success! Enabled ldap auth method at: ldap/
+> bao secrets enable -path=kv kv-v2 → Success! Enabled the kv-v2 secrets engine at: kv/
+> bao secrets enable ssh       → Success! Enabled the ssh secrets engine at: ssh/
+> bao write ssh/config/ca …    → public_key  ssh-rsa AAAA…     ← kunci CA muncul
+> bao write ssh/roles/t1 - …   → Success! Data written to: ssh/roles/t1
+> ```
+> Cek akhir: `bao status` → `Initialized true`, `Sealed false`, `Total Shares 3`, `Threshold 2`;
+> `bao audit list` → **dua** baris: `file/  file` dan `stdout/  file` (yang kedua mengalirkan
+> jejak audit ke Loki lewat Alloy — buktikan di Sesi 4 dengan `{service="openbao"}`).
+> **Jika** `ssh/roles/t1` → `role is not configured to allow any principals`: `allowed_users`
+> kosong — WAJIB diisi (lihat JSON di atas).
+
 Status nyata setelah init/unseal (OpenBao di lab ini berbasis **CLI**, tanpa web UI):
 
 ![Terminal — OpenBao: status (initialized/unsealed, 3/2), audit file, engine kv & ssh](gambar/openbao-cli.png)
@@ -116,11 +142,23 @@ done
 ### C. 🌐 Warpgate (bastion + rekam sesi)
 Setup sekali di 🖥️ terminal, lalu konfigurasi di 🌐 web UI `https://pam.iamlab.test`:
 ```bash
+export MSYS_NO_PATHCONV=1    # Windows/Git Bash: agar '--data-path /data' tak jadi path Windows
 docker compose run --rm warpgate unattended-setup \
   --data-path /data --http-port 8888 --ssh-port 2222 --record-sessions \
   --host-key-verification auto-accept --admin-password 'Warp#Lab2026' --external-host pam.iamlab.test
 docker compose up -d warpgate
 ```
+
+> **✅ Validasi / Output yang diharapkan** (nyata, amd64):
+> ```text
+> INFO warpgate::commands::setup: Admin user credentials:
+> INFO warpgate::commands::setup:   * Username: admin
+> INFO warpgate::commands::setup: You can now start Warpgate with: …
+> ```
+> Lalu `docker compose ps warpgate` → `Up … (healthy)` dalam ±15 dtk. Buka
+> `https://pam.iamlab.test` (lewat Caddy, **bukan** `:8888` langsung) → halaman login Warpgate.
+> **Jika** `docker compose ps` tak menampilkan warpgate / `Restarting`: setup belum
+> dijalankan (config `/data/warpgate.yaml` belum ada) — ulangi `unattended-setup` dulu.
 Agar login ke bastion **terkendali dan seragam**, arahkan autentikasi Warpgate ke
 **SSO Keycloak** (bukan akun lokal Warpgate): di admin → *Config → Global parameters →
 SSO providers*, tambahkan provider OIDC ke realm `iamlab`

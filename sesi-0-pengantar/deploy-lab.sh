@@ -41,6 +41,7 @@ NET_DOMAIN="iamlab.test"
 NET_DC_IP="10.10.10.10"          # IP VM Windows Server (DC) di VMnet lab
 NET_DC_HOST="dc1.iamlab.test"
 NET_DOCKER_IP="10.10.10.5"       # IP tetap host Docker di VMnet lab (dilihat dari VM klien)
+NET_HOSTONLY_IP="10.10.10.1"     # IP adapter Host-Only di HOST (VirtualBox): gerbang VM↔layanan Docker
 NET_SUBS="kc app saml grafana bao mail pam"   # subdomain layanan (dilayani Caddy)
 
 # ---- util tampilan ----
@@ -69,6 +70,20 @@ detect_os(){ case "$(uname -s)" in
 detect_arch(){ case "$(uname -m)" in
   x86_64|amd64) echo amd64;; aarch64|arm64) echo arm64;; *) echo "$(uname -m)";; esac; }
 OS="$(detect_os)"; ARCH="$(detect_arch)"
+
+# ---- Windows: tambahkan path default VirtualBox/VMware ke PATH bila belum terdeteksi ----
+# Di Git Bash, VBoxManage.exe/ovftool jarang ada di PATH walau terpasang. Tambah lokasi baku.
+if [ "$OS" = windows ]; then
+  for p in "/c/Program Files/Oracle/VirtualBox" "/c/Program Files/VMware/VMware Workstation" \
+           "/c/Program Files (x86)/VMware/VMware Workstation" "/c/Program Files/VMware/VMware Workstation/OVFTool"; do
+    [ -d "$p" ] && case ":$PATH:" in *":$p:"*) :;; *) PATH="$PATH:$p";; esac
+  done
+  export PATH
+  # Skrip ini memanggil exe Windows (docker.exe, VBoxManage.exe) dgn path host '/c/...'.
+  # Konversi path otomatis Git Bash HARUS aktif agar '/c/Users/..' → 'C:\Users\..'.
+  # (MSYS_NO_PATHCONV hanya untuk 'docker exec' berpath container — lihat README Sesi 3.)
+  unset MSYS_NO_PATHCONV
+fi
 
 # ---- cek CLI hypervisor (informasional — jaringan sudah diatur panitia) ----
 check_hypervisor_cli(){
@@ -203,11 +218,28 @@ deploy_vms(){
     ovas+=("$f")
   done
   if command -v VBoxManage >/dev/null 2>&1; then
+    # --- pastikan Host-Only net lab (host=NET_HOSTONLY_IP, DC=NET_DC_IP) + DHCP utk klien ---
+    local hoif
+    hoif="$(VBoxManage list hostonlyifs | awk -v ip="$NET_HOSTONLY_IP" '
+      /^Name:/{sub(/^Name: */,"");n=$0} /^IPAddress:/{if($2==ip){print n;exit}}')"
+    if [ -z "$hoif" ]; then
+      ok "buat Host-Only network lab ($NET_HOSTONLY_IP/24)"
+      hoif="$(VBoxManage hostonlyif create 2>&1 | sed -n "s/.*Interface '\(.*\)' was successfully created.*/\1/p")"
+      [ -n "$hoif" ] || die "gagal membuat host-only interface (jalankan sebagai Administrator)."
+      VBoxManage hostonlyif ipconfig "$hoif" --ip "$NET_HOSTONLY_IP" --netmask 255.255.255.0 >/dev/null
+    fi
+    ok "Host-Only net: '$hoif' → $NET_HOSTONLY_IP/24 (DC=$NET_DC_IP, klien via DHCP .100-.200)"
+    VBoxManage dhcpserver add --interface="$hoif" --server-ip "${NET_HOSTONLY_IP%.*}.2" \
+      --netmask 255.255.255.0 --lower-ip "${NET_HOSTONLY_IP%.*}.100" --upper-ip "${NET_HOSTONLY_IP%.*}.200" \
+      --enable >/dev/null 2>&1 || VBoxManage dhcpserver modify --interface="$hoif" --enable >/dev/null 2>&1 || true
     for ova in "${ovas[@]}"; do
       local name; name="$(basename "$ova" .ova)"
       if VBoxManage showvminfo "$name" >/dev/null 2>&1; then ok "VM '$name' sudah terdaftar"; else
         ok "impor $name.ova (VirtualBox)"; VBoxManage import "$ova" --vsys 0 --vmname "$name"
       fi
+      # NIC1 → Host-Only lab (isolasi, akses ke layanan Docker di host $NET_HOSTONLY_IP & DC $NET_DC_IP)
+      VBoxManage modifyvm "$name" --nic1 hostonly --hostonlyadapter1 "$hoif" >/dev/null 2>&1 \
+        && ok "  NIC1 '$name' → Host-Only '$hoif'" || warn "  gagal set NIC '$name' (VM mungkin sedang berjalan)"
       if VBoxManage list runningvms | grep -q "\"$name\""; then ok "VM '$name' sudah berjalan";
       else ok "start '$name' (headless)"; VBoxManage startvm "$name" --type headless; fi
     done
