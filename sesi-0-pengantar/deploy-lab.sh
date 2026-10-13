@@ -11,7 +11,12 @@
 #   ./deploy-lab.sh --check         # hanya laporkan OS/arch/deps, tidak mengubah apa pun
 #   ./deploy-lab.sh --no-samba      # tanpa DC Samba (Sesi 1 Bagian A)
 #   ./deploy-lab.sh --vms           # (DI HOST FISIK) impor & start VM klien dari distribusi/ova
+#   ./deploy-lab.sh --network-only  # hanya samakan .env + /etc/hosts (jaringan seragam)
 #   ./deploy-lab.sh --down          # hentikan & bersihkan stack
+#
+# Jaringan OTOMATIS: setiap deploy menyelaraskan deploy/.env (LAB_DOMAIN/DC_IP/DC_HOST) dan
+# /etc/hosts (*.iamlab.test → 127.0.0.1, dc1 → DC_IP) dari rencana kanonik di skrip ini —
+# peserta TIDAK perlu menyetel apa pun. Panitia cukup ubah blok "RENCANA JARINGAN KANONIK".
 #   ./deploy-lab.sh --help
 #
 # Dua konteks eksekusi:
@@ -30,6 +35,14 @@ INSTALLER="$ROOT/distribusi/installer"
 OVADIR="$ROOT/distribusi/ova"
 SAMBA=1; MODE="full"
 
+# ---- RENCANA JARINGAN KANONIK (ubah DI SATU TEMPAT ini bila panitia pakai subnet lain) ----
+# Nilai ini dipakai untuk mengisi .env dan /etc/hosts otomatis → peserta tak mengatur apa pun.
+NET_DOMAIN="iamlab.test"
+NET_DC_IP="10.10.10.10"          # IP VM Windows Server (DC) di VMnet lab
+NET_DC_HOST="dc1.iamlab.test"
+NET_DOCKER_IP="10.10.10.5"       # IP tetap host Docker di VMnet lab (dilihat dari VM klien)
+NET_SUBS="kc app saml grafana bao mail pam"   # subdomain layanan (dilayani Caddy)
+
 # ---- util tampilan ----
 if [ -t 1 ]; then B="\033[1m"; G="\033[32m"; Y="\033[33m"; R="\033[31m"; N="\033[0m"; else B=""; G=""; Y=""; R=""; N=""; fi
 step(){ printf "${B}==> %s${N}\n" "$*"; }
@@ -43,8 +56,9 @@ for a in "$@"; do case "$a" in
   --check)        MODE="check";;
   --down)         MODE="down";;
   --vms)          MODE="vms";;
+  --network-only) MODE="network";;
   --no-samba)     SAMBA=0;;
-  -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
+  -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
   *) die "opsi tak dikenal: $a (coba --help)";;
 esac; done
 
@@ -115,6 +129,40 @@ load_images(){
   else
     ok "docker load -i $(basename "$IMG_TAR") (±4 GB, mohon tunggu)…"
     docker load -i "$IMG_TAR" | tail -3
+  fi
+}
+
+# ---- jaringan seragam: .env kanonik + /etc/hosts otomatis (peserta tak mengatur) ----
+hosts_path(){ case "$OS" in windows) echo "/c/Windows/System32/drivers/etc/hosts";; *) echo "/etc/hosts";; esac; }
+write_hosts(){ # $1=file, butuh hak admin; idempoten via penanda
+  local f="$1" s="# >>> lab-iam (otomatis, jangan sunting) >>>" e="# <<< lab-iam <<<"
+  local line1="127.0.0.1"; for d in $NET_SUBS; do line1="$line1 $d.$NET_DOMAIN"; done
+  local block="$s"$'\n'"$line1"$'\n'"$NET_DC_IP $NET_DC_HOST"$'\n'"$e"
+  local tmp; tmp="$(mktemp)"
+  # buang blok lama (jika ada) lalu tambah yang baru
+  awk -v s="$s" -v e="$e" 'f&&$0==e{f=0;next} $0==s{f=1} !f' "$f" 2>/dev/null > "$tmp" || true
+  printf '%s\n' "$block" >> "$tmp"
+  if [ -w "$f" ]; then cat "$tmp" > "$f"; else sudo cp "$tmp" "$f"; fi
+  rm -f "$tmp"
+}
+setup_network(){
+  step "Konfigurasi jaringan seragam (otomatis — tanpa setel manual)"
+  [ -d "$DEPLOY" ] || die "folder deploy tak ada"
+  ( cd "$DEPLOY"; [ -f .env ] || cp .env.example .env
+    for kv in "LAB_DOMAIN=$NET_DOMAIN" "DC_IP=$NET_DC_IP" "DC_HOST=$NET_DC_HOST"; do
+      k="${kv%%=*}"
+      if grep -q "^$k=" .env; then
+        if [ "$OS" = darwin ]; then sed -i '' "s|^$k=.*|$kv|" .env; else sed -i "s|^$k=.*|$kv|" .env; fi
+      else printf '%s\n' "$kv" >> .env; fi
+    done )
+  ok ".env diselaraskan (LAB_DOMAIN=$NET_DOMAIN, DC_IP=$NET_DC_IP, DC_HOST=$NET_DC_HOST)"
+  local hf; hf="$(hosts_path)"
+  if write_hosts "$hf" 2>/dev/null; then
+    ok "hosts diset: *.$NET_DOMAIN → 127.0.0.1 (Caddy lokal), $NET_DC_HOST → $NET_DC_IP"
+  else
+    warn "tak bisa menulis $hf (perlu admin). Jalankan sekali dengan hak admin, atau tambah manual:"
+    warn "  127.0.0.1 $(for d in $NET_SUBS; do printf '%s.%s ' "$d" "$NET_DOMAIN"; done)"
+    warn "  $NET_DC_IP $NET_DC_HOST"
   fi
 }
 
@@ -217,7 +265,8 @@ printf "${B}Lab IAM — deploy  (OS=%s arch=%s mode=%s)${N}\n" "$OS" "$ARCH" "$M
 case "$MODE" in
   down)    compose_down;;
   vms)     deploy_vms;;
-  check)   check_hypervisor_cli; ensure_docker; [ -f "$IMG_TAR" ] && ok "tar image ada ($(du -h "$IMG_TAR"|cut -f1))" || warn "tar image belum ada"; shopt -s nullglob; o=("$OVADIR"/*.ova); shopt -u nullglob; [ ${#o[@]} -gt 0 ] && ok "OVA ditemukan: ${#o[@]}" || warn "belum ada OVA di distribusi/ova"; step "Check selesai (tidak ada perubahan).";;
-  compose) load_images; compose_up;;
-  full)    check_hypervisor_cli; ensure_docker; load_images; compose_up;;
+  network) setup_network;;
+  check)   check_hypervisor_cli; ensure_docker; [ -f "$IMG_TAR" ] && ok "tar image ada ($(du -h "$IMG_TAR"|cut -f1))" || warn "tar image belum ada"; shopt -s nullglob; o=("$OVADIR"/*.ova); shopt -u nullglob; [ ${#o[@]} -gt 0 ] && ok "OVA ditemukan: ${#o[@]}" || warn "belum ada OVA di distribusi/ova"; ok "rencana jaringan: domain=$NET_DOMAIN DC=$NET_DC_IP host-docker=$NET_DOCKER_IP"; step "Check selesai (tidak ada perubahan).";;
+  compose) setup_network; load_images; compose_up;;
+  full)    check_hypervisor_cli; ensure_docker; setup_network; load_images; compose_up;;
 esac

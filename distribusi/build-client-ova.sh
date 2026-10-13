@@ -18,6 +18,9 @@ set -euo pipefail
 
 ARCH="amd64"; RELEASE="24.04"; DISK_SIZE="12G"
 DOMAIN="iamlab.test"; HOSTNAME_VM="ubuntu-client"; VM_USER="peserta"; VM_PASS="Peserta#Lab2026"
+# Rencana jaringan kanonik (samakan dgn deploy-lab.sh) → klien self-configuring, tanpa setel manual.
+NET_DC_IP="10.10.10.10"; NET_DOCKER_IP="10.10.10.5"
+NET_SUBS="kc app saml grafana bao mail pam"
 while [ $# -gt 0 ]; do case "$1" in
   --arch) ARCH="$2"; shift 2;; --release) RELEASE="$2"; shift 2;;
   --size) DISK_SIZE="$2"; shift 2;; -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
@@ -44,11 +47,12 @@ cat > "$WORK/meta-data" <<EOF
 instance-id: $HOSTNAME_VM-001
 local-hostname: $HOSTNAME_VM
 EOF
+DOCKER_SUBS_LINE="$NET_DOCKER_IP"; for s in $NET_SUBS; do DOCKER_SUBS_LINE="$DOCKER_SUBS_LINE $s.$DOMAIN"; done
 cat > "$WORK/user-data" <<EOF
 #cloud-config
 hostname: $HOSTNAME_VM
 fqdn: $HOSTNAME_VM.$DOMAIN
-manage_etc_hosts: true
+manage_etc_hosts: false
 users:
   - name: $VM_USER
     groups: [sudo]
@@ -73,6 +77,15 @@ packages:
   - krb5-user
   - open-vm-tools
 write_files:
+  - path: /etc/hosts
+    permissions: '0644'
+    content: |
+      127.0.0.1 localhost
+      127.0.1.1 $HOSTNAME_VM.$DOMAIN $HOSTNAME_VM
+      # Lab IAM — rencana jaringan seragam (dibaking, peserta tak menyetel)
+      $NET_DC_IP dc1.$DOMAIN
+      $DOCKER_SUBS_LINE
+      ::1 localhost ip6-localhost ip6-loopback
   - path: /usr/local/sbin/join-domain.sh
     permissions: '0755'
     content: |
