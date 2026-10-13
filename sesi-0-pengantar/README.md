@@ -88,6 +88,8 @@ pada *Agenda Aktivitas* di bawahnya.
 
 ![Arsitektur & alur IAM — 3 partisi (Direktori & Klien · Layanan IAM · Observability) dengan alur bernomor](gambar/arsitektur.png)
 
+*Gambar 1. Arsitektur & alur IAM (3 partisi, alur bernomor)*
+
 **Agenda Aktivitas (penjelasan nomor pada diagram):**
 
 | # | Aktivitas | Sistem terhubung |
@@ -106,6 +108,8 @@ pada *Agenda Aktivitas* di bawahnya.
 Secara **jaringan/penempatan**, blok-blok itu berjalan sebagai berikut:
 
 ![Topologi sistem IAM — 4 sistem (Windows Server AD, Samba AD, klien Windows & Linux) + layanan IAM, domain iamlab.test](gambar/topologi.png)
+
+*Gambar 2. Topologi sistem IAM — 4 sistem + layanan IAM*
 
 **Legenda:**
 - 🟦 **Zona Endpoint/Klien** — perangkat pengguna (klien Windows 11 & Linux).

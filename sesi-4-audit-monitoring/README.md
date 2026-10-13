@@ -66,6 +66,8 @@ mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & 
 
 ![Pipeline log identitas: sumber → Alloy → Loki → Grafana → notifikasi](gambar/pipeline-log.png)
 
+*Gambar 1. Pipeline log identitas — sumber → Alloy → Loki → Grafana*
+
 *Legenda: teal = aliran log; label hanya service/event (low-cardinality). Nomor dijelaskan pada Agenda Aktivitas di bawah.*
 
 **Agenda Aktivitas (nomor pada diagram):**
@@ -130,6 +132,8 @@ Dashboard akhir yang diharapkan (berisi data nyata dari lalu lintas lab):
 
 ![Grafana — dashboard Identity Audit: jumlah user, user aktif, email terkirim, password reset, login sukses vs gagal, top IP gagal, aktivitas per layanan](gambar/grafana-dashboard.png)
 
+*Gambar 2. Grafana — dashboard Identity Audit*
+
 > Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
 > `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
 
@@ -137,6 +141,8 @@ Dashboard akhir yang diharapkan (berisi data nyata dari lalu lintas lab):
 Buat aturan alert dengan *contact point* Mailpit (kotak surat uji):
 
 ![Mailpit — kotak surat uji (menerima email alert & reset sandi)](gambar/mailpit.png)
+
+*Gambar 3. Mailpit — kotak surat uji (alert & reset sandi)*
 
 | Aturan | Logika (disederhanakan) | Ambang |
 |--------|-------------------------|--------|

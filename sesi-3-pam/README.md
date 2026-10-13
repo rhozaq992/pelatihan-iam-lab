@@ -40,6 +40,8 @@ langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
 ![Alur PAM: SSO + MFA → Warpgate (bastion) → target; OpenBao untuk kredensial & SSH CA](gambar/alur-pam.png)
 
+*Gambar 1. Alur PAM — SSO+MFA → Warpgate → target; OpenBao kredensial & SSH CA*
+
 *Legenda: penuh = akses/sesi; putus-putus = SSO/auth & kredensial; teal = log. Nomor dijelaskan pada Agenda Aktivitas di bawah.*
 
 **Agenda Aktivitas (nomor pada diagram):**
@@ -95,6 +97,8 @@ Status nyata setelah init/unseal (OpenBao di lab ini berbasis **CLI**, tanpa web
 
 ![Terminal — OpenBao: status (initialized/unsealed, 3/2), audit file, engine kv & ssh](gambar/openbao-cli.png)
 
+*Gambar 2. Terminal OpenBao — status, audit, engine kv & ssh*
+
 ### B. 🐳 Target memercayai SSH CA
 Ambil kunci publik CA dari OpenBao lalu salurkan ke tiap target, dan matikan sandi:
 ```bash
@@ -122,11 +126,15 @@ terbatas, dan aktifkan **perekaman sesi**:
 
 ![Warpgate — konsol admin (Config): tambah target SSH, Users, Access roles, perekaman sesi](gambar/warpgate-admin.png)
 
+*Gambar 3. Warpgate — konsol admin (target SSH, Users, roles, rekam sesi)*
+
 ### C.1 🖥️ Akses target via SSH melalui bastion (sesuai silabus)
 Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate memakai
 `user:target@bastion`; sesi direkam dan bisa diputar ulang di web UI:
 
 ![Diagram akses SSH ke srv-app01 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
+
+*Gambar 4. Akses SSH ke srv-app01 via bastion Warpgate*
 
 *Legenda: penuh = koneksi/sesi; putus-putus = SSO/MFA & permintaan sertifikat; teal = rekaman sesi untuk audit.*
 

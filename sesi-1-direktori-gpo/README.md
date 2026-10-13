@@ -78,7 +78,11 @@ lalu penyerang menebak sandi itu **luring** (di luar jaringan, tanpa menyentuh D
 
 ![Skema Kerberoasting (animasi langkah demi langkah)](gambar/kerberoasting.gif)
 
+*Gambar 1. Skema Kerberoasting (animasi langkah demi langkah)*
+
 ![Skema Kerberoasting (ringkas) + titik mitigasi & deteksi](gambar/kerberoasting-skema.png)
+
+*Gambar 2. Skema Kerberoasting ringkas — titik mitigasi & deteksi*
 
 *Legenda: nomor 1–3 = langkah (konsep); blok hijau = mitigasi; blok teal = deteksi.*
 
@@ -92,6 +96,8 @@ dari memori, lalu memakainya untuk autentikasi ke host lain **tanpa tahu sandi a
 
 ![Skema Pass-the-Hash + titik mitigasi & deteksi](gambar/pass-the-hash.png)
 
+*Gambar 3. Skema Pass-the-Hash — titik mitigasi & deteksi*
+
 *Legenda: nomor 1–3 = langkah serangan (konsep); blok hijau = mitigasi; blok teal = deteksi.*
 
 *Analogi:* mencuri cetakan sidik jari lalu memakainya di pemindai lain. **Mitigasi:**
@@ -104,6 +110,8 @@ nomor enctype Kerberos: `0x17`=RC4-HMAC, `0x18`=RC4-HMAC-EXP (lemah), AES = `0x1
 
 ### Siklus GPO
 ![Siklus setup → implementasi GPO (Windows Server 2025)](gambar/siklus-gpo.png)
+
+*Gambar 4. Siklus setup → implementasi GPO*
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
@@ -125,6 +133,8 @@ samba-tool domain passwordsettings show        # verifikasi
 Verifikasi direktori (keluaran nyata):
 
 ![Terminal — Samba AD DC: domain, OU, grup, kebijakan sandi](gambar/samba-cli.png)
+
+*Gambar 5. Terminal Samba AD DC — domain, OU, grup, kebijakan sandi*
 
 **Gabungkan klien Linux** (`sssd` + `realmd`) ke domain:
 ```bash
