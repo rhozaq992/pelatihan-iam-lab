@@ -1,6 +1,6 @@
 """App-Komentar — aplikasi demo RBAC untuk lab IAM.
 
-Tujuan ajar (dipetakan ke skenario S1-S7 di dokumen Bab 10):
+Tujuan ajar (dipetakan ke skenario S1-S7 (Sesi 2)):
   - S1 beda role: Viewer/Editor/Admin dari klaim grup Keycloak
   - S2 Broken Access Control: otorisasi DITEGAKKAN DI SERVER (bukan sekadar
         menyembunyikan tombol) -> endpoint menolak role tak berhak walau dipanggil langsung
@@ -68,7 +68,7 @@ if _oidc_ready:
         server_metadata_url=ISSUER.rstrip("/") + "/.well-known/openid-configuration",
         client_kwargs={
             "scope": "openid profile email groups",
-            # Client Keycloak mewajibkan PKCE (Lab 2) → kirim code_challenge S256.
+            # Client Keycloak mewajibkan PKCE (Sesi 2) → kirim code_challenge S256.
             "code_challenge_method": "S256",
         },
     )

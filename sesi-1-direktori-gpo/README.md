@@ -122,7 +122,11 @@ Linux, DC Samba sudah ter-*provision* (`samba-tool domain provision`). Yang Anda
 menata OU/grup, kebijakan sandi, lalu menggabungkan klien Linux.
 
 ```bash
-# 🐳 di dalam container/host Samba DC
+# 🐳 jalankan DC Samba (profil "direktori", tidak autorun) lalu masuk ke dalamnya
+docker compose --profile direktori up -d samba-dc   # provisioning otomatis saat start pertama (~30 dtk)
+docker compose exec samba-dc bash                    # prompt berikut dijalankan DI DALAM container
+
+# 🐳 di dalam container Samba DC (dc2)
 samba-tool ou create "OU=Pengguna,DC=iamlab,DC=test"
 for g in GG-App-Viewer GG-App-Editor GG-App-Admin GG-Tier1-Admin; do samba-tool group add "$g"; done
 samba-tool user create budi.contoh 'Passw0rd#Lab2026' --userou="OU=Pengguna"

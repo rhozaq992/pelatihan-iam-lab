@@ -1,6 +1,6 @@
 # Warpgate (bastion + rekam sesi)
 
-Status: disiapkan (image + volume). Konfigurasi SSO & target = tugas peserta (Lab 4).
+Status: disiapkan (image + volume). Konfigurasi SSO & target = tugas peserta (Sesi 3).
 
 ## Setup pertama (sekali)
 ```

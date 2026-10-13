@@ -26,6 +26,7 @@ volumes:
   warpgate-data:
   loki-data:
   grafana-data:
+  samba-data:
 
 services:
   # ---------- Edge: reverse proxy + TLS internal CA ----------
@@ -161,7 +162,7 @@ services:
 
   warpgate:
     image: ghcr.io/warp-tech/warpgate:0.28.3
-    # restart "no": config /data/warpgate.yaml belum ada sampai setup (Lab 4) →
+    # restart "no": config /data/warpgate.yaml belum ada sampai setup (Sesi 3) →
     # cegah crash-loop. Jalankan setup lalu `docker compose up -d warpgate`.
     restart: "no"
     # Pertama kali (sekali): `docker compose run --rm warpgate unattended-setup --data-path /data --http-port 8888 --ssh-port 2222 --record-sessions --host-key-verification auto-accept --admin-password <sandi> --external-host pam.iamlab.test`
@@ -223,7 +224,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_DEFAULT_THEME: light
       GF_SERVER_ROOT_URL: https://grafana.${LAB_DOMAIN}
-      # SMTP ke Mailpit agar alert email (Lab 5) berfungsi — hanya via env, bukan UI.
+      # SMTP ke Mailpit agar alert email (Sesi 4) berfungsi — hanya via env, bukan UI.
       GF_SMTP_ENABLED: "true"
       GF_SMTP_HOST: mailpit:1025
       GF_SMTP_FROM_ADDRESS: grafana@${LAB_DOMAIN}
@@ -238,7 +239,7 @@ services:
   # ---------- Load generator ----------
   locust:
     image: locustio/locust:2.32.4
-    profiles: ["load"]       # tidak autorun; mulai di Lab 6: docker compose --profile load up -d locust
+    profiles: ["load"]       # tidak autorun; mulai di Sesi 4 (capstone): docker compose --profile load up -d locust
     restart: unless-stopped
     command: ["-f", "/mnt/locust/locustfile.py", "--host", "https://app.${LAB_DOMAIN}"]
     volumes:
@@ -257,4 +258,27 @@ services:
     extra_hosts:
       - "${DC_HOST}:${DC_IP}"
     networks: [iamnet]
+    logging: *default-logging
+
+  # ---------- Samba AD DC (Sesi 1 Bagian A — direktori sisi Linux, dc2) ----------
+  # Tidak autorun. Mulai saat Sesi 1 Bagian A:
+  #   docker compose --profile direktori up -d samba-dc
+  #   docker compose exec samba-dc samba-tool ...
+  # Windows Server AD (dc1) berada di VM VMware terpisah, DI LUAR compose ini.
+  samba-dc:
+    image: diegogslomp/samba-ad-dc:latest   # pin tag saat build final
+    profiles: ["direktori"]
+    hostname: dc2
+    privileged: true
+    environment:
+      REALM: IAMLAB.TEST
+      DOMAIN: IAMLAB
+      ADMIN_PASS: ${SAMBA_ADMIN_PASS:-Passw0rd#Lab2026}
+      DNS_FORWARDER: "1.1.1.1"
+      DNS_BACKEND: SAMBA_INTERNAL
+    volumes:
+      - samba-data:/var/lib/samba
+    networks:
+      iamnet:
+        aliases: [dc2.iamlab.test]
     logging: *default-logging

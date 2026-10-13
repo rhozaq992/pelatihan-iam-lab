@@ -6,6 +6,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd -m -s /bin/bash labadmin && echo 'labadmin:ChangeMe#2026' | chpasswd \
     && adduser labadmin sudo
 # Default SENGAJA belum di-hardening (password auth masih aktif) agar peserta berlatih.
-# TODO PESERTA (Lab 4): TrustedUserCAKeys /etc/ssh/openbao_ca.pub; PasswordAuthentication no.
+# TODO PESERTA (Sesi 3): TrustedUserCAKeys /etc/ssh/openbao_ca.pub; PasswordAuthentication no.
 EXPOSE 22
 CMD ["/usr/sbin/sshd", "-D", "-e"]

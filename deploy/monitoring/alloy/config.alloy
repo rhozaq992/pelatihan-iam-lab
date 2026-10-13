@@ -1,6 +1,6 @@
 // Grafana Alloy — pipeline log lab IAM.
 // Status: SEBAGIAN terisi (sumber Docker + parse Keycloak). Bagian bertanda
-// TODO diselesaikan PESERTA di Lab 5 (OpenBao, Warpgate, sshd, Windows Event DC).
+// TODO diselesaikan PESERTA di Sesi 4 (OpenBao, Warpgate, sshd, Windows Event DC).
 //
 // Prinsip label: label HANYA low-cardinality (service, event).
 // user/ip DISIMPAN sebagai field di baris log, dikueri via `| json` di LogQL —
@@ -73,7 +73,7 @@ loki.process "router" {
 		}
 	}
 
-	// TODO PESERTA (Lab 5): tambahkan stage.match untuk service="openbao"
+	// TODO PESERTA (Sesi 4): tambahkan stage.match untuk service="openbao"
 	//   parse JSON audit device → field request.path, auth.display_name, remote_address
 	// stage.match { selector = "{service=\"openbao\"}" ... }
 
@@ -90,7 +90,7 @@ loki.process "router" {
 //     forward_to = [loki.write.dc.receiver]   // kirim ke Loki lab (http://<docker-host>:3100)
 //   }
 // Event kunci: 4624/4625 logon, 4768/4769 Kerberos, 4728/4732 grup, 5136 perubahan objek.
-// (Didokumentasikan di Lab 5; tidak dapat berjalan di container Linux.)
+// (Didokumentasikan di Sesi 4; tidak dapat berjalan di container Linux.)
 
 // ---------- Tujuan ----------
 loki.write "default" {

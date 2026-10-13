@@ -2,7 +2,7 @@
 
 Profil dipilih via env LAB_PROFILE: normal | spray | fail-then-success | off-hours.
 Catatan: HANYA membidik layanan lab (host diisi di compose). Laju dibatasi.
-Login OIDC penuh (termasuk OTP) disederhanakan — lihat catatan di dokumen Bab 13.
+Login OIDC penuh (termasuk OTP) disederhanakan — lihat catatan di Sesi 4.
 ponytail: satu berkas, memukul endpoint HTTP lab; bukan klien OIDC lengkap.
 """
 import os

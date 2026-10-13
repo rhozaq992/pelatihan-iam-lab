@@ -22,6 +22,6 @@ case "$ACTION" in
   kerberoast)
     echo "      impacket-GetUserSPNs iamlab.test/<user>:<pass> -request -dc-ip $TARGET" ;;
   *)
-    echo "      (lihat modul Lab 3 — hanya untuk menghasilkan sinyal pada log)" ;;
+    echo "      (lihat modul Sesi 1 — hanya untuk menghasilkan sinyal pada log)" ;;
 esac
 echo "[lab] Setelah ini: amati Event 4769 (enctype RC4) di Grafana, terapkan AES-only, ulangi."

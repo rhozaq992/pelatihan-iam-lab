@@ -40,6 +40,7 @@ jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun ser
 
 *Gambar 1. Alur SSO & MFA — login terfederasi*
 
+
 *Legenda: garis penuh = langkah utama; putus-putus = redirect/token & sesi; teal = jejak audit. Nomor dijelaskan pada Agenda Aktivitas di bawah.*
 
 **Agenda Aktivitas (nomor pada diagram):**
@@ -58,7 +59,8 @@ jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun ser
 **Protokol:**
 - *SAML 2.0* — XML Assertion bertanda tangan (App-SAML).
 - *OIDC* — ID Token (JWT) di atas OAuth 2.0 (App-Komentar, Grafana, Warpgate). Alur aman:
-  **Authorization Code + PKCE** (`state`, `nonce`). *Analogi PKCE:* saat menitip kunci
+  **Authorization Code + PKCE** (`code_challenge`/`code_verifier`), dilengkapi `state`
+  (anti-CSRF) dan `nonce` (anti-replay ID Token). *Analogi PKCE:* saat menitip kunci
   Anda juga memberi teka-teki yang hanya Anda bisa jawab, agar tiket tak bisa dipakai
   pihak yang mencegatnya.
 
@@ -73,6 +75,7 @@ panggung mana yang boleh dimasuki.
 ![Alur RBAC App-Komentar: grup AD/Keycloak → klaim token → izin aplikasi](gambar/alur-rbac.png)
 
 *Gambar 2. Alur RBAC App-Komentar — grup → peran → izin*
+
 
 *Legenda: putus-putus = klaim grup dalam token; nomor 1–3 = urutan grup → token → izin.*
 
@@ -107,6 +110,7 @@ connection & authentication → Synchronize all users**:
 
 *Gambar 3. Keycloak — form User federation LDAP*
 
+
 *Gambar: form federasi LDAP terisi — Vendor *Active Directory*, Connection URL `ldaps://dc1.iamlab.test:636`. Cocokkan nilai di layar Anda dengan ini sebelum menekan Save.*
 
 Tambahkan **Mappers → group-ldap-mapper** (LDAP Groups DN `OU=Grup,DC=iamlab,DC=test`)
@@ -115,6 +119,7 @@ lalu **Sync LDAP groups**. Daftar provider federasi:
 ![Keycloak — User federation: provider LDAP (Enabled)](gambar/kc-user-federation.png)
 
 *Gambar 4. Keycloak — User federation (provider LDAP aktif)*
+
 
 ### 2. 🌐 Client OIDC untuk App-Komentar
 **Clients → Create → OpenID Connect**, Client ID `app-komentar`:
@@ -130,15 +135,18 @@ Cocokkan layar pengaturan client:
 
 *Gambar 5. Keycloak — detail Client app-komentar*
 
+
 Tab Advanced menampilkan PKCE S256 (wajib):
 
 ![Keycloak — Client app-komentar tab Advanced (PKCE S256)](gambar/kc-client-advanced.png)
 
 *Gambar 6. Keycloak — Client tab Advanced (PKCE S256)*
 
+
 ![Keycloak — daftar Clients realm iamlab](gambar/kc-clients.png)
 
 *Gambar 7. Keycloak — daftar Clients realm iamlab*
+
 
 Lalu 🖥️ salin **Client secret** ke `deploy/.env` (`APP_OIDC_CLIENT_SECRET=…`) dan muat
 ulang aplikasi: `docker compose up -d app-komentar`.
@@ -153,10 +161,14 @@ ulang aplikasi: `docker compose up -d app-komentar`.
 
   ![Keycloak — Required actions (Configure OTP aktif)](gambar/kc-required-actions.png)
 
+*Gambar 8. Keycloak — Required actions (Configure OTP aktif)*
+
 - **Authentication → Flows**: duplikat *Browser*, tambah sub-flow **Conditional OTP** →
   *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Grafana, Warpgate).
 
   ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
+
+*Gambar 9. Keycloak — Authentication flows (Conditional OTP = Required)*
 
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
   Google Authenticator.
@@ -174,19 +186,22 @@ Cocokkan layar Anda dengan tiga tangkapan berikut:
 
 ![Keycloak — Security defenses: Brute force detection aktif](gambar/kc-bruteforce.png)
 
-*Gambar 8. Keycloak — Brute force detection aktif*
+*Gambar 10. Keycloak — Brute force detection aktif*
+
 
 *Gambar: proteksi brute force menyala — akun dikunci sementara setelah sejumlah kegagalan login (mis. 10), waktu tunggu bertambah.*
 
 ![Keycloak — Realm settings → Email (SMTP ke Mailpit)](gambar/kc-email.png)
 
-*Gambar 9. Keycloak — Email (SMTP ke Mailpit)*
+*Gambar 11. Keycloak — Email (SMTP ke Mailpit)*
+
 
 *Gambar: SMTP diarahkan ke Mailpit (`mailpit:1025`) agar email reset/verifikasi tertangkap di kotak surat uji, bukan terkirim ke internet.*
 
 ![Keycloak — konfigurasi Events (user + admin, listener jboss-logging)](gambar/kc-events.png)
 
-*Gambar 10. Keycloak — konfigurasi Events*
+*Gambar 12. Keycloak — konfigurasi Events*
+
 
 *Gambar: pencatatan event diaktifkan sehingga login/perubahan admin terekam dan bisa dipanen Alloy → Loki di Sesi 4.*
 
@@ -198,11 +213,14 @@ yang tersedia berbeda, dan penolakan ditegakkan **di server** (bukan sekadar tom
 |---|---|---|
 | ![Viewer](gambar/app-viewer.png) | ![Editor](gambar/app-editor.png) | ![Admin](gambar/app-admin.png) |
 
+*Gambar 13. App-Komentar — tampilan peran Viewer, Editor, Admin*
+
 Halaman login SSO Keycloak yang muncul saat menekan "masuk":
 
 ![Halaman login Keycloak (SSO)](gambar/kc-login.png)
 
-*Gambar 11. Halaman login Keycloak (SSO)*
+*Gambar 14. Halaman login Keycloak (SSO)*
+
 
 ### (Terkait) Distribusi kata sandi awal via email
 Saat *bulk import* (Sesi 1), sandi awal dikirim ke **Mailpit** (kotak surat uji), dan
@@ -210,7 +228,8 @@ Keycloak juga mengirim email aksi akun (set sandi/verifikasi). Alurnya:
 
 ![Distribusi kata sandi awal via email (Mailpit) untuk akun AD & Keycloak](gambar/distribusi-sandi.png)
 
-*Gambar 12. Distribusi kata sandi awal via email*
+*Gambar 15. Distribusi kata sandi awal via email*
+
 
 > Catatan: realm Keycloak 26 punya aksi default **Verify Profile**. Pengguna AD sudah
 > lengkap (email/nama); jika membuat pengguna lokal untuk uji, isi email + firstName +

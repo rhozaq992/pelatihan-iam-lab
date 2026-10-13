@@ -1,5 +1,5 @@
 # SP SAML contoh: Apache httpd + mod_auth_mellon.
-# Infra berjalan; konfigurasi SP (metadata IdP, proteksi lokasi) = tugas peserta Lab 2.
+# Infra berjalan; konfigurasi SP (metadata IdP, proteksi lokasi) = tugas peserta Sesi 2.
 FROM debian:12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
       apache2 libapache2-mod-auth-mellon ca-certificates \
