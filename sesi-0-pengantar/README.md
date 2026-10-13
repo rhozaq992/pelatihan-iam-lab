@@ -82,8 +82,8 @@ Seluruh lab berjalan terisolasi di PC peserta (jaringan Host-Only, tanpa interne
 domain sintetis **`iamlab.test`**. AD berjalan sebagai VM Windows Server 2025; sisanya
 sebagai container Docker di belakang satu reverse proxy (Caddy) dengan TLS dari CA internal.
 
-Diagram berikut membagi sistem menjadi **tiga partisi** — (1) Direktori & Klien, (2)
-Layanan IAM, (3) Observability — dengan alur data/aktivitas **bernomor** yang dijelaskan
+Diagram berikut membagi sistem menjadi **tiga segmen** — Direktori & Klien,
+Layanan IAM, dan Observability — dengan alur data/aktivitas **bernomor** yang dijelaskan
 pada *Agenda Aktivitas* di bawahnya.
 
 ![Arsitektur & alur IAM — 3 partisi (Direktori & Klien · Layanan IAM · Observability) dengan alur bernomor](gambar/arsitektur.png)
