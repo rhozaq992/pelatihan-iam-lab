@@ -38,6 +38,8 @@ jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun ser
 
 ![Alur SSO: aplikasi → Keycloak → federasi LDAP AD → MFA → token/assertion](gambar/alur-sso.png)
 
+*Legenda: garis penuh = langkah utama; putus-putus = redirect/token & sesi; teal = jejak audit. Nomor dijelaskan pada Agenda Aktivitas di bawah.*
+
 **Agenda Aktivitas (nomor pada diagram):**
 1. Pengguna membuka aplikasi (akses `/`).
 2. Aplikasi mengarahkan ke Keycloak — OIDC *Authorization Code + PKCE* atau SAML *AuthnRequest*.
@@ -67,6 +69,8 @@ membaca klaim itu untuk menentukan izin. *Analogi:* gelang berwarna yang menentu
 panggung mana yang boleh dimasuki.
 
 ![Alur RBAC App-Komentar: grup AD/Keycloak → klaim token → izin aplikasi](gambar/alur-rbac.png)
+
+*Legenda: putus-putus = klaim grup dalam token; nomor 1–3 = urutan grup → token → izin.*
 
 *Gambar: grup tempat pengguna berada (Viewer/Editor/Admin) ikut dalam token sebagai klaim `groups`; aplikasi membaca klaim itu untuk memutuskan tombol & aksi yang boleh.*
 

@@ -80,6 +80,8 @@ lalu penyerang menebak sandi itu **luring** (di luar jaringan, tanpa menyentuh D
 
 ![Skema Kerberoasting (ringkas) + titik mitigasi & deteksi](gambar/kerberoasting-skema.png)
 
+*Legenda: nomor 1–3 = langkah (konsep); blok hijau = mitigasi; blok teal = deteksi.*
+
 *Analogi:* meminjam gembok resmi, membawanya pulang, mencoba ribuan kunci di rumah.
 **Mitigasi:** sandi akun layanan sangat panjang/acak atau **gMSA**, dan **Kerberos
 AES-only** sehingga tiket RC4 lemah tak terbit. **Deteksi:** event 4769 enctype `0x17`
@@ -89,6 +91,8 @@ dari akun non-mesin; akun umpan (*honey SPN*).
 dari memori, lalu memakainya untuk autentikasi ke host lain **tanpa tahu sandi aslinya**.
 
 ![Skema Pass-the-Hash + titik mitigasi & deteksi](gambar/pass-the-hash.png)
+
+*Legenda: nomor 1–3 = langkah serangan (konsep); blok hijau = mitigasi; blok teal = deteksi.*
 
 *Analogi:* mencuri cetakan sidik jari lalu memakainya di pemindai lain. **Mitigasi:**
 sandi admin lokal unik (**Windows LAPS**), isolasi tier, Protected Users/Credential

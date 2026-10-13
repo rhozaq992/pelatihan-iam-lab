@@ -66,6 +66,8 @@ mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & 
 
 ![Pipeline log identitas: sumber → Alloy → Loki → Grafana → notifikasi](gambar/pipeline-log.png)
 
+*Legenda: teal = aliran log; label hanya service/event (low-cardinality). Nomor dijelaskan pada Agenda Aktivitas di bawah.*
+
 **Agenda Aktivitas (nomor pada diagram):**
 1. Sumber log (Windows AD, Keycloak, OpenBao, Warpgate/sshd, Caddy) mengirim ke **Alloy**.
 2. Alloy mem-*parse* & memberi label (hanya `service`/`event`) lalu mengirim ke **Loki**.

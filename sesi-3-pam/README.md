@@ -40,6 +40,8 @@ langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
 ![Alur PAM: SSO + MFA → Warpgate (bastion) → target; OpenBao untuk kredensial & SSH CA](gambar/alur-pam.png)
 
+*Legenda: penuh = akses/sesi; putus-putus = SSO/auth & kredensial; teal = log. Nomor dijelaskan pada Agenda Aktivitas di bawah.*
+
 **Agenda Aktivitas (nomor pada diagram):**
 1. Admin login ke **bastion Warpgate**.
 2. Warpgate meneruskan autentikasi ke **Keycloak** (SSO OIDC + MFA).
@@ -124,7 +126,16 @@ terbatas, dan aktifkan **perekaman sesi**:
 Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate memakai
 `user:target@bastion`; sesi direkam dan bisa diputar ulang di web UI:
 
-![Terminal peserta — SSH ke srv-app01 melalui bastion Warpgate (port 2222)](gambar/ssh-bastion.png)
+![Diagram akses SSH ke srv-app01 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
+
+*Legenda: penuh = koneksi/sesi; putus-putus = SSO/MFA & permintaan sertifikat; teal = rekaman sesi untuk audit.*
+
+**Agenda Aktivitas (nomor pada diagram):**
+1. Peserta `ssh -p 2222 <user>:srv-app01@pam.iamlab.test` ke **bastion**.
+2. Warpgate meminta autentikasi via **Keycloak** (SSO OIDC + MFA).
+3. Warpgate meminta **sertifikat SSH** berumur pendek ke **OpenBao** (SSH CA).
+4. Sesi diteruskan ke **srv-app01**.
+5. Sesi **direkam** → dapat diputar ulang & diaudit.
 
 ```bash
 ssh -p 2222 <user>:srv-app01@pam.iamlab.test     # bastion mencegat, minta SSO/MFA, lalu teruskan
