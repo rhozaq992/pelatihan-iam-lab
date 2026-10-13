@@ -82,15 +82,26 @@ Seluruh lab berjalan terisolasi di PC peserta (jaringan Host-Only, tanpa interne
 domain sintetis **`iamlab.test`**. AD berjalan sebagai VM Windows Server 2025; sisanya
 sebagai container Docker di belakang satu reverse proxy (Caddy) dengan TLS dari CA internal.
 
-Secara **fungsi**, sistem IAM lab terdiri dari blok kapabilitas berikut (gaya arsitektur
-IAM enterprise) — tiap blok dipetakan ke komponen nyata di lab:
+Diagram berikut membagi sistem menjadi **tiga partisi** — (1) Direktori & Klien, (2)
+Layanan IAM, (3) Observability — dengan alur data/aktivitas **bernomor** yang dijelaskan
+pada *Agenda Aktivitas* di bawahnya.
 
-![Arsitektur fungsional IAM lab — sumber identitas, provisioning, manajemen akses, PAM, sistem target, pengguna, audit](gambar/arsitektur.png)
+![Arsitektur & alur IAM — 3 partisi (Direktori & Klien · Layanan IAM · Observability) dengan alur bernomor](gambar/arsitektur.png)
 
-**Cara membaca:** kiri = sumber & pengisian direktori; tengah = Manajemen Akses (Keycloak)
-dan Privileged Access (OpenBao/Warpgate); kanan = sistem target & pengguna; bawah = audit
-yang menerima *event* dari semua blok. Panah = arah alur (login, federasi, token, akses
-istimewa, event).
+**Agenda Aktivitas (penjelasan nomor pada diagram):**
+
+| # | Aktivitas | Sistem terhubung |
+|---|-----------|------------------|
+| **1** | Pengguna membuka aplikasi/konsol lewat HTTPS; TLS diterminasi reverse proxy | Klien Windows/Linux → **Caddy** |
+| **2** | Proxy meneruskan permintaan login ke Identity Provider (SSO) | Caddy → **Keycloak** |
+| **3** | Keycloak memverifikasi kredensial & menarik atribut/grup lewat LDAPS 636 | Keycloak → **Windows Server AD (dc1)** |
+| **3b** | Federasi direktori untuk sisi Linux | Keycloak → **Samba AD (dc2)** |
+| **4** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Klien → **Warpgate** |
+| **5** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
+| **6** | Sesi SSH diproksikan ke target **dan direkam** | Warpgate → **Klien/target Linux** |
+| **7** | Komponen mengirim event audit (login, akses vault, Windows Event) | Keycloak / OpenBao / Windows AD → **Alloy** |
+| **8** | Log terstruktur disimpan | Alloy → **Loki** |
+| **9** | Visualisasi dashboard & alert (UBA) | Loki → **Grafana** |
 
 Secara **jaringan/penempatan**, blok-blok itu berjalan sebagai berikut:
 
