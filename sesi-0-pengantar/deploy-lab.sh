@@ -163,11 +163,27 @@ deploy_vms(){
     done
   elif command -v vmrun >/dev/null 2>&1; then
     command -v ovftool >/dev/null 2>&1 || die "VMware terpasang tapi 'ovftool' tak ada (perlu untuk impor OVA)."
+    local vmtype="fusion"; if [ "$(uname -s)" != Darwin ]; then vmtype="ws"; fi
     for ova in "${ovas[@]}"; do
-      local name vmx; name="$(basename "$ova" .ova)"; vmx="$OVADIR/$name/$name.vmx"
-      [ -f "$vmx" ] || { ok "impor $name.ova (ovftool)"; ovftool --allowAllExtraConfig --name="$name" "$ova" "$OVADIR/$name/"; vmx="$(ls "$OVADIR/$name"/*.vmx | head -1)"; }
-      if vmrun list | grep -qF "$vmx"; then ok "VM '$name' sudah berjalan";
-      else ok "start '$name'"; vmrun -T ws start "$vmx" nogui; fi
+      local name vmx; name="$(basename "$ova" .ova)"
+      vmx="$(find "$OVADIR/$name" -name '*.vmx' 2>/dev/null | head -1 || true)"
+      if [ -z "$vmx" ]; then
+        ok "impor $name.ova (ovftool)"; ovftool --allowAllExtraConfig --name="$name" "$ova" "$OVADIR/$name/"
+        vmx="$(find "$OVADIR/$name" -name '*.vmx' 2>/dev/null | head -1 || true)"
+      fi
+      [ -n "$vmx" ] || die "VMX tak ditemukan setelah impor $name."
+      # ovftool menyetel guestOS="other" untuk OVA arm → Fusion Apple Silicon menolak start.
+      # Paksa profil ARM (guestOS + EFI) agar VM mau dinyalakan.
+      case "$name" in *-arm64)
+        grep -qi 'guestOS *= *"arm-ubuntu-64"' "$vmx" || {
+          perl -i -pe 's/^\s*guest[Oo][Ss]\s*=.*/guestOS = "arm-ubuntu-64"/i' "$vmx"
+          grep -qi '^guestOS' "$vmx" || printf 'guestOS = "arm-ubuntu-64"\n' >> "$vmx"
+          grep -qi '^firmware' "$vmx" || printf 'firmware = "efi"\n' >> "$vmx"
+          ok "VMX disetel profil ARM (guestOS arm-ubuntu-64, EFI)"
+        } ;;
+      esac
+      if vmrun -T "$vmtype" list | grep -qF "$vmx"; then ok "VM '$name' sudah berjalan";
+      else ok "start '$name' (headless)"; vmrun -T "$vmtype" start "$vmx" nogui; fi
     done
   else
     die "VMware (vmrun) / VirtualBox (VBoxManage) tak ditemukan di PATH — pasang hypervisor dulu."

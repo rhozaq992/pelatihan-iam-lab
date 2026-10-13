@@ -147,10 +147,17 @@ VMDK="ubuntu-client-$ARCH-disk1.vmdk"
 qemu-img convert -O vmdk -o subformat=streamOptimized,adapter_type=lsilogic "$WORK/base.img" "$WORK/$VMDK"
 VMDK_BYTES=$(stat -f%z "$WORK/$VMDK" 2>/dev/null || stat -c%s "$WORK/$VMDK")
 CAP_BYTES=$(qemu-img info --output=json "$WORK/base.img" | python3 -c "import sys,json;print(json.load(sys.stdin)['virtual-size'])")
-OVF_ARCH=$([ "$ARCH" = arm64 ] && echo arm64 || echo 386)  # ovf: 386 = x86/x64 family
+# Profil VM per-arch: amd64 = x86/BIOS (vmx-14, lsilogic); arm64 = ARM/EFI (vmx-20, PVSCSI).
+# vmw:osType menentukan apakah VMware membuat VM x86 atau ARM (salah → "requires X86 architecture").
+if [ "$ARCH" = arm64 ]; then
+  HWVER="vmx-20"; OSTYPE="arm-ubuntu-64"; SCSISUB="VirtualSCSI"
+  FWCFG='      <vmw:Config ovf:required="false" vmw:key="firmware" vmw:value="efi"/>'
+else
+  HWVER="vmx-14"; OSTYPE="ubuntu64Guest"; SCSISUB="lsilogic"; FWCFG=""
+fi
 cat > "$WORK/ubuntu-client-$ARCH.ovf" <<OVF
 <?xml version="1.0" encoding="UTF-8"?>
-<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData">
+<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:vmw="http://www.vmware.com/schema/ovf">
   <References><File ovf:href="$VMDK" ovf:id="file1" ovf:size="$VMDK_BYTES"/></References>
   <DiskSection><Info>Disk</Info>
     <Disk ovf:capacity="$CAP_BYTES" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized"/>
@@ -158,24 +165,26 @@ cat > "$WORK/ubuntu-client-$ARCH.ovf" <<OVF
   <NetworkSection><Info>Jaringan</Info><Network ovf:name="VM Network"><Description>jaringan lab (diatur panitia)</Description></Network></NetworkSection>
   <VirtualSystem ovf:id="$HOSTNAME_VM-$ARCH">
     <Info>Klien Ubuntu $RELEASE ($ARCH) — domain member Lab IAM</Info>
-    <OperatingSystemSection ovf:id="94" ovf:version="$RELEASE"><Info>Ubuntu Linux 64-bit</Info></OperatingSystemSection>
+    <OperatingSystemSection ovf:id="94" ovf:version="$RELEASE" vmw:osType="$OSTYPE"><Info>Ubuntu Linux 64-bit ($ARCH)</Info></OperatingSystemSection>
     <VirtualHardwareSection><Info>Perangkat keras virtual</Info>
-      <System><vssd:ElementName>Virtual Hardware Family</vssd:ElementName><vssd:InstanceID>0</vssd:InstanceID><vssd:VirtualSystemType>vmx-14</vssd:VirtualSystemType></System>
+      <System><vssd:ElementName>Virtual Hardware Family</vssd:ElementName><vssd:InstanceID>0</vssd:InstanceID><vssd:VirtualSystemType>$HWVER</vssd:VirtualSystemType></System>
       <Item><rasd:Description>CPU</rasd:Description><rasd:ElementName>2 vCPU</rasd:ElementName><rasd:InstanceID>1</rasd:InstanceID><rasd:ResourceType>3</rasd:ResourceType><rasd:VirtualQuantity>2</rasd:VirtualQuantity></Item>
       <Item><rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits><rasd:Description>Memori</rasd:Description><rasd:ElementName>2048 MB</rasd:ElementName><rasd:InstanceID>2</rasd:InstanceID><rasd:ResourceType>4</rasd:ResourceType><rasd:VirtualQuantity>2048</rasd:VirtualQuantity></Item>
-      <Item><rasd:Address>0</rasd:Address><rasd:ElementName>SCSI Controller</rasd:ElementName><rasd:InstanceID>3</rasd:InstanceID><rasd:ResourceSubType>lsilogic</rasd:ResourceSubType><rasd:ResourceType>6</rasd:ResourceType></Item>
+      <Item><rasd:Address>0</rasd:Address><rasd:ElementName>SCSI Controller</rasd:ElementName><rasd:InstanceID>3</rasd:InstanceID><rasd:ResourceSubType>$SCSISUB</rasd:ResourceSubType><rasd:ResourceType>6</rasd:ResourceType></Item>
       <Item><rasd:ElementName>Disk</rasd:ElementName><rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource><rasd:InstanceID>4</rasd:InstanceID><rasd:Parent>3</rasd:Parent><rasd:ResourceType>17</rasd:ResourceType></Item>
       <Item><rasd:AutomaticAllocation>true</rasd:AutomaticAllocation><rasd:Connection>VM Network</rasd:Connection><rasd:ElementName>NIC</rasd:ElementName><rasd:InstanceID>5</rasd:InstanceID><rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType><rasd:ResourceType>10</rasd:ResourceType></Item>
+$FWCFG
     </VirtualHardwareSection>
   </VirtualSystem>
 </Envelope>
 OVF
-# manifest (format OVF: 'SHA256(<file>)= <hash>') + OVA (urutan: ovf, mf, vmdk)
-mfline(){ local f="$1"; printf 'SHA256(%s)= %s\n' "$f" "$(SHA "$f" | awk '{print $1}')"; }
+# OVA = tar {ovf, vmdk}. Manifest (.mf) SENGAJA tidak disertakan: ovftool menghitung SHA
+# VMDK streamOptimized berbeda dari sha256sum file → selalu "mismatch". Manifest opsional di
+# OVF; integritas OVA utuh tetap dijaga via SHA256SUMS.txt. ustar + tanpa metadata macOS agar
+# ovftool/VMware dapat membaca stream (pax header bikin gagal parse).
 ( cd "$WORK"
-  mfline "ubuntu-client-$ARCH.ovf"  > "ubuntu-client-$ARCH.mf"
-  mfline "$VMDK"                    >> "ubuntu-client-$ARCH.mf"
-  tar -cf "$OUT/ubuntu-client-$ARCH.ova" "ubuntu-client-$ARCH.ovf" "ubuntu-client-$ARCH.mf" "$VMDK" )
+  COPYFILE_DISABLE=1 tar --format ustar -cf "$OUT/ubuntu-client-$ARCH.ova" \
+    "ubuntu-client-$ARCH.ovf" "$VMDK" )
 say "OVA siap: $OUT/ubuntu-client-$ARCH.ova ($(du -h "$OUT/ubuntu-client-$ARCH.ova"|cut -f1))"
 ( cd "$OUT/.." && SHA "ova/ubuntu-client-$ARCH.ova" >> SHA256SUMS.txt )
 echo "Impor di kelas: deploy-lab.sh --vms  (atau VBoxManage import / ovftool)"
