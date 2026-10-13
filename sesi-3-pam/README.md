@@ -153,6 +153,21 @@ Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate m
 ssh -p 2222 <user>:srv-app01@pam.iamlab.test     # bastion mencegat, minta SSO/MFA, lalu teruskan
 ```
 
+> **Otomasi (opsional).** Alih-alih klik di konsol, target+user+role bisa didaftarkan via
+> Admin API dengan [`../deploy/warpgate/configure-target.sh`](../deploy/warpgate/configure-target.sh)
+> (mis. `PUBKEY="$(cat ~/.ssh/id_ed25519.pub)" ./configure-target.sh` → lalu
+> `ssh -p 2222 peserta:srv-app01@pam.iamlab.test`). Diverifikasi tembus ke target
+> sebagai `labadmin` dengan sesi terekam — peserta tak pernah memegang sandi server.
+>
+> **Troubleshooting (penting):**
+> - **Admin API 401 walau login sukses:** cookie sesi Warpgate ber-domain `pam.iamlab.test`
+>   (dari `external_host`). Akses API **lewat `https://pam.iamlab.test`** (via Caddy), bukan
+>   `https://warpgate:8888` langsung.
+> - **SSH ke bastion `Permission denied` berulang:** proteksi brute-force Warpgate memblok IP
+>   sumber setelah banyak percobaan gagal (umum bila banyak klien berbagi satu IP NAT). Longgarkan
+>   di konsol (Config) atau, untuk lab, hentikan Warpgate lalu kosongkan tabel `ip_blocks` &
+>   `failed_login_attempts` pada `/data/db/db.sqlite3`, lalu jalankan kembali.
+
 ### D. Serah-terima kredensial via email + formulir
 Akses istimewa tidak diberikan lisan. Alurnya **berbasis email dan formulir yang
 dikembalikan**:
