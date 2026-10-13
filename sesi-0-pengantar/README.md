@@ -157,8 +157,14 @@ cd sesi-0-pengantar
 | `./deploy-lab.sh` | Deploy penuh (default). |
 | `./deploy-lab.sh --check` | Hanya laporkan OS/arch/Docker/image — tidak mengubah apa pun. |
 | `./deploy-lab.sh --compose-only` | **Bila langkah pasang-deps bermasalah**: lewati, langsung muat image + `compose up`. |
+| `./deploy-lab.sh --vms` | **Di host fisik**: impor & nyalakan VM klien (mis. `ubuntu-client.ova`) dari `distribusi/ova` via VirtualBox/VMware. |
 | `./deploy-lab.sh --no-samba` | Tanpa DC Samba (Sesi 1 Bagian A). |
 | `./deploy-lab.sh --down` | Hentikan & bersihkan stack. |
+
+**Dua konteks eksekusi** (jaringan antar-VM/host/Docker sudah diatur panitia):
+- **Host fisik** (ber-VMware/VirtualBox) → `./deploy-lab.sh --vms` menyalakan VM (klien Ubuntu
+  yang di-*realm join* pada Sesi 1, VM AD, dll). Nama VM = nama file `.ova`.
+- **Di dalam VM/host Docker** → `./deploy-lab.sh` menyalakan stack kontainer.
 
 > Docker Desktop (Windows/macOS) tak bisa dipasang via skrip — pasang dari
 > `distribusi/installer` lebih dulu, lalu jalankan skrip. Di Ubuntu, skrip memakai paket

@@ -140,9 +140,11 @@ Verifikasi direktori (keluaran nyata):
 
 *Gambar 5. Terminal Samba AD DC — domain, OU, grup, kebijakan sandi*
 
-**Gabungkan klien Linux** (`sssd` + `realmd`) ke domain:
+**Gabungkan klien Linux** (`sssd` + `realmd`) ke domain. VM klien Ubuntu dinyalakan panitia
+di host fisik (`./deploy-lab.sh --vms`, dari `distribusi/ova/ubuntu-client.ova`); jaringannya
+sudah terkonfigurasi. Lalu di dalam VM itu:
 ```bash
-# 🖥️ di klien Linux
+# 🖥️ di klien Linux (VM Ubuntu)
 sudo realm discover iamlab.test
 sudo realm join --user=Administrator iamlab.test
 id budi.contoh@iamlab.test        # harus menampilkan UID/grup dari direktori

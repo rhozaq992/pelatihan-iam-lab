@@ -10,8 +10,14 @@
 #   ./deploy-lab.sh --compose-only  # HANYA load image + compose up (bila langkah deps bermasalah)
 #   ./deploy-lab.sh --check         # hanya laporkan OS/arch/deps, tidak mengubah apa pun
 #   ./deploy-lab.sh --no-samba      # tanpa DC Samba (Sesi 1 Bagian A)
+#   ./deploy-lab.sh --vms           # (DI HOST FISIK) impor & start VM klien dari distribusi/ova
 #   ./deploy-lab.sh --down          # hentikan & bersihkan stack
 #   ./deploy-lab.sh --help
+#
+# Dua konteks eksekusi:
+#   • HOST FISIK (punya VMware/VirtualBox) → './deploy-lab.sh --vms' untuk menyalakan VM
+#     (klien Ubuntu, DC, dll). Jaringan VM sudah dikonfigurasi panitia.
+#   • VM/host Docker → './deploy-lab.sh' untuk stack kontainer.
 # =============================================================================
 set -euo pipefail
 
@@ -21,6 +27,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEPLOY="$ROOT/deploy"
 IMG_TAR="$ROOT/distribusi/offline-images/iam-images.tar"
 INSTALLER="$ROOT/distribusi/installer"
+OVADIR="$ROOT/distribusi/ova"
 SAMBA=1; MODE="full"
 
 # ---- util tampilan ----
@@ -35,6 +42,7 @@ for a in "$@"; do case "$a" in
   --compose-only) MODE="compose";;
   --check)        MODE="check";;
   --down)         MODE="down";;
+  --vms)          MODE="vms";;
   --no-samba)     SAMBA=0;;
   -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
   *) die "opsi tak dikenal: $a (coba --help)";;
@@ -128,11 +136,44 @@ compose_up(){
 
 compose_down(){ step "Hentikan stack"; cd "$DEPLOY"; docker compose --profile direktori --profile attack --profile load down; ok "stack dihentikan."; }
 
+# ---- deploy VM klien dari OVA (DIJALANKAN DI HOST FISIK ber-hypervisor) ----
+# Jaringan VM sudah dikonfigurasi panitia → cukup impor + nyalakan. Nama VM = nama file OVA.
+deploy_vms(){
+  step "Deploy VM dari OVA ($OVADIR)"
+  shopt -s nullglob; local ovas=("$OVADIR"/*.ova); shopt -u nullglob
+  if [ ${#ovas[@]} -eq 0 ]; then
+    warn "tak ada *.ova di $OVADIR — salin OVA klien (mis. ubuntu-client.ova) dari USB/share lalu ulangi."
+    return 0
+  fi
+  if command -v VBoxManage >/dev/null 2>&1; then
+    for ova in "${ovas[@]}"; do
+      local name; name="$(basename "$ova" .ova)"
+      if VBoxManage showvminfo "$name" >/dev/null 2>&1; then ok "VM '$name' sudah terdaftar"; else
+        ok "impor $name.ova (VirtualBox)"; VBoxManage import "$ova" --vsys 0 --vmname "$name"
+      fi
+      if VBoxManage list runningvms | grep -q "\"$name\""; then ok "VM '$name' sudah berjalan";
+      else ok "start '$name' (headless)"; VBoxManage startvm "$name" --type headless; fi
+    done
+  elif command -v vmrun >/dev/null 2>&1; then
+    command -v ovftool >/dev/null 2>&1 || die "VMware terpasang tapi 'ovftool' tak ada (perlu untuk impor OVA)."
+    for ova in "${ovas[@]}"; do
+      local name vmx; name="$(basename "$ova" .ova)"; vmx="$OVADIR/$name/$name.vmx"
+      [ -f "$vmx" ] || { ok "impor $name.ova (ovftool)"; ovftool --allowAllExtraConfig --name="$name" "$ova" "$OVADIR/$name/"; vmx="$(ls "$OVADIR/$name"/*.vmx | head -1)"; }
+      if vmrun list | grep -qF "$vmx"; then ok "VM '$name' sudah berjalan";
+      else ok "start '$name'"; vmrun -T ws start "$vmx" nogui; fi
+    done
+  else
+    die "VMware (vmrun) / VirtualBox (VBoxManage) tak ditemukan di PATH — pasang hypervisor dulu."
+  fi
+  ok "VM selesai. Jaringan sudah terkonfigurasi; lanjut deploy stack Docker DI DALAM VM Docker."
+}
+
 # ---- alur utama ----
 printf "${B}Lab IAM — deploy  (OS=%s arch=%s mode=%s)${N}\n" "$OS" "$ARCH" "$MODE"
 case "$MODE" in
   down)    compose_down;;
-  check)   check_hypervisor_cli; ensure_docker; [ -f "$IMG_TAR" ] && ok "tar image ada ($(du -h "$IMG_TAR"|cut -f1))" || warn "tar image belum ada"; step "Check selesai (tidak ada perubahan).";;
+  vms)     deploy_vms;;
+  check)   check_hypervisor_cli; ensure_docker; [ -f "$IMG_TAR" ] && ok "tar image ada ($(du -h "$IMG_TAR"|cut -f1))" || warn "tar image belum ada"; shopt -s nullglob; o=("$OVADIR"/*.ova); shopt -u nullglob; [ ${#o[@]} -gt 0 ] && ok "OVA ditemukan: ${#o[@]}" || warn "belum ada OVA di distribusi/ova"; step "Check selesai (tidak ada perubahan).";;
   compose) load_images; compose_up;;
   full)    check_hypervisor_cli; ensure_docker; load_images; compose_up;;
 esac
