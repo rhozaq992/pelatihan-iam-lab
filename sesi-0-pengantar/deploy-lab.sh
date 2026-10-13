@@ -138,12 +138,14 @@ write_hosts(){ # $1=file, butuh hak admin; idempoten via penanda
   local f="$1" s="# >>> lab-iam (otomatis, jangan sunting) >>>" e="# <<< lab-iam <<<"
   local line1="127.0.0.1"; for d in $NET_SUBS; do line1="$line1 $d.$NET_DOMAIN"; done
   local block="$s"$'\n'"$line1"$'\n'"$NET_DC_IP $NET_DC_HOST"$'\n'"$e"
-  local tmp; tmp="$(mktemp)"
+  local tmp rc=0; tmp="$(mktemp)"
   # buang blok lama (jika ada) lalu tambah yang baru
   awk -v s="$s" -v e="$e" 'f&&$0==e{f=0;next} $0==s{f=1} !f' "$f" 2>/dev/null > "$tmp" || true
   printf '%s\n' "$block" >> "$tmp"
-  if [ -w "$f" ]; then cat "$tmp" > "$f"; else sudo cp "$tmp" "$f"; fi
-  rm -f "$tmp"
+  if [ -w "$f" ]; then cat "$tmp" > "$f" || rc=$?
+  elif sudo -n true 2>/dev/null; then sudo cp "$tmp" "$f" || rc=$?   # sudo tanpa prompt bila tersedia
+  else sudo cp "$tmp" "$f" </dev/tty || rc=$?; fi                    # jika tidak, minta password sekali (butuh TTY)
+  rm -f "$tmp"; return $rc
 }
 setup_network(){
   step "Konfigurasi jaringan seragam (otomatis — tanpa setel manual)"
