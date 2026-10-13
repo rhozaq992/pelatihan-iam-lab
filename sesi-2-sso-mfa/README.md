@@ -38,6 +38,17 @@ jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun ser
 
 ![Alur SSO: aplikasi → Keycloak → federasi LDAP AD → MFA → token/assertion](gambar/alur-sso.png)
 
+**Agenda Aktivitas (nomor pada diagram):**
+1. Pengguna membuka aplikasi (akses `/`).
+2. Aplikasi mengarahkan ke Keycloak — OIDC *Authorization Code + PKCE* atau SAML *AuthnRequest*.
+3. Pengguna mengisi form login di Keycloak.
+4. Keycloak memverifikasi kredensial ke **Active Directory** (LDAPS 636) + menarik atribut/grup.
+5. Keycloak meminta **MFA** bila kondisi (grup/klien kritikal) terpenuhi.
+6. Keycloak mengembalikan **token/assertion** ke aplikasi.
+7. Aplikasi membuka sesi; peran ditentukan dari klaim grup.
+8. Event login (LOGIN/LOGIN_ERROR) dikirim ke **audit** (Alloy→Loki, Sesi 4).
+
+
 *Gambar: pengguna menekan login di aplikasi → diarahkan ke Keycloak → Keycloak memeriksa kredensial ke AD lewat LDAPS, meminta OTP bila perlu → menerbitkan token yang dipercaya aplikasi.*
 
 **Protokol:**

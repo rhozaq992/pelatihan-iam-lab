@@ -66,6 +66,13 @@ mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & 
 
 ![Pipeline log identitas: sumber → Alloy → Loki → Grafana → notifikasi](gambar/pipeline-log.png)
 
+**Agenda Aktivitas (nomor pada diagram):**
+1. Sumber log (Windows AD, Keycloak, OpenBao, Warpgate/sshd, Caddy) mengirim ke **Alloy**.
+2. Alloy mem-*parse* & memberi label (hanya `service`/`event`) lalu mengirim ke **Loki**.
+3. **Grafana** membaca Loki untuk dashboard & evaluasi alert.
+4. Alert dikirim sebagai email ke **Mailpit** (kotak surat uji).
+
+
 **Prinsip label (penting).** Jadikan label hanya dimensi *low-cardinality* (`service`,
 `event`); nilai seperti `user`/`ip` disimpan sebagai *structured metadata*/field (dikueri
 LogQL), **bukan** label — agar kardinalitas tidak meledak dan Loki tetap cepat.

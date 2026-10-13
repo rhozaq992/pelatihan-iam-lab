@@ -40,6 +40,16 @@ langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
 ![Alur PAM: SSO + MFA → Warpgate (bastion) → target; OpenBao untuk kredensial & SSH CA](gambar/alur-pam.png)
 
+**Agenda Aktivitas (nomor pada diagram):**
+1. Admin login ke **bastion Warpgate**.
+2. Warpgate meneruskan autentikasi ke **Keycloak** (SSO OIDC + MFA).
+3. Keycloak mengembalikan **token + grup** ke Warpgate.
+4. Sesi **SSH ke target** diproksikan lewat bastion **dan direkam**.
+5. Admin mengambil kredensial *break-glass* / meminta **sertifikat SSH** dari **OpenBao**.
+6. Target memercayai **SSH CA** OpenBao (atau memakai kredensial yang diambil).
+7. Aktivitas (akses vault, sesi bastion, sshd) dikirim ke **audit** (Sesi 4).
+
+
 **SSH CA.** Alih-alih menyebar kunci publik ke tiap server, server cukup
 memercayai satu *Certificate Authority*; OpenBao menandatangani sertifikat SSH berumur
 pendek (mis. 30 menit) untuk pengguna yang berhak — **Kapan** kadaluwarsa cepat
