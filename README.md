@@ -13,9 +13,14 @@ di PC peserta.
 ```bash
 cd deploy
 cp .env.example .env            # sesuaikan DC_IP & sandi
-docker compose up -d --build    # seluruh stack layanan menyala
+# Lab Host-Only tanpa internet → muat image yang sudah disiapkan (USB/share lokal) lebih dulu.
+# Image di-build butuh internet (pip/apt), jadi JANGAN andalkan auto-build di VM terisolasi.
+docker load -i ../distribusi/offline-images/iam-images.tar
+docker compose up -d            # image sudah ada → langsung menyala, tanpa build/pull
 docker compose ps
 ```
+> Punya internet saat menyiapkan? Boleh bangun sendiri: `docker compose pull && docker compose build`
+> (lalu `docker save` untuk distribusi offline — lihat `distribusi/download.sh`).
 > Catatan: setelah `up`, **OpenBao** menyala dalam keadaan *sealed* (perlu init/unseal di
 > Sesi 3) dan **Warpgate** akan keluar sampai di-*setup* sekali (Sesi 3) — ini normal.
 

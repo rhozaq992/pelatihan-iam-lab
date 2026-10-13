@@ -6,10 +6,13 @@ AD (Windows Server 2025) ada di VM VMware terpisah (lihat `DC_IP`).
 ## Menjalankan
 ```bash
 cp .env.example .env            # sesuaikan DC_IP, sandi
-docker compose build            # app-komentar, app-saml, targets
-docker compose up -d
+# Lab tanpa internet: muat image offline dulu (image di-build perlu pip/apt → tak bisa di VM terisolasi).
+docker load -i ../distribusi/offline-images/iam-images.tar
+docker compose up -d            # pakai image yang sudah dimuat (tanpa build/pull)
 docker compose ps
 ```
+> Menyiapkan saat online? `docker compose pull && docker compose build` lalu `docker save` untuk offline.
+> Samba DC (Sesi 1 Bagian A) butuh profil: `docker compose --profile direktori up -d samba-dc`.
 Tambahkan ke hosts peserta (atau DNS DC) → IP host Docker:
 ```
 kc.iamlab.test app.iamlab.test saml.iamlab.test grafana.iamlab.test bao.iamlab.test mail.iamlab.test pam.iamlab.test
