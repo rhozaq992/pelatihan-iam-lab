@@ -138,3 +138,28 @@ autentikasi/otorisasi mengalir sebagai log ke **Alloy → Loki → Grafana** unt
 > Lingkungan (VM AD + stack layanan) disiapkan terlebih dahulu; peserta berfokus pada
 > **konfigurasi keamanan** di tiap sesi, bukan instalasi dari nol. Proses *deploy*
 > awal tetap ditunjukkan di tiap sesi agar peserta paham cara sistem dinyalakan.
+
+## Deploy awal (satu perintah)
+
+Jaringan antar-VM / host / Docker **sudah dikonfigurasi panitia** — peserta tidak perlu
+mengaturnya. Dari direktori ini (🖥️ **terminal host / VM Docker**), jalankan skrip
+[`deploy-lab.sh`](deploy-lab.sh): ia mendeteksi OS & arsitektur, memasang Docker bila belum
+ada, memuat image offline (`distribusi/offline-images/iam-images.tar`), lalu `docker compose up -d`.
+
+```bash
+# 🖥️ terminal host (Linux/Ubuntu, macOS, atau Windows via Git Bash)
+cd sesi-0-pengantar
+./deploy-lab.sh            # cek deps → pasang Docker (bila perlu) → muat image → nyalakan stack
+```
+
+| Opsi | Guna |
+|------|------|
+| `./deploy-lab.sh` | Deploy penuh (default). |
+| `./deploy-lab.sh --check` | Hanya laporkan OS/arch/Docker/image — tidak mengubah apa pun. |
+| `./deploy-lab.sh --compose-only` | **Bila langkah pasang-deps bermasalah**: lewati, langsung muat image + `compose up`. |
+| `./deploy-lab.sh --no-samba` | Tanpa DC Samba (Sesi 1 Bagian A). |
+| `./deploy-lab.sh --down` | Hentikan & bersihkan stack. |
+
+> Docker Desktop (Windows/macOS) tak bisa dipasang via skrip — pasang dari
+> `distribusi/installer` lebih dulu, lalu jalankan skrip. Di Ubuntu, skrip memakai paket
+> `.deb` offline di `distribusi/installer/docker/` bila ada, atau `get.docker.com` bila online.
