@@ -1,8 +1,12 @@
 # Sesi 1 — Pengamanan Direktori Terpusat (AD/LDAP) & GPO
 
-Indikator 1.1 (hardening AD/LDAP) dan 1.2 (Group Policy). **Hampir semua langkah di
-sesi ini dikerjakan di dalam VM Windows Server 2025 (Domain Controller).** Skrip
-provisioning ada di folder ini (`import-ad.ps1`, `users_dummy.csv`, `gen_dummy_users.py`).
+Indikator 1.1 (hardening AD/LDAP) dan 1.2 (Group Policy). Sesi ini membangun **empat
+sistem**: dua direktori (**Windows Server 2025 AD** dan **Samba AD DC** untuk sisi Linux)
+dan dua klien (**Windows 11** dan **Linux**). Windows Server + klien Windows menjadi
+**target utama** untuk SSO (Sesi 2), vault & bastion (Sesi 3), dan pemantauan (Sesi 4);
+sisi Linux memakai Samba. **Kita kerjakan bagian Samba lebih dulu** karena dapat langsung
+dijalankan, baru Windows Server. Skrip provisioning ada di folder ini (`import-ad.ps1`,
+`users_dummy.csv`, `gen_dummy_users.py`).
 
 Penanda tempat menjalankan: 🪟 **DC (PowerShell/GPMC)** · 🐳 **container (host)** ·
 🖥️ **terminal peserta**. (Lihat Sesi 0 untuk arti lengkap.)
@@ -12,7 +16,8 @@ Penanda tempat menjalankan: 🪟 **DC (PowerShell/GPMC)** · 🐳 **container (h
 Ini sesi praktik pertama; ia memakai konsep identitas dari **Sesi 0** (IAAA, tiering).
 **Yang dibuat di sini dipakai sesi berikutnya:** OU & grup `GG-*`, akun layanan `svc-keycloak`
 (dipakai Sesi 2 untuk federasi), `svc-openbao` + grup `GG-Tier1-Admin` (Sesi 3), kebijakan
-sandi, serta event audit AD yang akan dipantau di Sesi 4. Jadi selesaikan sesi ini lebih dulu.
+sandi, serta event audit AD yang akan dipantau di Sesi 4. **Windows Server + klien Windows**
+menjadi target layanan IAM di sesi-sesi tersebut. Jadi selesaikan sesi ini lebih dulu.
 
 ## a. Tujuan Sesi
 
@@ -49,6 +54,21 @@ tidak boleh terpapar di tier rendah, agar kompromi bidang bawah tidak naik ke at
 → OU, dengan pewarisan, *Enforced*, *Block Inheritance*, *security filtering*, dan WMI
 filtering. GPO yang ditautkan lebih dekat ke objek menang kecuali di-*Enforce*.
 
+### Empat sistem lab
+
+Lab IAM nyata bersifat heterogen (Windows & Linux), jadi disediakan empat mesin:
+
+| Sistem | Peran | Dipakai untuk |
+|--------|-------|---------------|
+| **Windows Server 2025** (`dc1`) | AD DC — DNS, Kerberos, GPO (Tier 0) | Direktori utama; sumber identitas untuk SSO/vault/bastion |
+| **Klien Windows 11** | Anggota domain `dc1` | **Target** GPO, bastion (RDP), pemantauan |
+| **Samba AD DC** (`dc2`, Linux) | Direktori untuk sisi Linux (LDAP/Kerberos) | Alternatif open-source; dikerjakan **lebih dulu** karena ringan/cepat |
+| **Klien Linux** | Anggota domain via `sssd`/`winbind` | **Target** bastion (SSH), pemantauan |
+
+> Catatan sumber daya: pada lab nyata keempatnya berjalan; bila sumber daya terbatas,
+> prioritaskan **Samba + klien Linux** (Bagian A, ringan) lalu tambahkan **Windows Server +
+> klien Windows** (Bagian B) saat perangkat memadai.
+
 ### Dua teknik serangan (dibahas untuk DITUTUP, bukan untuk menyerang)
 
 **Kerberoasting.** *Setiap* akun domain boleh meminta tiket layanan (TGS) untuk akun
@@ -83,9 +103,39 @@ nomor enctype Kerberos: `0x17`=RC4-HMAC, `0x18`=RC4-HMAC-EXP (lemah), AES = `0x1
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
-> **Deploy (disiapkan):** VM DC sudah di-*promote* menjadi domain `iamlab.test`
-> (AD DS + DNS terpasang). Peserta **tidak** menginstal dari nol; peserta
-> **mengonfigurasi keamanannya**. Jika membangun dari awal, instalasi = `Install-WindowsFeature
+### Bagian A — Samba AD DC + klien Linux (dikerjakan DULU, dapat dijalankan sekarang)
+
+Samba menyediakan direktori ber-protokol AD (LDAP/Kerberos) di Linux. Di lab/stand-in
+Linux, DC Samba sudah ter-*provision* (`samba-tool domain provision`). Yang Anda lakukan:
+menata OU/grup, kebijakan sandi, lalu menggabungkan klien Linux.
+
+```bash
+# 🐳 di dalam container/host Samba DC
+samba-tool ou create "OU=Pengguna,DC=iamlab,DC=test"
+for g in GG-App-Viewer GG-App-Editor GG-App-Admin GG-Tier1-Admin; do samba-tool group add "$g"; done
+samba-tool user create budi.contoh 'Passw0rd#Lab2026' --userou="OU=Pengguna"
+samba-tool group addmembers GG-App-Viewer budi.contoh
+samba-tool domain passwordsettings set --min-pwd-length=14 --complexity=on
+samba-tool domain passwordsettings show        # verifikasi
+```
+Verifikasi direktori (keluaran nyata):
+
+![Terminal — Samba AD DC: domain, OU, grup, kebijakan sandi](gambar/samba-cli.png)
+
+**Gabungkan klien Linux** (`sssd` + `realmd`) ke domain:
+```bash
+# 🖥️ di klien Linux
+sudo realm discover iamlab.test
+sudo realm join --user=Administrator iamlab.test
+id budi.contoh@iamlab.test        # harus menampilkan UID/grup dari direktori
+```
+> Hasil: pengguna direktori dapat login ke klien Linux; direktori ini juga menjadi sumber
+> federasi LDAP untuk Keycloak sisi Linux (Sesi 2).
+
+### Bagian B — Windows Server 2025 AD + klien Windows (target utama SSO/vault/bastion/pemantauan)
+
+> **Deploy (disiapkan):** VM DC Windows sudah di-*promote* menjadi domain `iamlab.test`
+> (AD DS + DNS). Peserta **mengonfigurasi keamanannya**. Dari nol: `Install-WindowsFeature
 > AD-Domain-Services` lalu `Install-ADDSForest -DomainName iamlab.test` (sekali, lalu reboot).
 
 ### 1. 🪟 Struktur OU, grup, dan akun layanan

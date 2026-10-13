@@ -82,7 +82,7 @@ Seluruh lab berjalan terisolasi di PC peserta (jaringan Host-Only, tanpa interne
 domain sintetis **`iamlab.test`**. AD berjalan sebagai VM Windows Server 2025; sisanya
 sebagai container Docker di belakang satu reverse proxy (Caddy) dengan TLS dari CA internal.
 
-![Topologi lab IAM — VM AD (Windows Server) + stack Docker, domain iamlab.test](gambar/topologi.png)
+![Topologi sistem IAM — 4 sistem (Windows Server AD, Samba AD, klien Windows & Linux) + layanan IAM, domain iamlab.test](gambar/topologi.png)
 
 **Aliran data inti:** pengguna membuka aplikasi → diarahkan ke **Keycloak** →
 Keycloak memverifikasi kredensial ke **AD** (LDAPS) dan meminta **MFA** bila perlu →
