@@ -169,11 +169,12 @@ cat > "$WORK/ubuntu-client-$ARCH.ovf" <<OVF
   </VirtualSystem>
 </Envelope>
 OVF
-# manifest + OVA (urutan: ovf, lalu vmdk)
+# manifest (format OVF: 'SHA256(<file>)= <hash>') + OVA (urutan: ovf, mf, vmdk)
+mfline(){ local f="$1"; printf 'SHA256(%s)= %s\n' "$f" "$(SHA "$f" | awk '{print $1}')"; }
 ( cd "$WORK"
-  SHA ubuntu-client-$ARCH.ovf | sed 's/^/SHA256(/;s/  /)= /' > ubuntu-client-$ARCH.mf
-  SHA "$VMDK"                  | sed 's/^/SHA256(/;s/  /)= /' >> ubuntu-client-$ARCH.mf
-  tar -cf "$OUT/ubuntu-client-$ARCH.ova" ubuntu-client-$ARCH.ovf ubuntu-client-$ARCH.mf "$VMDK" )
+  mfline "ubuntu-client-$ARCH.ovf"  > "ubuntu-client-$ARCH.mf"
+  mfline "$VMDK"                    >> "ubuntu-client-$ARCH.mf"
+  tar -cf "$OUT/ubuntu-client-$ARCH.ova" "ubuntu-client-$ARCH.ovf" "ubuntu-client-$ARCH.mf" "$VMDK" )
 say "OVA siap: $OUT/ubuntu-client-$ARCH.ova ($(du -h "$OUT/ubuntu-client-$ARCH.ova"|cut -f1))"
 ( cd "$OUT/.." && SHA "ova/ubuntu-client-$ARCH.ova" >> SHA256SUMS.txt )
 echo "Impor di kelas: deploy-lab.sh --vms  (atau VBoxManage import / ovftool)"
