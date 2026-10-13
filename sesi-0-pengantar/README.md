@@ -82,6 +82,18 @@ Seluruh lab berjalan terisolasi di PC peserta (jaringan Host-Only, tanpa interne
 domain sintetis **`iamlab.test`**. AD berjalan sebagai VM Windows Server 2025; sisanya
 sebagai container Docker di belakang satu reverse proxy (Caddy) dengan TLS dari CA internal.
 
+Secara **fungsi**, sistem IAM lab terdiri dari blok kapabilitas berikut (gaya arsitektur
+IAM enterprise) — tiap blok dipetakan ke komponen nyata di lab:
+
+![Arsitektur fungsional IAM lab — sumber identitas, provisioning, manajemen akses, PAM, sistem target, pengguna, audit](gambar/arsitektur.png)
+
+**Cara membaca:** kiri = sumber & pengisian direktori; tengah = Manajemen Akses (Keycloak)
+dan Privileged Access (OpenBao/Warpgate); kanan = sistem target & pengguna; bawah = audit
+yang menerima *event* dari semua blok. Panah = arah alur (login, federasi, token, akses
+istimewa, event).
+
+Secara **jaringan/penempatan**, blok-blok itu berjalan sebagai berikut:
+
 ![Topologi sistem IAM — 4 sistem (Windows Server AD, Samba AD, klien Windows & Linux) + layanan IAM, domain iamlab.test](gambar/topologi.png)
 
 **Legenda:**
