@@ -36,6 +36,12 @@ function Step($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "  [OK] $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "  [!] $m" -ForegroundColor Yellow }
 function Fail($m) { Write-Host "  [X] $m" -ForegroundColor Red; throw $m }
+# Jalankan program native tanpa menganggap stderr (mis. progres VBoxManage '0%..100%') fatal.
+function Invoke-Quiet { param([string]$Exe,[string[]]$A)
+  $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  try { & $Exe @A 2>&1 | Out-Null } finally { $ErrorActionPreference = $old }
+  return $LASTEXITCODE
+}
 
 $Repo   = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $Deploy = Join-Path $Repo 'deploy'
@@ -79,11 +85,12 @@ if ($BakeVMs) {
   if (-not $vb) { Fail 'VBoxManage tak ada untuk ekspor VM.' }
   New-Item -ItemType Directory -Force $PrebakedDir | Out-Null
   foreach ($name in $VMs) {
-    $st = (& $vb showvminfo $name --machinereadable 2>$null | Where-Object { $_ -match '^VMState=' }) -replace '^VMState="?','' -replace '"$',''
-    if ($st -in 'running','paused') { & $vb controlvm $name poweroff *> $null; Start-Sleep 4 }
+    $info = & { $ErrorActionPreference='Continue'; & $vb showvminfo $name --machinereadable 2>$null }
+    $st = ($info | Where-Object { $_ -match '^VMState=' }) -replace '^VMState="?','' -replace '"$',''
+    if ($st -in 'running','paused') { Invoke-Quiet $vb @('controlvm',$name,'poweroff') | Out-Null; Start-Sleep 4 }
     $vdi = Join-Path $VmDir "$name\$name.vdi"
     if (-not (Test-Path $vdi)) { Warn "$name belum di-provision (.lab/vms kosong) - jalankan build-lab.ps1 dulu. Lewati."; continue }
-    & $vb modifymedium disk $vdi --compact *> $null
+    Invoke-Quiet $vb @('modifymedium','disk',$vdi,'--compact') | Out-Null
     Copy-Item $vdi (Join-Path $PrebakedDir "$name.vdi") -Force
     Ok "$name.vdi diekspor ($([math]::Round((Get-Item (Join-Path $PrebakedDir "$name.vdi")).Length/1GB,2)) GB)"
   }
@@ -93,7 +100,7 @@ if ($BakeVMs) {
 Step 'Salin repo lab + aset ke paket'
 $repoOut = Join-Path $Out 'Pelatihan_IAM'
 $exTmp = @('.git','.lab','node_modules','IAMLAB-BuildBag')
-& robocopy $Repo $repoOut /E /NFL /NDL /NJH /NJS /NP /XD @exTmp (Join-Path $Deploy 'caddy\data') (Join-Path $Deploy 'caddy\config') | Out-Null
+& robocopy $Repo $repoOut /E /NFL /NDL /NJH /NJS /NP /XF .DS_Store *.part /XD @exTmp (Join-Path $Deploy 'caddy\data') (Join-Path $Deploy 'caddy\config') | Out-Null
 if ($LASTEXITCODE -ge 8) { Fail "robocopy gagal (kode $LASTEXITCODE)" }
 # installer (termasuk WSL MSI) ke distribusi/installer
 $instOut = Join-Path $repoOut 'distribusi\installer'
