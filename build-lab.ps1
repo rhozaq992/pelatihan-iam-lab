@@ -150,6 +150,14 @@ function Test-VcRedist {
 function Test-Wsl {
   return ((Invoke-Quiet 'wsl.exe' @('--status')) -eq 0)
 }
+function Test-PendingReboot {
+  # Reboot tertunda membuat instalasi MSI (VirtualBox) gagal kriptik. Deteksi & minta reboot.
+  if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { return $true }
+  if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { return $true }
+  $sm = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
+  if ($sm -and $sm.PendingFileRenameOperations) { return $true }
+  return $false
+}
 function Test-DockerUp {
   $d = Get-DockerCli; if (-not $d) { return $false }
   return ((Invoke-Quiet $d @('info')) -eq 0)
@@ -180,6 +188,7 @@ function Invoke-Check {
   if ($cs.HypervisorPresent) { Warn 'Hyper-V/WSL2 aktif: VirtualBox berjalan di atas Hyper-V (sedikit lebih lambat) - normal untuk Docker Desktop.' }
 
   if (Test-Wsl) { Ok 'WSL2 tersedia' } else { Warn 'WSL2 belum terpasang - dipasang di fase Install (butuh reboot).' }
+  if (Test-PendingReboot) { Warn 'ADA REBOOT TERTUNDA - reboot PC dulu sebelum Install/Build (instalasi VBox/Docker akan gagal).' }
 }
 
 # ============================ FASE: REQUIREMENTS ============================
@@ -252,6 +261,9 @@ function Invoke-Download {
 $script:NeedReboot = $false
 function Invoke-Install {
   Step '4. Pasang kebutuhan'
+  if (Test-PendingReboot) {
+    Fail 'Ada REBOOT TERTUNDA (mis. sisa uninstall/Windows Update). Reboot dulu PC, lalu jalankan lagi .\build-lab.ps1 -- instalasi VirtualBox/Docker akan gagal bila reboot belum dilakukan.'
+  }
   if ($script:Missing.VcRedist -or ($script:Missing.VirtualBox -and -not (Test-VcRedist))) {
     Info 'pasang VC++ runtime...'
     Start-Process (Join-Path $Cache 'vc_redist.x64.exe') -ArgumentList '/install','/quiet','/norestart' -Wait
