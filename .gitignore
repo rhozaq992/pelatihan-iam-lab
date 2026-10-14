@@ -9,6 +9,7 @@ distribusi/iso/*
 distribusi/ova/*
 distribusi/offline-images/*
 distribusi/installer/*
+distribusi/vms/*
 !distribusi/**/.gitkeep
 
 # os / python / word

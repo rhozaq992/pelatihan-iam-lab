@@ -28,7 +28,8 @@ param(
   [string]$Phase = 'All',
   [switch]$AutoJoin,     # srv1/client1 langsung join domain saat build (default: peserta join di Sesi 1)
   [switch]$Rebuild,      # hapus & bangun ulang VM yang sudah ada
-  [switch]$Gui,          # tampilkan jendela VM (bukan headless) saat provisioning — untuk QA/demo
+  [switch]$Gui,          # tampilkan jendela VM (bukan headless) saat provisioning - untuk QA/demo
+  [switch]$BundleAll,    # fase Download: ambil SEMUA installer (VBox/VC++/Docker/WSL) utk paket build
   [switch]$Purge,        # Destroy: ikut hapus volume data Docker
   [switch]$Yes           # jangan tanya konfirmasi
 )
@@ -42,6 +43,7 @@ $Cache  = Join-Path $LabDir 'cache'
 $VmDir  = Join-Path $LabDir 'vms'
 $Logs   = Join-Path $LabDir 'logs'
 $Deploy = Join-Path $Root 'deploy'
+$Prebaked = Join-Path $Root 'distribusi\vms'   # VDI VM siap-pakai (sudah di-provision) utk impor tanpa apt
 $Tar    = Join-Path $env:SystemRoot 'System32\tar.exe'    # bsdtar bawaan Windows (bukan tar Git/MSYS)
 $Curl   = Join-Path $env:SystemRoot 'System32\curl.exe'
 
@@ -61,6 +63,8 @@ $Cfg = [ordered]@{
   VBoxBase     = 'https://download.virtualbox.org/virtualbox'
   VcRedist     = 'https://aka.ms/vs/17/release/vc_redist.x64.exe'
   DockerDesktop= 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'
+  # WSL2 offline: paket MSI resmi (dipin) agar tak perlu 'wsl --install' online di PC peserta.
+  WslMsi       = 'https://github.com/microsoft/WSL/releases/download/2.3.26/wsl.2.3.26.0.x64.msi'
   TcpPorts     = @(80,443,2222,1025,3100,8089,88,389,464,636,3268,3269)
   UdpPorts     = @(88,389,464)
 }
@@ -219,6 +223,8 @@ function Invoke-Requirements {
 function Invoke-Download {
   Step '3. Unduh kebutuhan'
   New-Item -ItemType Directory -Force $Cache | Out-Null
+  # -BundleAll (paket build): ambil semua installer walau sudah terpasang di PC penyiap.
+  if ($BundleAll) { $script:Missing = @{ VirtualBox=$true; VcRedist=$true; Docker=$true; Wsl=$true } }
   if ($script:Missing.VirtualBox) {
     $ver = ((Invoke-WebRequest -UseBasicParsing "$($Cfg.VBoxBase)/LATEST-STABLE.TXT").Content).Trim()
     $idx = (Invoke-WebRequest -UseBasicParsing "$($Cfg.VBoxBase)/$ver/").Content
@@ -228,6 +234,7 @@ function Invoke-Download {
   }
   if ($script:Missing.VcRedist -or $script:Missing.VirtualBox) { Get-File $Cfg.VcRedist (Join-Path $Cache 'vc_redist.x64.exe') }
   if ($script:Missing.Docker) { Get-File $Cfg.DockerDesktop (Join-Path $Cache 'DockerDesktopInstaller.exe') }
+  if ($script:Missing.Wsl) { Get-File $Cfg.WslMsi (Join-Path $Cache 'wsl-update.msi') }
 
   $ova = Join-Path $Cache 'ubuntu-24.04-server-cloudimg-amd64.ova'
   $fresh = -not (Test-Path $ova)
@@ -258,9 +265,27 @@ function Invoke-Install {
     Ok 'VirtualBox terpasang'
   }
   if ($script:Missing.Wsl) {
-    Info 'pasang WSL2 (tanpa distro)...'
-    & wsl.exe --install --no-distribution
-    $script:NeedReboot = $true
+    Info 'pasang WSL2 secara OFFLINE (aktifkan fitur Windows + MSI terbundel)...'
+    # Fitur inbox (tanpa unduh): Subsystem for Linux + Virtual Machine Platform.
+    foreach ($feat in 'Microsoft-Windows-Subsystem-Linux','VirtualMachinePlatform') {
+      $st = Get-WindowsOptionalFeature -Online -FeatureName $feat -ErrorAction SilentlyContinue
+      if ($st -and $st.State -ne 'Enabled') {
+        Info "  aktifkan fitur $feat"
+        Enable-WindowsOptionalFeature -Online -FeatureName $feat -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
+        $script:NeedReboot = $true
+      }
+    }
+    $msi = Join-Path $Cache 'wsl-update.msi'
+    if (Test-Path $msi) {
+      Info '  pasang paket WSL2 (MSI offline)'
+      $p = Start-Process msiexec.exe -ArgumentList '/i',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+      if ($p.ExitCode -notin 0,3010) { Warn "MSI WSL exit $($p.ExitCode) - bila gagal, jalankan 'wsl --install' manual (online)" }
+      if ($p.ExitCode -eq 3010) { $script:NeedReboot = $true }
+    } else {
+      Warn 'MSI WSL tak ada di cache -> fallback online (wsl --install).'
+      & wsl.exe --install --no-distribution; $script:NeedReboot = $true
+    }
+    Invoke-Quiet 'wsl.exe' @('--set-default-version','2') | Out-Null
   }
   if ($script:Missing.Docker) {
     Info 'pasang Docker Desktop (silent, backend WSL2)...'
@@ -544,6 +569,31 @@ function Remove-LabVm($name) {
   $d = Join-Path $VmDir $name; if (Test-Path $d) { Remove-Item $d -Recurse -Force -ErrorAction SilentlyContinue }
   Ok "$name dihapus"
 }
+# Impor VM siap-pakai (VDI sudah di-provision) dari distribusi/vms/<name>.vdi - TANPA apt/cloud-init.
+function Import-PrebakedVm($vm) {
+  $vb = Get-VBoxManage
+  $name = $vm.Name
+  $src = Join-Path $Prebaked "$name.vdi"
+  if (-not (Test-Path $src)) { return $false }
+  $state = Get-VmState $name
+  if ($state) { if (-not $Rebuild) { Ok "$name sudah ada ($state) - lewati"; return $true }; Remove-LabVm $name }
+  Step "5c. VM $name (impor siap-pakai, $($vm.IP))"
+  $dir = Join-Path $VmDir $name
+  if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  $vdi = Join-Path $dir "$name.vdi"
+  Copy-Item $src $vdi -Force
+  Invoke-Exe $vb @('internalcommands','sethduuid',$vdi) | Out-Null
+  Invoke-Exe $vb @('createvm','--name',$name,'--ostype','Ubuntu_64','--basefolder',$VmDir,'--register') | Out-Null
+  Invoke-Exe $vb @('modifyvm',$name,'--memory',"$($vm.RamMB)",'--cpus',"$($vm.Cpus)",'--vram',"$($vm.Vram)",
+    '--graphicscontroller','vmsvga','--firmware','bios','--rtcuseutc','on','--ioapic','on','--mouse','usbtablet',
+    '--nic1','hostonly','--hostonlyadapter1',$script:HostOnlyIf,'--macaddress1',$vm.Mac1,'--nic2','none',
+    '--boot1','disk','--boot2','none') | Out-Null
+  Invoke-Exe $vb @('storagectl',$name,'--name','SATA','--add','sata','--controller','IntelAhci','--portcount','1') | Out-Null
+  Invoke-Exe $vb @('storageattach',$name,'--storagectl','SATA','--port','0','--device','0','--type','hdd','--medium',$vdi) | Out-Null
+  Ok "$name diimpor (siap-pakai, tanpa provisioning)"
+  return $true
+}
 function Start-LabVms {
   $vb = Get-VBoxManage
   foreach ($vm in $VMs) {
@@ -559,7 +609,8 @@ function Invoke-Build {
   if (-not (Get-VBoxManage)) { Fail 'VirtualBox belum terpasang - jalankan fase Install.' }
   Initialize-Network
   Initialize-DockerStack
-  foreach ($vm in $VMs) { New-LabVm $vm }
+  # Prioritas: VM siap-pakai (distribusi/vms) -> impor tanpa internet; jika tak ada -> provision.
+  foreach ($vm in $VMs) { if (-not (Import-PrebakedVm $vm)) { New-LabVm $vm } }
   Step '5d. Nyalakan VM'
   Start-LabVms
   Show-Summary
@@ -620,7 +671,7 @@ function Show-Summary {
 }
 
 # ============================ MAIN ============================
-# Dot-source (. .\build-lab.ps1) hanya memuat fungsi tanpa menjalankan fase — berguna untuk QA.
+# Dot-source (. .\build-lab.ps1) hanya memuat fungsi tanpa menjalankan fase - berguna untuk QA.
 if ($MyInvocation.InvocationName -eq '.') { return }
 New-Item -ItemType Directory -Force $Logs | Out-Null
 $log = Join-Path $Logs ("build-{0}.log" -f (Get-Date -Format yyyyMMdd-HHmmss))
