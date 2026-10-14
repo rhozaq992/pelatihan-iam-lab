@@ -205,3 +205,8 @@ Perintah lain:
 > Catatan Docker Desktop: skrip menyetel `%USERPROFILE%\.wslconfig` (batas RAM 6 GB, 2 CPU) agar
 > VM VirtualBox dan Docker berbagi 16 GB dengan aman. Ubah nilai di blok konfigurasi atas
 > `build-lab.ps1` bila RAM PC berbeda.
+
+---
+
+> **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):
+> lihat [`../ALUR-PESERTA.md`](../ALUR-PESERTA.md).

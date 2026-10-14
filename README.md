@@ -14,7 +14,7 @@ Seluruh lab dibangun satu skrip di **PowerShell (Administrator)** pada PC Window
 ```powershell
 cd <folder-repo>
 Set-ExecutionPolicy -Scope Process Bypass -Force
-.uild-lab.ps1          # Check -> Requirements -> Download -> Install -> Build
+.uild-lab.ps1          # Check -> Requirements -> Download -> Install -> Build
 ```
 Skrip memasang VirtualBox + Docker Desktop (bila belum ada), menjalankan stack layanan
 (termasuk Samba AD `dc1`), lalu membuat VM Ubuntu `srv1` & `client1` di jaringan Host-Only
@@ -28,7 +28,8 @@ Untuk kelas, panitia memakai **paket build** siap-serah ([`build-bag/`](build-ba
 
 | Path | Isi | Dijalankan? |
 |------|-----|-------------|
-| `build-lab.ps1` | **Pembangun lab** di PC Windows (cek sistem, pasang deps, stack Docker, VM Ubuntu) | `.uild-lab.ps1` |
+| `build-lab.ps1` | **Pembangun lab** di PC Windows (cek sistem, pasang deps, stack Docker, VM Ubuntu) | `.\build-lab.ps1` |
+| `ALUR-PESERTA.md` | **Storyboard** langkah peserta semua sesi + checklist validasi | baca |
 | `build-bag/` | Pembuat paket instalasi siap-serah untuk panitia | `build-bag/make-build-bag.ps1` |
 | `lab/` | Berkas untuk VM: cloud-init, skrip (`join-domain.sh`, `cis-scan.sh`), Alloy host, aturan auditd | dipakai `build-lab.ps1` |
 | `deploy/` | **Stack Docker**: `compose.yaml` + konfigurasi (Caddy, Keycloak, OpenBao, Warpgate, monitoring, **Samba AD**) + aplikasi | `docker compose up -d` |

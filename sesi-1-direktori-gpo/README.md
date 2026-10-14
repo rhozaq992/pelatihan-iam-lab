@@ -6,7 +6,7 @@ endpoint). Sesi ini membangun direktori **Samba AD DC** (`dc1`, container), meng
 terpusat**, lalu mengaudit kepatuhan endpoint dengan **CIS Benchmark**.
 
 Penanda tempat menjalankan: 🐳 **container `samba-dc` (dc1)** · 🖥️ **VM Ubuntu (srv1/client1)** ·
-🪟 **PowerShell host**. (Lihat Sesi 0 untuk arti lengkap.)
+🖥️ **terminal host** (docker). (Lihat Sesi 0 untuk arti lengkap.)
 
 ## Keterhubungan dengan sesi lain
 

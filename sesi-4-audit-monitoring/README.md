@@ -163,6 +163,28 @@ Dashboard akhir yang diharapkan (berisi data nyata dari lalu lintas lab):
 > Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
 > `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
 
+### 2b. 🌐 Dashboard "User Activity Trace" + penelusuran (discovery)
+Dashboard **User Activity Trace** sudah ter-*provision* (folder "IAM Lab"). Fungsinya menelusuri
+**aktivitas satu pengguna lintas host**: pilih variabel **`host`** dan **`user`** di atas
+dashboard (daftar terisi otomatis dari label log — inilah *discovery*), lalu panel menampilkan:
+- lini masa aktivitas `user` (login, sudo, perintah) di `srv1`/`client1`;
+- login sukses vs gagal per host; perintah `sudo`; perintah yang dieksekusi (auditd);
+- login Keycloak `user`; perubahan grup Samba; skor CIS terakhir per host.
+
+Untuk **discovery tanpa menulis LogQL**, buka **Explore → Drilldown → Logs** (plugin
+*Logs Drilldown*, sudah terpasang): pilih label `job="host"`, lalu jelajahi field (`user`,
+`event`, `host`) dan pola log yang muncul otomatis.
+
+> **✅ Validasi.** Variabel `user` pada dashboard memuat nama pengguna yang pernah beraktivitas
+> (mis. `dewi.puspita001` setelah login di `client1`). Pilih satu user → seluruh panel menyaring
+> ke aktivitasnya. Perubahan grup direktori muncul di `{service="samba-dc", event="group_change"}`.
+>
+> **Catatan sumber event Samba.** `group_change` (mis. menambah anggota grup istimewa) sudah
+> pasti tercatat. Event **login_ok/login_fail** dari Samba bergantung pada audit autentikasi yang
+> dipancarkan DC: paling andal muncul dari **login Kerberos klien terdaftar** (SSH ke `srv1`,
+> login GUI `client1`) dan bind Keycloak. Bila panel login Samba kosong padahal grup berubah,
+> andalkan event login di sisi **host** (`{job="host", event=~"login_ok|login_fail"}`) dan Keycloak.
+
 ### 3. 🌐 Alert & UBA dasar
 Buat aturan alert dengan *contact point* Mailpit (kotak surat uji):
 
@@ -196,13 +218,16 @@ LAB_PROFILE=spray docker compose --profile load up -d --force-recreate locust   
 ```
 
 ### 2. Deteksi & respons (kunci akun di SEMUA layanan)
-Dari dashboard & alert, identifikasi akun/IP terindikasi, lalu:
-```powershell
-Disable-ADAccount -Identity <user>        # 🪟 di DC
+Dari dashboard & alert, identifikasi akun/IP terindikasi, lalu matikan aksesnya terpusat:
+```bash
+# 🐳 di container samba-dc (dc1) — nonaktifkan akun di direktori (berlaku ke semua layanan)
+docker compose exec samba-dc samba-tool user disable <user>
 ```
-- 🌐 Keycloak: verifikasi user ter-disable (sync) + *Sessions → Logout all*.
+- 🌐 Keycloak: verifikasi user ter-disable (sinkron dari LDAP) + *Sessions → Logout all*.
 - 🐳 OpenBao: `bao token revoke` token terkait.
 - 🌐 Warpgate: hapus akses/role user.
+- 🖥️ Di `srv1`/`client1`: sesi aktif berakhir saat tiket Kerberos kedaluwarsa; bila perlu
+  segera, `sudo loginctl terminate-user <user>`.
 
 ### 3. Laporan insiden
 Tulis ringkas: *timeline*, bukti (query LogQL), tindakan; tinjau checklist *hardening*.
