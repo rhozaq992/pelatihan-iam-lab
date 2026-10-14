@@ -184,8 +184,14 @@ services:
     networks: [iamnet]
     logging: *default-logging
 
+  # srv-db01: target SSH KEDUA (role "server DB"), build identik srv-app01 — dipakai untuk
+  # latihan MULTI-TARGET/role via satu bastion (Sesi 3). Opsional agar deploy minimum hemat
+  # sumber daya; diaktifkan saat diperlukan: `docker compose --profile targets-extra up -d srv-db01`
+  # (atau sebut eksplisit namanya, mis. perintah Sesi 3). Satu target (srv-app01) sudah cukup
+  # untuk alur SSH-CA/bastion dasar.
   srv-db01:
     build: ./targets
+    profiles: ["targets-extra"]
     restart: unless-stopped
     hostname: srv-db01
     networks: [iamnet]

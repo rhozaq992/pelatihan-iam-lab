@@ -199,7 +199,7 @@ compose_up(){
   warn "OpenBao menyala 'sealed' (init/unseal di Sesi 3); Warpgate perlu setup sekali (Sesi 3) — normal."
 }
 
-compose_down(){ step "Hentikan stack"; cd "$DEPLOY"; docker compose --profile direktori --profile attack --profile load down; ok "stack dihentikan."; }
+compose_down(){ step "Hentikan stack"; cd "$DEPLOY"; docker compose --profile direktori --profile attack --profile load --profile targets-extra down; ok "stack dihentikan."; }
 
 # ---- deploy VM klien dari OVA (DIJALANKAN DI HOST FISIK ber-hypervisor) ----
 # Jaringan VM sudah dikonfigurasi panitia → cukup impor + nyalakan. Nama VM = nama file OVA.

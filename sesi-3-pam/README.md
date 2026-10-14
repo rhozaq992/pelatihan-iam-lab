@@ -64,9 +64,11 @@ sehingga kredensial curian tak berguna lama.
 ### 0. 🖥️ Deploy (sudah disiapkan — tetap dipahami)
 ```bash
 cd deploy
-docker compose up -d openbao warpgate srv-app01 srv-db01   # berjalan, OpenBao BELUM di-init
+# srv-db01 = target KEDUA (opsional, profile 'targets-extra') untuk latihan multi-target.
+docker compose --profile targets-extra up -d openbao warpgate srv-app01 srv-db01   # OpenBao BELUM di-init
 ```
 OpenBao sengaja mulai dalam keadaan *uninitialized*; Warpgate perlu *setup* sekali.
+(Jika hanya ingin satu target, cukup `docker compose up -d openbao warpgate srv-app01` — lewati `srv-db01`.)
 
 ### A. 🐳 OpenBao (brankas kredensial)
 Jalankan `bao` **di dalam container** OpenBao. Tiap langkah dijelaskan di komentar:

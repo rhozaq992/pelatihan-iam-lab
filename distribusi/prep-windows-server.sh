@@ -62,6 +62,17 @@ say "3. Install-DC.ps1 (promosikan jadi DC iamlab.test)"
 cat > "$WIN_DIR/Install-DC.ps1" <<'PS1'
 # Promosikan server ini menjadi Domain Controller hutan iamlab.test (Lab, data sintetis).
 $ErrorActionPreference = "Stop"
+# --- IP statis sesuai RENCANA JARINGAN KANONIK (Host-Only lab): DC = 10.10.10.10/24 ---
+# Wajib: stack Docker menghubungi DC di 10.10.10.10 (LDAPS/Kerberos/DNS via extra_hosts).
+# NIC lab = adapter Host-Only (tanpa gateway internet). DNS menunjuk ke diri sendiri.
+$ifx = (Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | Select-Object -First 1).ifIndex
+if ($ifx) {
+  Get-NetIPAddress -InterfaceIndex $ifx -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
+  Remove-NetRoute -InterfaceIndex $ifx -DestinationPrefix '0.0.0.0/0' -Confirm:$false -ErrorAction SilentlyContinue
+  New-NetIPAddress -InterfaceIndex $ifx -IPAddress 10.10.10.10 -PrefixLength 24 | Out-Null
+  Set-DnsClientServerAddress -InterfaceIndex $ifx -ServerAddresses 127.0.0.1
+}
 Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
 Import-Module ADDSDeployment
 $sm = ConvertTo-SecureString "P@ssw0rd#DSRM2026" -AsPlainText -Force
@@ -71,6 +82,10 @@ Install-ADDSForest -DomainName "iamlab.test" -DomainNetbiosName "IAMLAB" `
 PS1
 echo "  ✓ $WIN_DIR/Install-DC.ps1"
 echo
-echo "Langkah kelas (host x86 ber-VMware):"
-echo "  • Buat VM dari ISO + lampirkan autounattend.xml (floppy/USB) → instalasi & promosi DC otomatis."
-echo "  • Setelah DC naik: salin folder sesi-1 ke DC, jalankan OU/grup + import-ad.ps1 (Sesi 1 Bagian B)."
+echo "Langkah kelas (host peserta: VirtualBox) — autounattend.xml memasang & mem-promote DC otomatis:"
+echo "  1) Buat ISO kecil berisi autounattend.xml + Install-DC.ps1 (root media), mis. via oscdimg/PowerShell,"
+echo "     atau pakai 'VBoxManage unattended install' (meng-inject jawaban + --post-install-command)."
+echo "  2) Buat VM: NIC1 = Host-Only lab (10.10.10.0/24); boot dari ISO WS2025 + ISO autounattend."
+echo "     Install-DC.ps1 menyetel IP statis 10.10.10.10 + DNS lalu Install-ADDSForest (reboot otomatis)."
+echo "  3) Setelah DC naik: salin folder sesi-1 ke DC, jalankan OU/grup + import-ad.ps1 (Sesi 1 Bagian B)."
+echo "  (Catatan: VMware juga didukung — lampirkan autounattend.xml via floppy/USB.)"

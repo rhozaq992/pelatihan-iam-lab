@@ -167,8 +167,14 @@ sudo realm discover iamlab.test
 sudo realm join --user=Administrator iamlab.test
 id budi.contoh@iamlab.test        # harus menampilkan UID/grup dari direktori
 ```
-> Hasil: pengguna direktori dapat login ke klien Linux; direktori ini juga menjadi sumber
-> federasi LDAP untuk Keycloak sisi Linux (Sesi 2).
+> Hasil: pengguna direktori dapat login ke klien Linux — membuktikan konsep AD/LDAP+Kerberos
+> pada sisi Linux (open source).
+>
+> **Catatan peran dc2 (penting, hindari salah paham):** Samba `dc2` adalah **latihan direktori
+> sisi Linux (Bagian A)** yang bisa dijalankan lebih dulu. Ia **bukan** sumber federasi untuk
+> Keycloak. Mulai **Sesi 2 dan seterusnya, SSO/vault/bastion berfederasi ke Windows AD `dc1`**
+> (`ldaps://dc1.iamlab.test:636`) — lihat Sesi 2. Jadi dc2 melengkapi pemahaman, sedangkan `dc1`
+> adalah direktori produksi lab (Tier 0).
 
 ### Bagian B — Windows Server 2025 AD + klien Windows (target utama SSO/vault/bastion/pemantauan)
 
