@@ -29,14 +29,14 @@ Peserta mampu:
 
 ## c. Teori dan Struktur Sistem
 
-**Apa.** *Jejak audit identitas* menjawab "**siapa** mengakses **apa**, **kapan**,
+*Jejak audit identitas* menjawab "**siapa** mengakses **apa**, **kapan**,
 dari **mana**, berhasil/gagal". **UBA (User Behavior Analytics) dasar** mencari
 penyimpangan dari kebiasaan.
 
-**Mengapa.** Kontrol pencegahan tidak pernah 100%; deteksi + respons memperpendek
+Kontrol pencegahan tidak pernah 100%; deteksi + respons memperpendek
 waktu tinggal penyerang dan memenuhi kewajiban audit (mis. Peraturan BSSN tentang audit SPBE).
 
-**Apa yang dicari.** Ledakan kegagalan login (brute force), gagal lalu
+**Pola yang dicari:** ledakan kegagalan login (brute force), gagal lalu
 tiba-tiba berhasil, login di jam/IP tak lazim, perubahan keanggotaan grup istimewa,
 tiket Kerberos RC4. *Analogi:* satpam yang hafal pola normal dan curiga saat ada yang
 mencoba 100 pintu dalam semenit.
@@ -61,7 +61,7 @@ investigasi pasca-insiden:
 > Rujukan: NIST SP 800-92 (manajemen log), NIST SP 800-53 AU-2/AU-3/AU-6/AU-9/AU-12,
 > CIS Control 8 (Audit Log Management).
 
-**Bagaimana pipeline bekerja:** tiap komponen menulis log → **Alloy** memungut,
+**Pipeline log:** tiap komponen menulis log → **Alloy** memungut,
 mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & memberi alert.
 
 ![Pipeline log identitas: sumber → Alloy → Loki → Grafana → notifikasi](gambar/pipeline-log.png)
@@ -103,12 +103,12 @@ Anda lengkapi.
 > Keluaran query terakhir harus memuat layanan-layanan yang berjalan, mis.:
 > ```json
 > {"status":"success","data":["alloy","app-komentar","app-saml","caddy","grafana",
->  "keycloak","loki","mailpit","openbao","postgres","samba-dc","srv-app01","srv-db01","warpgate"]}
+>  "keycloak","loki","mailpit","openbao","postgres","samba-dc","srv-app01","warpgate"]}
 > ```
-> Jumlahnya 13–14 tergantung tahap: `warpgate` muncul **setelah** setup Sesi 3; `attacker`
-> hanya saat profil `attack` aktif (dan memang tak perlu diaudit). Yang penting **titik akses
-> inti** ada: `caddy` (semua HTTPS), `keycloak` (SSO), `openbao` (vault), `warpgate` (bastion),
-> `srv-app01/db01` (SSH).
+> Jumlahnya 12–14 tergantung tahap: `warpgate` muncul **setelah** setup Sesi 3; `srv-db01`
+> hanya bila profil `targets-extra` aktif; `attacker` hanya saat profil `attack` aktif (dan
+> memang tak perlu diaudit). Yang penting **titik akses inti** ada: `caddy` (semua HTTPS),
+> `keycloak` (SSO), `openbao` (vault), `warpgate` (bastion), `srv-app01` (SSH).
 > **Jika** `/ready` membalas `503 Service Unavailable` → Loki masih pemanasan; tunggu
 > ±30–60 dtk lalu ulangi. **Jika** `data` kosong `[]` → Alloy belum mengirim; cek
 > `docker compose logs alloy` dan pastikan `/var/run/docker.sock` ter-mount.
@@ -126,7 +126,9 @@ stage.match {
 ```
 Lakukan serupa untuk Warpgate & sshd, lalu 🖥️ `docker compose restart alloy`.
 Untuk **Windows Event dari DC**: 🪟 pasang Grafana Alloy di VM DC dan kirim ke Loki lab
-(`loki.source.windowsevent` → `http://<IP-host-docker>:3100`).
+(`loki.source.windowsevent` eventlog `Security` → `loki.write` ke
+`http://10.10.10.5:3100/loki/api/v1/push`; port 3100 sudah dipublikasikan compose). Uji dari
+DC: `Test-NetConnection 10.10.10.5 -Port 3100` → `TcpTestSucceeded : True`.
 
 ### 2. 🌐 Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
 Buat panel di datasource Loki (sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
@@ -179,9 +181,15 @@ Buat aturan alert dengan *contact point* Mailpit (kotak surat uji):
 
 ### 1. 🖥️ Bangkitkan lalu lintas (Locust)
 Jalankan profil `normal` (baseline), lalu profil anomali pilihan instruktur
-(`spray`, `fail-then-success`, `off-hours`), digabung hasil simulasi Sesi 1:
+(`spray`, `fail-then-success`, `off-hours`), digabung hasil simulasi Sesi 1. Tiap percobaan
+mengisi form login Keycloak sungguhan, jadi menghasilkan event `LOGIN`/`LOGIN_ERROR`.
+Login **sukses** butuh akun uji bersandi permanen dan tanpa OTP (mis. pengguna biasa yang
+sudah mengganti sandi awalnya):
 ```bash
-docker compose --profile load up -d locust      # UI di http://localhost:8089
+# profil dipilih lewat variabel lingkungan (atau tulis di deploy/.env)
+LAB_PROFILE=normal LAB_TEST_USER=dewi.puspita001 LAB_TEST_PASS='<sandi-permanen>' \
+  docker compose --profile load up -d locust      # UI di http://localhost:8089 → Start
+LAB_PROFILE=spray docker compose --profile load up -d --force-recreate locust   # ganti profil
 ```
 
 ### 2. Deteksi & respons (kunci akun di SEMUA layanan)

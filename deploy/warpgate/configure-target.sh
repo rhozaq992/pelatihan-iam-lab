@@ -38,10 +38,26 @@ RID=$(cj "$API/roles" | id_of "$ROLE")
 [ -n "$RID" ] || RID=$(cj -X POST "$API/roles" -H 'Content-Type: application/json' -d "{\"name\":\"$ROLE\"}" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
 echo "  $RID"
 
+# Warpgate → target memakai KUNCI KLIEN Warpgate (bukan sandi): Sesi 3 bagian B mematikan
+# PasswordAuthentication di target, jadi auth sandi akan putus setelah hardening.
+echo "==> Kunci klien Warpgate → authorized_keys $TGT_USER@$TARGET"
+WGKEYS=$(cj "$API/ssh/own-keys" | python3 -c "import sys,json
+try: print('\n'.join(k['kind']+' '+k['public_key_base64'] for k in json.load(sys.stdin)))
+except Exception: pass")
+AUTH="{\"kind\":\"PublicKey\"}"
+if [ -n "$WGKEYS" ]; then
+  printf '%s\n' "$WGKEYS" | docker compose -f "$(dirname "$0")/../compose.yaml" exec -T "$TARGET" sh -c \
+    "h=\$(getent passwd $TGT_USER | cut -d: -f6); install -d -m 700 -o $TGT_USER \$h/.ssh; cat >> \$h/.ssh/authorized_keys; chown $TGT_USER \$h/.ssh/authorized_keys; chmod 600 \$h/.ssh/authorized_keys"
+  echo "  ok ($(printf '%s\n' "$WGKEYS" | wc -l) kunci)"
+else
+  echo "  ! kunci klien Warpgate tak terbaca — sementara pakai sandi (putus setelah PasswordAuthentication no)."
+  AUTH="{\"kind\":\"Password\",\"password\":\"$TGT_PASS\"}"
+fi
+
 echo "==> Target '$TARGET' (SSH $TGT_USER@$TARGET:22)"
 TID=$(cj "$API/targets" | id_of "$TARGET")
 [ -n "$TID" ] || TID=$(cj -X POST "$API/targets" -H 'Content-Type: application/json' \
-  -d "{\"name\":\"$TARGET\",\"options\":{\"kind\":\"Ssh\",\"host\":\"$TARGET\",\"port\":22,\"username\":\"$TGT_USER\",\"auth\":{\"kind\":\"Password\",\"password\":\"$TGT_PASS\"}}}" \
+  -d "{\"name\":\"$TARGET\",\"options\":{\"kind\":\"Ssh\",\"host\":\"$TARGET\",\"port\":22,\"username\":\"$TGT_USER\",\"auth\":$AUTH}}" \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
 echo "  $TID"
 

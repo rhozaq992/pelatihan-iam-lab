@@ -10,7 +10,7 @@ Sesi ini **memakai direktori hasil Sesi 1**: Keycloak berfederasi ke AD memakai 
 layanan `svc-keycloak` (dibuat di Sesi 1), dan memetakan grup `GG-App-Viewer/Editor/Admin`
 (juga dari Sesi 1) menjadi peran aplikasi. Jadi pastikan Sesi 1 selesai (akun & grup ada)
 sebelum mulai. **Dipakai sesi berikutnya:** SSO Keycloak ini menjadi login untuk Warpgate
-(Sesi 3) dan Grafana (Sesi 4); event login yang dihasilkan di sini dipantau di Sesi 4.
+(Sesi 3); event login yang dihasilkan di sini dipantau di Sesi 4.
 
 ## a. Tujuan Sesi
 
@@ -30,11 +30,11 @@ Peserta mampu:
 
 ## c. Teori dan Struktur Sistem
 
-**Apa itu SSO.** Satu kali autentikasi ke *Identity Provider* (IdP), lalu banyak
-aplikasi (*Service Provider*/*Relying Party*) memercayainya. **Mengapa:** mengurangi
-jumlah sandi, memusatkan kebijakan & audit, dan memudahkan penonaktifan akun serentak.
+**Single Sign-On (SSO)** berarti satu kali autentikasi ke *Identity Provider* (IdP), lalu banyak
+aplikasi (*Service Provider*/*Relying Party*) memercayainya. Hasilnya: jumlah sandi berkurang,
+kebijakan & audit terpusat, dan penonaktifan akun berlaku serentak.
 
-**Bagaimana alur datanya:**
+**Alur data:**
 
 ![Alur SSO: aplikasi → Keycloak → federasi LDAP AD → MFA → token/assertion](gambar/alur-sso.png)
 
@@ -114,9 +114,13 @@ federasi/MFA** — semua itu Anda buat berikut.
 > cek kesiapan host di **Sesi 0**.
 
 ### 1. 🌐 Realm + federasi LDAP ke AD
+**Prasyarat (Sesi 1 langkah 5b):** CA AD sudah disalin ke `deploy/certs/ad-ca.pem` dan
+Keycloak di-*recreate* — tanpa itu koneksi LDAPS gagal dengan galat sertifikat (PKIX).
+
 Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis seperti ini:
 - Vendor: *Active Directory* · Connection URL: `ldaps://dc1.iamlab.test:636`
-- Bind DN: `CN=svc-keycloak,OU=AkunLayanan,DC=iamlab,DC=test` (sandi svc-keycloak)
+- Bind DN: `CN=svc-keycloak,OU=AkunLayanan,DC=iamlab,DC=test` · Bind credential: sandi
+  svc-keycloak **terbaru** (yang Anda set saat reset di Sesi 1 langkah 5)
 - Edit mode: **READ_ONLY** · **Users DN: `DC=iamlab,DC=test`** (root — mencakup akun
   admin & layanan; jika hanya `OU=Pengguna`, login SSO admin gagal diam-diam)
 - Username LDAP attr: `sAMAccountName` · UUID: `objectGUID`
@@ -169,6 +173,12 @@ Tab Advanced menampilkan PKCE S256 (wajib):
 Lalu 🖥️ salin **Client secret** ke `deploy/.env` (`APP_OIDC_CLIENT_SECRET=…`) dan muat
 ulang aplikasi: `docker compose up -d app-komentar`.
 
+### 2b. 🌐 Client OIDC untuk Warpgate (dipakai Sesi 3)
+**Clients → Create → OpenID Connect**, Client ID `warpgate`:
+- Client authentication **On**; Standard flow **On**; Direct access grants **Off**.
+- Valid redirect URIs: `https://pam.iamlab.test/@warpgate/api/sso/return`.
+- Simpan **Client secret** — diisi di konfigurasi SSO Warpgate pada Sesi 3 bagian C.
+
 ### 3. 🌐 Client SAML untuk App-SAML
 **Clients → Create → SAML**. Tukar metadata IdP
 (`https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`) untuk konfigurasi SP
@@ -182,7 +192,7 @@ ulang aplikasi: `docker compose up -d app-komentar`.
 *Gambar 8. Keycloak — Required actions (Configure OTP aktif)*
 
 - **Authentication → Flows**: duplikat *Browser*, tambah sub-flow **Conditional OTP** →
-  *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Grafana, Warpgate).
+  *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Warpgate).
 
   ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
 

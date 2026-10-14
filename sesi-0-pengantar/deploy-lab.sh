@@ -41,7 +41,8 @@ NET_DOMAIN="iamlab.test"
 NET_DC_IP="10.10.10.10"          # IP VM Windows Server (DC) di VMnet lab
 NET_DC_HOST="dc1.iamlab.test"
 NET_DOCKER_IP="10.10.10.5"       # IP tetap host Docker di VMnet lab (dilihat dari VM klien)
-NET_HOSTONLY_IP="10.10.10.1"     # IP adapter Host-Only di HOST (VirtualBox): gerbang VM↔layanan Docker
+NET_HOSTONLY_IP="$NET_DOCKER_IP" # IP adapter Host-Only di HOST (VirtualBox) = IP host Docker: OVA klien
+                                 # memetakan *.iamlab.test ke .5, jadi host yang menjalankan Docker HARUS .5
 NET_SUBS="kc app saml grafana bao mail pam"   # subdomain layanan (dilayani Caddy)
 
 # ---- util tampilan ----
@@ -220,11 +221,11 @@ deploy_vms(){
   if command -v VBoxManage >/dev/null 2>&1; then
     # --- pastikan Host-Only net lab (host=NET_HOSTONLY_IP, DC=NET_DC_IP) + DHCP utk klien ---
     local hoif
-    hoif="$(VBoxManage list hostonlyifs | awk -v ip="$NET_HOSTONLY_IP" '
+    hoif="$(VBoxManage list hostonlyifs | tr -d '\r' | awk -v ip="$NET_HOSTONLY_IP" '
       /^Name:/{sub(/^Name: */,"");n=$0} /^IPAddress:/{if($2==ip){print n;exit}}')"
     if [ -z "$hoif" ]; then
       ok "buat Host-Only network lab ($NET_HOSTONLY_IP/24)"
-      hoif="$(VBoxManage hostonlyif create 2>&1 | sed -n "s/.*Interface '\(.*\)' was successfully created.*/\1/p")"
+      hoif="$(VBoxManage hostonlyif create 2>&1 | tr -d '\r' | sed -n "s/.*Interface '\(.*\)' was successfully created.*/\1/p")"
       [ -n "$hoif" ] || die "gagal membuat host-only interface (jalankan sebagai Administrator)."
       VBoxManage hostonlyif ipconfig "$hoif" --ip "$NET_HOSTONLY_IP" --netmask 255.255.255.0 >/dev/null
     fi
@@ -285,7 +286,9 @@ open(p,'w').write("\n".join(L)+"\n")
 PYVMX
         ;;
       esac
-      if vmrun -T "$vmtype" list | grep -qF "$vmx"; then ok "VM '$name' sudah berjalan";
+      # Windows: vmrun mencetak path C:\..., bukan /c/... → bandingkan dgn path Windows (cygpath).
+      local vmx_cmp="$vmx"; command -v cygpath >/dev/null 2>&1 && vmx_cmp="$(cygpath -w "$vmx")"
+      if vmrun -T "$vmtype" list | tr -d '\r' | grep -qiF "$vmx_cmp"; then ok "VM '$name' sudah berjalan";
       else ok "start '$name' (headless)"; vmrun -T "$vmtype" start "$vmx" nogui; fi
     done
   else

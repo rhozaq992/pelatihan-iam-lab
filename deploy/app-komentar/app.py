@@ -15,7 +15,7 @@ Catatan: infrastruktur "berjalan tetapi belum dikonfigurasi". Tanpa OIDC_CLIENT_
 valid, app tetap START dan menampilkan status belum terkonfigurasi (peserta mengisi
 setelah membuat client di Keycloak). Penegakan role TETAP di sisi server.
 
-ponytail: SQLite + satu berkas; cukup untuk lab, bukan produksi.
+Desain sengaja minimal (SQLite + satu berkas): cukup untuk lab, bukan produksi.
 """
 import json
 import os
@@ -223,6 +223,7 @@ def purge():
 
 # API JSON (untuk menguji S2/S3 via curl langsung tanpa UI)
 @app.route("/api/comments")
+@require_role("viewer")   # S2: API pun ditegakkan di server (anonim → login, tanpa peran → 403)
 def api_comments():
     rows = db().execute("SELECT id, author, body, created_at FROM comments").fetchall()
     return jsonify([dict(r) for r in rows])

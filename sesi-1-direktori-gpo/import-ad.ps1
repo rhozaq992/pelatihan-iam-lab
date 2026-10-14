@@ -1,14 +1,15 @@
 <#
-  import-ad.ps1 — bulk import pengguna dummy ke Active Directory (dijalankan di DC).
+  import-ad.ps1 - bulk import pengguna dummy ke Active Directory (dijalankan di DC).
   Lab IAM. Membuat user dari CSV, menetapkan grup, sandi awal acak, flag ganti saat
-  login pertama, dan mengirim email sandi awal via SMTP (Mailpit)
+  login pertama, dan (opsional) mengirim email sandi awal via SMTP (Mailpit).
 
   Jalankan di VM Windows Server 2025 (sebagai Domain Admin):
-    .\import-ad.ps1 -Csv .\users_dummy.csv -SmtpServer <IP-docker-host> -SmtpPort 1025
+    .\import-ad.ps1 -Csv .\users_dummy.csv -SendEmail -SmtpServer 10.10.10.5 -SmtpPort 1025
 
-  Catatan: Mailpit menerima SMTP di port 1025 (tanpa TLS) — publikasikan port itu
-  bila ingin skrip DC mengirim ke Mailpit (tambahkan "1025:1025" pada service mailpit),
-  atau gunakan server SMTP uji lain. Semua data sintetis.
+  Catatan: Mailpit menerima SMTP di port 1025 (tanpa TLS; sudah dipublikasikan compose).
+  Tanpa -SendEmail, sandi awal TIDAK dikirim. Semua data sintetis.
+  Berkas ini sengaja ASCII murni: Windows PowerShell 5.1 membaca .ps1 tanpa BOM sebagai
+  ANSI, sehingga karakter non-ASCII (mis. em-dash) dapat merusak parsing string.
 #>
 param(
   [string]$Csv = ".\users_dummy.csv",
@@ -42,7 +43,8 @@ foreach ($r in $rows) {
   $pw = New-RandomPassword
   $sec = ConvertTo-SecureString $pw -AsPlainText -Force
   try {
-    New-ADUser -Name "$($r.given_name) $($r.surname)" `
+    # -Name (CN) wajib unik per OU; nama lengkap bisa kembar -> pakai sAMAccountName.
+    New-ADUser -Name $sam `
       -GivenName $r.given_name -Surname $r.surname `
       -SamAccountName $sam -UserPrincipalName "$sam@iamlab.test" `
       -DisplayName "$($r.given_name) $($r.surname)" `
@@ -61,7 +63,7 @@ foreach ($r in $rows) {
 
     if ($SendEmail -and $SmtpServer -and [bool]::Parse($r.enabled)) {
       $body = "Halo $($r.given_name),`n`nAkun lab Anda: $sam`nSandi awal: $pw`n" +
-              "Ganti sandi saat login pertama.`n`n(Lab terisolasi — data sintetis.)"
+              "Ganti sandi saat login pertama.`n`n(Lab terisolasi - data sintetis.)"
       Send-MailMessage -To $r.email -From "it@iamlab.test" -Subject "Akun Lab IAM" `
         -Body $body -SmtpServer $SmtpServer -Port $SmtpPort -ErrorAction SilentlyContinue
     }
@@ -70,4 +72,4 @@ foreach ($r in $rows) {
     Write-Warning "  gagal $sam : $($_.Exception.Message)"
   }
 }
-Write-Host "Selesai. (Tanpa -SendEmail, sandi awal tidak dikirim — lihat log untuk verifikasi.)"
+Write-Host "Selesai. (Tanpa -SendEmail, sandi awal tidak dikirim - lihat log untuk verifikasi.)"

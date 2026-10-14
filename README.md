@@ -10,6 +10,13 @@ di PC peserta.
 
 ## Memulai (setelah `git clone`)
 
+Cara tercepat — satu perintah (deteksi OS/arch, muat image offline, selaraskan `.env` &
+`hosts`, nyalakan stack): lihat [Sesi 0 › Deploy awal](sesi-0-pengantar/README.md#deploy-awal-satu-perintah).
+```bash
+export MSYS_NO_PATHCONV=1      # Windows/Git Bash saja
+cd sesi-0-pengantar && ./deploy-lab.sh
+```
+Cara manual:
 ```bash
 cd deploy
 cp .env.example .env            # sesuaikan DC_IP & sandi
@@ -39,7 +46,7 @@ mulai [Sesi 0](sesi-0-pengantar/).
 | `sesi-3-pam/` | OpenBao (vault) + Warpgate (bastion) | ikuti modul |
 | `sesi-4-audit-monitoring/` | Alloy/Loki/Grafana + capstone | ikuti modul |
 | `attack-sim/` | Runner simulasi berpagar (dipakai Sesi 1) | via compose profil |
-| `distribusi/` | **Kosong di Git** — tempat ISO/OVA/image yang dibagikan manual | lihat README-nya |
+| `distribusi/` | Skrip penyiapan (OVA klien, autounattend DC, unduh); ISO/OVA/image dibagikan manual (tidak di Git) | lihat README-nya |
 
 ## Alur Sesi (saling menyambung)
 
@@ -55,7 +62,7 @@ Sesi 1 (AD: OU, grup GG-*, akun svc-*, kebijakan sandi)
 ## Prasyarat PC peserta
 
 - Windows, RAM ≥ 16 GB (disarankan 32 GB), disk ≥ 120 GB, virtualisasi (VT-x/AMD-V) aktif.
-- VMware Workstation Pro (gratis) untuk VM Windows Server 2025 (DC); Docker untuk stack layanan.
+- VirtualBox (atau VMware Workstation Pro) untuk VM Windows Server 2025 (DC) & klien; Docker Desktop untuk stack layanan.
 - Google Authenticator / FreeOTP di ponsel.
 
 > Aset berat (ISO/OVA/image) **tidak** di Git — dibagikan manual lewat `distribusi/`

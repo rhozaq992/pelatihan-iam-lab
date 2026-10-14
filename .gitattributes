@@ -1,0 +1,8 @@
+# Skrip & konfigurasi dipakai bash/container Linux → WAJIB LF walau di-clone di Windows
+# (core.autocrlf=true akan mengubah ke CRLF dan bash gagal: $'\r': command not found).
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.csv -text
+*.png binary
+*.gif binary
+*.docx binary

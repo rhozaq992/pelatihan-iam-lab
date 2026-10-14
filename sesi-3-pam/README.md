@@ -28,15 +28,15 @@ Peserta mampu:
 
 ## c. Teori dan Struktur Sistem
 
-**Apa.** *Privileged Access Management* memperlakukan akun admin ("kunci induk")
+*Privileged Access Management* memperlakukan akun admin ("kunci induk")
 secara khusus. **Vault** menyimpan kredensial terenkripsi, memberi akses berbasis
 kebijakan, mencatat tiap pengambilan, dan dapat menerbitkan kredensial berumur pendek.
 **Jump server/bastion** memaksa semua akses admin lewat satu pintu yang merekam sesi.
 
-**Mengapa.** Kredensial admin statis yang tersebar = permukaan serang besar; akses
+Kredensial admin statis yang tersebar = permukaan serang besar; akses
 langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
-**Bagaimana alurnya:**
+**Alur akses istimewa:**
 
 ![Alur PAM: SSO + MFA → Warpgate (bastion) → target; OpenBao untuk kredensial & SSH CA](gambar/alur-pam.png)
 
@@ -56,8 +56,8 @@ langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
 **SSH CA.** Alih-alih menyebar kunci publik ke tiap server, server cukup
 memercayai satu *Certificate Authority*; OpenBao menandatangani sertifikat SSH berumur
-pendek (mis. 30 menit) untuk pengguna yang berhak — **Kapan** kadaluwarsa cepat
-sehingga kredensial curian tak berguna lama.
+pendek (mis. 30 menit) untuk pengguna yang berhak — masa berlaku yang singkat membuat
+kredensial curian tak berguna lama.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
@@ -80,8 +80,10 @@ bao login <root-token>
 bao audit enable file file_path=/openbao/file/audit.log    # catat SEMUA akses (sebelum isi rahasia)
 bao audit enable -path=stdout file file_path=stdout        # salin audit ke STDOUT → Alloy→Loki (audit TERPUSAT)
 bao auth enable ldap                                        # login pakai akun AD
+# CA AD (Sesi 1 langkah 5b) sudah di deploy/certs/ad-ca.pem → ter-mount di /openbao/certs
 bao write auth/ldap/config url="ldaps://dc1.iamlab.test:636" \
-  userdn="OU=Pengguna,DC=iamlab,DC=test" groupdn="OU=Grup,DC=iamlab,DC=test" \
+  certificate=@/openbao/certs/ad-ca.pem \
+  userdn="DC=iamlab,DC=test" groupdn="OU=Grup,DC=iamlab,DC=test" \
   binddn="CN=svc-openbao,OU=AkunLayanan,DC=iamlab,DC=test" bindpass="***" userattr=sAMAccountName
 bao policy write admin-t1 - <<'HCL'                         # izin minimal (least privilege)
 path "kv/data/breakglass/*" { capabilities=["read"] }
@@ -89,7 +91,7 @@ path "ssh/sign/t1"          { capabilities=["update"] }
 HCL
 bao write auth/ldap/groups/GG-Tier1-Admin policies=admin-t1 # grup AD → policy
 bao secrets enable -path=kv kv-v2                            # brankas KV
-bao kv put kv/breakglass/srv-app01 user=root pass='BreakGlass#2026'
+bao kv put kv/breakglass/srv-app01 user=labadmin pass='BreakGlass#2026'   # root login dimatikan di bagian B
 bao secrets enable ssh                                       # mesin SSH CA
 bao write ssh/config/ca generate_signing_key=true
 # Role sign SSH: allowed_users WAJIB (OpenBao 2.x menolak sign tanpa principal), permit-pty
@@ -97,7 +99,9 @@ bao write ssh/config/ca generate_signing_key=true
 bao write ssh/roles/t1 - <<'JSON'
 {"key_type":"ca","allow_user_certificates":true,"allowed_users":"labadmin","default_user":"labadmin","default_extensions":{"permit-pty":""},"ttl":"30m"}
 JSON
-# GATED: pastikan login LDAP admin BERHASIL dulu, simpan unseal key, BARU cabut root:
+# GATED: buktikan login LDAP admin Tier 1 BERHASIL (akun adm-t1-anda dari Sesi 1 langkah 3,
+# anggota GG-Tier1-Admin) → token harus memuat policy admin-t1. Simpan unseal key, BARU cabut root:
+docker compose exec -e BAO_ADDR=http://127.0.0.1:8200 openbao bao login -method=ldap username=adm-t1-anda
 bao token revoke <root-token>
 ```
 
@@ -124,6 +128,9 @@ bao token revoke <root-token>
 > jejak audit ke Loki lewat Alloy — buktikan di Sesi 4 dengan `{service="openbao"}`).
 > **Jika** `ssh/roles/t1` → `role is not configured to allow any principals`: `allowed_users`
 > kosong — WAJIB diisi (lihat JSON di atas).
+> **Jika** login LDAP gagal `x509: certificate signed by unknown authority` → `ad-ca.pem`
+> belum ada/OpenBao belum di-*recreate* (lihat `deploy/README.md`). Jangan cabut root token
+> sebelum `bao login -method=ldap` menampilkan `policies [admin-t1 default]`.
 
 Status nyata setelah init/unseal (OpenBao di lab ini berbasis **CLI**, tanpa web UI):
 
@@ -132,9 +139,10 @@ Status nyata setelah init/unseal (OpenBao di lab ini berbasis **CLI**, tanpa web
 *Gambar 2. Terminal OpenBao — status, audit, engine kv & ssh*
 
 ### B. 🐳 Target memercayai SSH CA
-Ambil kunci publik CA dari OpenBao lalu salurkan ke tiap target, dan matikan sandi:
+Ambil kunci publik CA dari OpenBao lalu salurkan ke tiap target **yang sedang berjalan**
+(srv-db01 hanya ada bila profil `targets-extra` aktif), dan matikan sandi:
 ```bash
-for t in srv-app01 srv-db01; do
+for t in $(docker compose ps --services --status running | grep '^srv-'); do
   docker compose exec -T -e BAO_ADDR=http://127.0.0.1:8200 openbao bao read -field=public_key ssh/config/ca \
     | docker compose exec -T $t tee /etc/ssh/openbao_ca.pub >/dev/null
   docker compose exec $t sh -c 'printf "\nTrustedUserCAKeys /etc/ssh/openbao_ca.pub\nPasswordAuthentication no\nPermitRootLogin no\n" >> /etc/ssh/sshd_config; kill -HUP 1'
@@ -162,11 +170,30 @@ docker compose up -d warpgate
 > **Jika** `docker compose ps` tak menampilkan warpgate / `Restarting`: setup belum
 > dijalankan (config `/data/warpgate.yaml` belum ada) — ulangi `unattended-setup` dulu.
 Agar login ke bastion **terkendali dan seragam**, arahkan autentikasi Warpgate ke
-**SSO Keycloak** (bukan akun lokal Warpgate): di admin → *Config → Global parameters →
-SSO providers*, tambahkan provider OIDC ke realm `iamlab`
-(`https://kc.iamlab.test/realms/iamlab`), sehingga **MFA dari Sesi 2 ikut berlaku** saat
-masuk bastion. Lalu tambahkan **target** SSH `srv-app01`/`srv-db01` dengan **role**
-terbatas, dan aktifkan **perekaman sesi**:
+**SSO Keycloak** (bukan akun lokal Warpgate), sehingga **MFA dari Sesi 2 ikut berlaku** saat
+masuk bastion. Provider SSO Warpgate diatur di berkas konfigurasi `/data/warpgate.yaml`
+(bukan di web UI) memakai client `warpgate` yang dibuat di Sesi 2 langkah 2b:
+```bash
+# 🖥️ salin keluar, sunting, salin balik, lalu restart
+docker compose cp warpgate:/data/warpgate.yaml ./warpgate.yaml
+cat >> ./warpgate.yaml <<'YAML'
+sso_providers:
+  - name: keycloak
+    label: Keycloak (iamlab)
+    provider:
+      type: custom
+      client_id: warpgate
+      client_secret: <secret client warpgate dari Keycloak>
+      issuer_url: https://kc.iamlab.test/realms/iamlab
+      scopes: ["email"]
+YAML
+docker compose cp ./warpgate.yaml warpgate:/data/warpgate.yaml && docker compose restart warpgate
+```
+Di konsol admin, beri pengguna Warpgate kredensial **SSO** (email sama dengan akun AD-nya).
+Lalu tambahkan **target** SSH `srv-app01`/`srv-db01` dengan **role** terbatas, dan aktifkan
+**perekaman sesi**. Warpgate masuk ke target memakai **kunci klien Warpgate** (konsol →
+*SSH* → kunci milik Warpgate) yang dipasang di `authorized_keys` target — bukan sandi, karena
+sandi target sudah dimatikan di bagian B. Skrip `configure-target.sh` di bawah mengerjakan ini:
 
 ![Warpgate — konsol admin (Config): tambah target SSH, Users, Access roles, perekaman sesi](gambar/warpgate-admin.png)
 
@@ -185,7 +212,9 @@ Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate m
 **Agenda Aktivitas (nomor pada diagram):**
 1. Peserta `ssh -p 2222 <user>:srv-app01@pam.iamlab.test` ke **bastion**.
 2. Warpgate meminta autentikasi via **Keycloak** (SSO OIDC + MFA).
-3. Warpgate meminta **sertifikat SSH** berumur pendek ke **OpenBao** (SSH CA).
+3. Warpgate membuka sesi ke target memakai **kunci kliennya sendiri** (terdaftar di target).
+   Jalur alternatif tanpa bastion — mis. *break-glass* — memakai **sertifikat SSH** berumur
+   pendek yang ditandatangani **OpenBao** (SSH CA) untuk akun `labadmin`.
 4. Sesi diteruskan ke **srv-app01**.
 5. Sesi **direkam** → dapat diputar ulang & diaudit.
 

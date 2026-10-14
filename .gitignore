@@ -17,3 +17,7 @@ distribusi/installer/*
 __pycache__/
 *.pyc
 ~$*
+
+# CA AD hasil ekspor per peserta (Sesi 1)
+deploy/certs/*.pem
+deploy/certs/*.cer

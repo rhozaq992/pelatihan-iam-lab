@@ -31,7 +31,8 @@ fi
 say "2. autounattend.xml (instalasi tanpa interaksi, x86-64)"
 cat > "$WIN_DIR/autounattend.xml" <<'XML'
 <?xml version="1.0" encoding="utf-8"?>
-<unattend xmlns="urn:schemas-microsoft-com:unattend">
+<!-- Firmware VM WAJIB UEFI (partisi GPT); di VirtualBox setel firmware VM = EFI (lihat langkah kelas). -->
+<unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
   <settings pass="windowsPE">
     <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <SetupUILanguage><UILanguage>en-US</UILanguage></SetupUILanguage>
@@ -39,18 +40,53 @@ cat > "$WIN_DIR/autounattend.xml" <<'XML'
       <UILanguage>en-US</UILanguage><UserLocale>en-US</UserLocale>
     </component>
     <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <!-- Disk 0 dihapus & dipartisi otomatis (EFI + MSR + Windows) agar setup tak berhenti di layar pilih disk. -->
+      <DiskConfiguration>
+        <Disk wcm:action="add">
+          <DiskID>0</DiskID><WillWipeDisk>true</WillWipeDisk>
+          <CreatePartitions>
+            <CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>260</Size></CreatePartition>
+            <CreatePartition wcm:action="add"><Order>2</Order><Type>MSR</Type><Size>16</Size></CreatePartition>
+            <CreatePartition wcm:action="add"><Order>3</Order><Type>Primary</Type><Extend>true</Extend></CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <ModifyPartition wcm:action="add"><Order>1</Order><PartitionID>1</PartitionID><Format>FAT32</Format><Label>System</Label></ModifyPartition>
+            <ModifyPartition wcm:action="add"><Order>2</Order><PartitionID>2</PartitionID></ModifyPartition>
+            <ModifyPartition wcm:action="add"><Order>3</Order><PartitionID>3</PartitionID><Format>NTFS</Format><Label>Windows</Label><Letter>C</Letter></ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+      </DiskConfiguration>
       <UserData><AcceptEula>true</AcceptEula><FullName>Lab</FullName><Organization>IAMLAB</Organization></UserData>
-      <ImageInstall><OSImage><InstallFrom><MetaData wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
-        <Key>/IMAGE/NAME</Key><Value>Windows Server 2025 SERVERDATACENTER</Value></MetaData></InstallFrom></OSImage></ImageInstall>
+      <ImageInstall><OSImage>
+        <InstallFrom><MetaData wcm:action="add"><Key>/IMAGE/NAME</Key><Value>Windows Server 2025 SERVERDATACENTER</Value></MetaData></InstallFrom>
+        <InstallTo><DiskID>0</DiskID><PartitionID>3</PartitionID></InstallTo>
+      </OSImage></ImageInstall>
+    </component>
+  </settings>
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <!-- Nama host WAJIB dc1 → terdaftar sebagai dc1.iamlab.test (dirujuk LDAPS/Kerberos stack Docker). -->
+      <ComputerName>DC1</ComputerName>
+    </component>
+    <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <RunSynchronous>
+        <!-- Salin Install-DC.ps1 dari media jawaban (ISO/USB kedua, huruf drive tak tentu) ke C:\Windows. -->
+        <RunSynchronousCommand wcm:action="add"><Order>1</Order>
+          <Path>cmd /c "for %d in (D E F G H I J) do if exist %d:\Install-DC.ps1 copy /y %d:\Install-DC.ps1 C:\Windows\Install-DC.ps1"</Path>
+        </RunSynchronousCommand>
+      </RunSynchronous>
     </component>
   </settings>
   <settings pass="oobeSystem">
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <OOBE><HideEULAPage>true</HideEULAPage><ProtectYourPC>3</ProtectYourPC><NetworkLocation>Work</NetworkLocation></OOBE>
       <UserAccounts><AdministratorPassword><Value>P@ssw0rd#DC2026</Value><PlainText>true</PlainText></AdministratorPassword></UserAccounts>
+      <!-- Logon otomatis SEKALI agar FirstLogonCommands (promosi DC) jalan tanpa interaksi. -->
+      <AutoLogon><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>Administrator</Username>
+        <Password><Value>P@ssw0rd#DC2026</Value><PlainText>true</PlainText></Password></AutoLogon>
       <FirstLogonCommands>
-        <SynchronousCommand wcm:action="add" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
-          <Order>1</Order><CommandLine>powershell -ExecutionPolicy Bypass -File C:\windows\Install-DC.ps1</CommandLine></SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order><CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -File C:\Windows\Install-DC.ps1</CommandLine></SynchronousCommand>
       </FirstLogonCommands>
     </component>
   </settings>
@@ -85,7 +121,9 @@ echo
 echo "Langkah kelas (host peserta: VirtualBox) — autounattend.xml memasang & mem-promote DC otomatis:"
 echo "  1) Buat ISO kecil berisi autounattend.xml + Install-DC.ps1 (root media), mis. via oscdimg/PowerShell,"
 echo "     atau pakai 'VBoxManage unattended install' (meng-inject jawaban + --post-install-command)."
-echo "  2) Buat VM: NIC1 = Host-Only lab (10.10.10.0/24); boot dari ISO WS2025 + ISO autounattend."
+echo "  2) Buat VM: firmware EFI (VirtualBox: VBoxManage modifyvm <vm> --firmware efi), disk ≥ 60 GB,"
+echo "     NIC1 = Host-Only lab (10.10.10.0/24); boot dari ISO WS2025 + ISO autounattend (DVD kedua)."
+echo "     PERHATIAN: disk 0 VM dihapus & dipartisi otomatis; nama host jadi DC1 (dc1.iamlab.test)."
 echo "     Install-DC.ps1 menyetel IP statis 10.10.10.10 + DNS lalu Install-ADDSForest (reboot otomatis)."
 echo "  3) Setelah DC naik: salin folder sesi-1 ke DC, jalankan OU/grup + import-ad.ps1 (Sesi 1 Bagian B)."
 echo "  (Catatan: VMware juga didukung — lampirkan autounattend.xml via floppy/USB.)"

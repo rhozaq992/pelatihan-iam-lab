@@ -95,6 +95,10 @@ services:
       # agar login berhasil muncul di log/Loki (gagal tetap di warn/error).
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: info
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: warn
+    volumes:
+      # CA AD (ad-ca.pem, diekspor dari DC di Sesi 1) → Keycloak 26 otomatis memercayai
+      # semua sertifikat di conf/truststores → federasi ldaps://dc1.iamlab.test:636 lolos TLS.
+      - ./certs:/opt/keycloak/conf/truststores:ro
     extra_hosts:
       - "${DC_HOST}:${DC_IP}"
     depends_on:
@@ -155,6 +159,7 @@ services:
     volumes:
       - ./openbao/config.hcl:/openbao/config/config.hcl:ro
       - bao-data:/openbao/file
+      - ./certs:/openbao/certs:ro     # CA AD utk auth LDAP (certificate=@/openbao/certs/ad-ca.pem)
     extra_hosts:
       - "${DC_HOST}:${DC_IP}"
     networks: [iamnet]
@@ -205,6 +210,9 @@ services:
     volumes:
       - ./monitoring/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki-data:/loki
+    # Dipublikasikan agar Alloy di VM DC dapat mengirim Windows Event (Sesi 4):
+    # http://10.10.10.5:3100/loki/api/v1/push
+    ports: ["3100:3100"]
     networks: [iamnet]
     logging: *default-logging
 
@@ -248,6 +256,10 @@ services:
     profiles: ["load"]       # tidak autorun; mulai di Sesi 4 (capstone): docker compose --profile load up -d locust
     restart: unless-stopped
     command: ["-f", "/mnt/locust/locustfile.py", "--host", "https://app.${LAB_DOMAIN}"]
+    environment:
+      LAB_PROFILE: ${LAB_PROFILE:-normal}          # normal | spray | fail-then-success | off-hours
+      LAB_TEST_USER: ${LAB_TEST_USER:-}            # akun uji (sandi sudah permanen) utk login sukses
+      LAB_TEST_PASS: ${LAB_TEST_PASS:-}
     volumes:
       - ./loadgen:/mnt/locust:ro
     ports: ["8089:8089"]
@@ -270,9 +282,9 @@ services:
   # Tidak autorun. Mulai saat Sesi 1 Bagian A:
   #   docker compose --profile direktori up -d samba-dc
   #   docker compose exec samba-dc samba-tool ...
-  # Windows Server AD (dc1) berada di VM VMware terpisah, DI LUAR compose ini.
+  # Windows Server AD (dc1) berada di VM terpisah (VirtualBox/VMware), DI LUAR compose ini.
   samba-dc:
-    image: diegogslomp/samba-ad-dc:latest   # pin tag saat build final
+    image: diegogslomp/samba-ad-dc:latest   # versi dibekukan di iam-images.tar (jangan pull ulang di kelas)
     profiles: ["direktori"]
     hostname: dc2
     privileged: true

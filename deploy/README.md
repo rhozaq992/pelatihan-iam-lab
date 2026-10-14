@@ -1,7 +1,7 @@
 # deploy/ — Stack layanan IAM (Docker)
 
-Jalan di **Docker Desktop (WSL2)** atau **VM Ubuntu** pada VMware.
-AD (Windows Server 2025) ada di VM VMware terpisah (lihat `DC_IP`).
+Jalan di **Docker Desktop (WSL2)** atau **VM Ubuntu** pada VirtualBox/VMware.
+AD (Windows Server 2025) ada di VM terpisah (lihat `DC_IP`).
 
 ## Menjalankan
 ```bash
@@ -28,7 +28,8 @@ kc.iamlab.test app.iamlab.test saml.iamlab.test grafana.iamlab.test bao.iamlab.t
 | OpenBao | https://bao.iamlab.test (API/CLI saja — image ini tanpa web UI) |
 | Mailpit | https://mail.iamlab.test |
 | Warpgate | https://pam.iamlab.test · ssh -p 2222 |
-| Locust | http://localhost:8089 |
+| Locust | http://localhost:8089 (profil `load`, Sesi 4) |
+| Loki (push dari DC) | http://10.10.10.5:3100 |
 
 ## Deploy vs. Konfigurasi (prinsip lab)
 Infrastruktur **berjalan tetapi belum aman/kosong**; peserta mengonfigurasi keamanan.
@@ -51,6 +52,13 @@ docker compose --profile attack up -d attacker
 docker compose exec -e IAMLAB_CONFIRM=1 attacker /attack-sim/run.sh dc1.iamlab.test kerberoast
 ```
 Hanya untuk menguji deteksi/mitigasi di jaringan Host-Only terisolasi. Lihat `../attack-sim/`.
+
+## CA Active Directory (`certs/`)
+Keycloak dan OpenBao berfederasi ke `ldaps://dc1.iamlab.test:636`, jadi keduanya harus
+memercayai CA AD. Setelah Sesi 1 (langkah LDAPS), salin CA AD dalam format PEM ke
+`certs/ad-ca.pem`, lalu `docker compose up -d --force-recreate keycloak openbao`.
+Folder ini di-mount ke Keycloak (`/opt/keycloak/conf/truststores`, dipercaya otomatis) dan
+OpenBao (`/openbao/certs`). Berkas `*.pem` tidak di-commit.
 
 ## Catatan
 - AD tidak di compose; Windows Event dikirim oleh Alloy yang dipasang di VM DC (lihat `monitoring/alloy/config.alloy`).

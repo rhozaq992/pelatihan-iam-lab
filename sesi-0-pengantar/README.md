@@ -35,21 +35,19 @@ Peserta memahami:
 **IAM (Identity & Access Management)** adalah disiplin mengelola *siapa boleh
 mengakses apa, kapan, dan bagaimana membuktikannya*. Rangkanya adalah **IAAA**:
 
-| Pilar | **Apa** | **Mengapa** | Analogi |
+| Pilar | Makna | Tujuan | Analogi |
 |------|-----------------|-------------------|---------|
 | **Identifikasi** | Pengguna mengaku sebagai siapa (username) | Titik awal semua kontrol | Menyebut nama di resepsionis |
 | **Autentikasi** | Membuktikan klaim identitas (faktor: sandi, OTP, biometrik) | Mencegah peniruan | Menunjukkan KTP + segel sekali pakai |
 | **Otorisasi** | Menentukan hak (peran/izin) | Membatasi akses sesuai kebutuhan (*least privilege*) | Kartu hanya membuka lantai tertentu |
 | **Audit** | Mencatat aktivitas | Pembuktian & deteksi penyalahgunaan | Buku tamu + CCTV |
 
-- **Siapa** yang terlibat: pengguna akhir, administrator (akun istimewa), akun
-  layanan (aplikasi), dan auditor.
-- **Kapan** kontrol bekerja: saat login (autentikasi), saat mengakses fitur
-  (otorisasi), dan terus-menerus (audit).
-- **Di mana**: identitas terpusat memindahkan keempat pilar dari tiap aplikasi
-  ke **satu direktori** (sumber kebenaran) dan **satu IdP** (gerbang).
-- **Bagaimana**: aplikasi mendelegasikan login ke IdP; IdP memverifikasi ke
-  direktori dan menerbitkan token/assertion yang dipercaya aplikasi.
+Pihak yang terlibat adalah pengguna akhir, administrator (akun istimewa), akun layanan
+(aplikasi), dan auditor. Kontrol bekerja saat login (autentikasi), saat mengakses fitur
+(otorisasi), dan terus-menerus (audit). Identitas terpusat memindahkan keempat pilar dari
+tiap aplikasi ke **satu direktori** (sumber kebenaran) dan **satu IdP** (gerbang): aplikasi
+mendelegasikan login ke IdP, IdP memverifikasi ke direktori lalu menerbitkan token/assertion
+yang dipercaya aplikasi.
 
 _Analogi:_ dari "tiap pintu punya daftar tamu sendiri" menjadi "satu lobi, satu
 petugas, satu buku tamu" — kebijakan konsisten, penonaktifan akun berlaku serentak,
@@ -97,7 +95,7 @@ pada *Agenda Aktivitas* di bawahnya.
 | **1** | Pengguna membuka aplikasi/konsol lewat HTTPS; TLS diterminasi reverse proxy | Klien Windows/Linux → **Caddy** |
 | **2** | Proxy meneruskan permintaan login ke Identity Provider (SSO) | Caddy → **Keycloak** |
 | **3** | Keycloak memverifikasi kredensial & menarik atribut/grup lewat LDAPS 636 | Keycloak → **Windows Server AD (dc1)** |
-| **3b** | Federasi direktori untuk sisi Linux | Keycloak → **Samba AD (dc2)** |
+| **3b** | Latihan administrasi direktori sisi Linux (tanpa federasi; klien tetap join ke dc1) | **Samba AD (dc2)** |
 | **4** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Klien → **Warpgate** |
 | **5** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
 | **6** | Sesi SSH diproksikan ke target **dan direkam** | Warpgate → **Klien/target Linux** |
@@ -167,8 +165,9 @@ ada, memuat image offline (`distribusi/offline-images/iam-images.tar`), lalu `do
 >    Workstation Server* → Stop) sebelum lanjut.
 > 3. **Docker Desktop berjalan** (ikon paus hijau) dan memakai image **amd64** (lihat di bawah).
 > 4. **Untuk `--vms` (VirtualBox):** pastikan `VBoxManage` ada di PATH
->    (`export PATH="$PATH:/c/Program Files/Oracle/VirtualBox"`) dan panitia telah membuat
->    **Host-Only network `10.10.10.0/24`** (DC=10.10.10.10, host-Docker=10.10.10.5).
+>    (`export PATH="$PATH:/c/Program Files/Oracle/VirtualBox"`). Skrip membuat **Host-Only
+>    network `10.10.10.0/24`** dengan IP host **10.10.10.5** (= host Docker yang dituju klien),
+>    DC=10.10.10.10, klien via DHCP .100–.200. Jalankan Git Bash *as Administrator* sekali.
 
 ```bash
 # 🖥️ terminal host (Linux/Ubuntu, macOS, atau Windows via Git Bash)
@@ -189,14 +188,14 @@ cd sesi-0-pengantar
 > iamlab-alloy-1          Up
 > iamlab-mailpit-1        Up (healthy)
 > iamlab-openbao-1        Up                  # sealed — di-init di Sesi 3 (normal)
-> iamlab-app-komentar-1   Up (unhealthy)      # normal: realm OIDC belum dibuat (Sesi 2)
+> iamlab-app-komentar-1   Up (healthy)        # app hidup; login aktif setelah client OIDC dibuat (Sesi 2)
 > iamlab-srv-app01-1      Up
-> iamlab-srv-db01-1       Up
 > iamlab-app-saml-1       Up
 > iamlab-samba-dc-1       Up (healthy)        # DC Samba Sesi 1A (profil 'direktori')
 > iamlab-warpgate-1       Up (healthy)        # muncul/healthy setelah setup Sesi 3
 > ```
-> (Daftar di atas contoh ringkas; pada deploy default muncul ±14 kontainer — itu normal.)
+> (Daftar di atas contoh ringkas; pada deploy default muncul ±13 kontainer — itu normal.
+> `srv-db01` hanya muncul bila profil `targets-extra` dinyalakan di Sesi 3.)
 > Pesan `✓ Selesai. Endpoint: https://kc.iamlab.test · …` menandakan sukses.
 > **Pastikan TIDAK ada baris** `The requested image's platform (linux/arm64) does not match …`
 > — bila muncul, image Anda masih arm64 (salah); minta tar `iam-images.tar` versi **amd64**.
@@ -207,7 +206,7 @@ cd sesi-0-pengantar
 | `./deploy-lab.sh` | Deploy penuh (default). |
 | `./deploy-lab.sh --check` | Hanya laporkan OS/arch/Docker/image — tidak mengubah apa pun. |
 | `./deploy-lab.sh --compose-only` | **Bila langkah pasang-deps bermasalah**: lewati, langsung muat image + `compose up`. |
-| `./deploy-lab.sh --vms` | **Di host fisik**: impor & nyalakan VM klien (mis. `ubuntu-client.ova`) dari `distribusi/ova` via VirtualBox/VMware. |
+| `./deploy-lab.sh --vms` | **Di host fisik**: impor & nyalakan VM klien (`ubuntu-client-amd64.ova`) dari `distribusi/ova` via VirtualBox/VMware. |
 | `./deploy-lab.sh --no-samba` | Tanpa DC Samba (Sesi 1 Bagian A). |
 | `./deploy-lab.sh --down` | Hentikan & bersihkan stack. |
 

@@ -2,10 +2,11 @@
 
 Indikator 1.1 (hardening AD/LDAP) dan 1.2 (Group Policy). Sesi ini membangun **empat
 sistem**: dua direktori (**Windows Server 2025 AD** dan **Samba AD DC** untuk sisi Linux)
-dan dua klien (**Windows 11** dan **Linux**). Windows Server + klien Windows menjadi
-**target utama** untuk SSO (Sesi 2), vault & bastion (Sesi 3), dan pemantauan (Sesi 4);
-sisi Linux memakai Samba. **Kita kerjakan bagian Samba lebih dulu** karena dapat langsung
-dijalankan, baru Windows Server. Skrip provisioning ada di folder ini (`import-ad.ps1`,
+dan dua klien (**Windows 11** dan **Linux**). Windows Server AD (`dc1`) adalah direktori
+produksi lab: kedua klien bergabung ke sana, dan ia menjadi sumber identitas untuk SSO
+(Sesi 2), vault & bastion (Sesi 3), serta pemantauan (Sesi 4). Samba AD (`dc2`) dipakai
+sebagai **latihan administrasi direktori di Linux** dan dikerjakan lebih dulu karena dapat
+langsung dijalankan, baru Windows Server. Skrip provisioning ada di folder ini (`import-ad.ps1`,
 `users_dummy.csv`, `gen_dummy_users.py`).
 
 Penanda tempat menjalankan: 🪟 **DC (PowerShell/GPMC)** · 🐳 **container (host)** ·
@@ -38,19 +39,19 @@ Peserta mampu:
 
 ## c. Teori dan Struktur Sistem
 
-**Apa.** *Active Directory* adalah direktori + *control plane* identitas Windows:
+*Active Directory* adalah direktori + *control plane* identitas Windows:
 menyimpan pengguna/grup/komputer (LDAP), menerbitkan tiket **Kerberos** (KDC),
 menyediakan DNS, dan menyebar kebijakan lewat **GPO** (objek LDAP + berkas di SYSVOL).
 
-**Mengapa penting.** Kompromi DC atau akun Tier 0 = kompromi seluruh domain.
+Kompromi DC atau akun Tier 0 sama dengan kompromi seluruh domain.
 Karena itu direktori adalah aset paling bernilai yang harus dikeraskan lebih dulu.
 
-**Siapa & Di mana — model tiering (Enterprise Access Model):**
+**Model tiering (Enterprise Access Model).**
 Tier 0 (DC, AD CS, sinkronisasi identitas) = bidang kendali tertinggi; Tier 1
 (server/aplikasi); Tier 2 (perangkat pengguna). **Prinsip:** kredensial tier tinggi
 tidak boleh terpapar di tier rendah, agar kompromi bidang bawah tidak naik ke atas.
 
-**Kapan GPO berlaku & Bagaimana diproses — LSDOU:** Local → Site → Domain
+**Urutan pemrosesan GPO (LSDOU).** Local → Site → Domain
 → OU, dengan pewarisan, *Enforced*, *Block Inheritance*, *security filtering*, dan WMI
 filtering. GPO yang ditautkan lebih dekat ke objek menang kecuali di-*Enforce*.
 
@@ -61,9 +62,9 @@ Lab IAM nyata bersifat heterogen (Windows & Linux), jadi disediakan empat mesin:
 | Sistem | Peran | Dipakai untuk |
 |--------|-------|---------------|
 | **Windows Server 2025** (`dc1`) | AD DC — DNS, Kerberos, GPO (Tier 0) | Direktori utama; sumber identitas untuk SSO/vault/bastion |
-| **Klien Windows 11** | Anggota domain `dc1` | **Target** GPO, bastion (RDP), pemantauan |
-| **Samba AD DC** (`dc2`, Linux) | Direktori untuk sisi Linux (LDAP/Kerberos) | Alternatif open-source; dikerjakan **lebih dulu** karena ringan/cepat |
-| **Klien Linux** | Anggota domain via `sssd`/`winbind` | **Target** bastion (SSH), pemantauan |
+| **Klien Windows 11** | Anggota domain `dc1` (OU `Workstations`) | **Target** GPO hardening endpoint, pemantauan |
+| **Samba AD DC** (`dc2`, container Linux) | Latihan administrasi direktori di Linux (`samba-tool`) | Alternatif open-source; dikerjakan **lebih dulu** karena ringan/cepat |
+| **Klien Linux** | Anggota domain `dc1` via `realmd`/`sssd` | Login akun domain di Linux, pemantauan |
 
 > Catatan sumber daya: pada lab nyata keempatnya berjalan; bila sumber daya terbatas,
 > prioritaskan **Samba + klien Linux** (Bagian A, ringan) lalu tambahkan **Windows Server +
@@ -117,9 +118,10 @@ nomor enctype Kerberos: `0x17`=RC4-HMAC, `0x18`=RC4-HMAC-EXP (lemah), AES = `0x1
 
 ### Bagian A — Samba AD DC + klien Linux (dikerjakan DULU, dapat dijalankan sekarang)
 
-Samba menyediakan direktori ber-protokol AD (LDAP/Kerberos) di Linux. Di lab/stand-in
-Linux, DC Samba sudah ter-*provision* (`samba-tool domain provision`). Yang Anda lakukan:
-menata OU/grup, kebijakan sandi, lalu menggabungkan klien Linux.
+Samba menyediakan direktori ber-protokol AD (LDAP/Kerberos) di Linux. Container DC Samba
+ter-*provision* otomatis (`samba-tool domain provision`) saat pertama kali dinyalakan. Yang Anda lakukan:
+menata OU/grup dan kebijakan sandi dengan `samba-tool` — padanan Linux dari langkah
+PowerShell di Bagian B.
 
 ```bash
 # 🖥️ di TERMINAL HOST (Docker host) — menyalakan & masuk ke container DC Samba
@@ -158,23 +160,11 @@ Verifikasi direktori (keluaran nyata):
 
 *Gambar 5. Terminal Samba AD DC — domain, OU, grup, kebijakan sandi*
 
-**Gabungkan klien Linux** (`sssd` + `realmd`) ke domain. VM klien Ubuntu dinyalakan panitia
-di host fisik (`./deploy-lab.sh --vms`, dari `distribusi/ova/ubuntu-client.ova`); jaringannya
-sudah terkonfigurasi. Lalu di dalam VM itu:
-```bash
-# 🖥️ di klien Linux (VM Ubuntu)
-sudo realm discover iamlab.test
-sudo realm join --user=Administrator iamlab.test
-id budi.contoh@iamlab.test        # harus menampilkan UID/grup dari direktori
-```
-> Hasil: pengguna direktori dapat login ke klien Linux — membuktikan konsep AD/LDAP+Kerberos
-> pada sisi Linux (open source).
->
-> **Catatan peran dc2 (penting, hindari salah paham):** Samba `dc2` adalah **latihan direktori
-> sisi Linux (Bagian A)** yang bisa dijalankan lebih dulu. Ia **bukan** sumber federasi untuk
-> Keycloak. Mulai **Sesi 2 dan seterusnya, SSO/vault/bastion berfederasi ke Windows AD `dc1`**
-> (`ldaps://dc1.iamlab.test:636`) — lihat Sesi 2. Jadi dc2 melengkapi pemahaman, sedangkan `dc1`
-> adalah direktori produksi lab (Tier 0).
+> **Catatan peran dc2 (penting, hindari salah paham):** Samba `dc2` hanya hidup di jaringan
+> Docker lab dan **tidak** menjadi tujuan join klien maupun sumber federasi Keycloak. Klien
+> Linux & Windows bergabung ke **Windows AD `dc1`** (langkah 8 Bagian B), dan mulai **Sesi 2**
+> SSO/vault/bastion berfederasi ke `dc1` (`ldaps://dc1.iamlab.test:636`). Jadi dc2 melengkapi
+> pemahaman, sedangkan `dc1` adalah direktori produksi lab (Tier 0).
 
 ### Bagian B — Windows Server 2025 AD + klien Windows (target utama SSO/vault/bastion/pemantauan)
 
@@ -187,7 +177,7 @@ Jalankan di **PowerShell (Administrator) pada VM DC**. Perintah membuat OU sesua
 tiering, grup otorisasi, akun layanan untuk Sesi 2/3, dan satu SPN umpan untuk deteksi:
 ```powershell
 $dn = "DC=iamlab,DC=test"
-"Tier0","Tier1-Servers","Pengguna","Grup","AkunLayanan" | % {
+"Tier0","Tier1-Servers","Workstations","Pengguna","Grup","AkunLayanan" | % {
   New-ADOrganizationalUnit -Name $_ -Path $dn -ProtectedFromAccidentalDeletion $true -EA SilentlyContinue }
 $grpOU = "OU=Grup,$dn"
 "GG-Pimpinan","GG-Keuangan","GG-SDM","GG-TI","GG-Operasional","GG-Layanan","GG-Hukum",`
@@ -198,6 +188,7 @@ foreach ($s in "svc-keycloak","svc-openbao","svc-app","svc-honey") {
   New-ADUser -Name $s -SamAccountName $s -UserPrincipalName "$s@iamlab.test" -Path $svcOU `
     -AccountPassword (ConvertTo-SecureString "Svc#Lab2026!" -AsPlainText -Force) `
     -Enabled $true -PasswordNeverExpires $true -EA SilentlyContinue }
+setspn -S HTTP/app.iamlab.test   svc-app     # SPN layanan nyata: sasaran simulasi Kerberoasting
 setspn -S HTTP/honey.iamlab.test svc-honey   # SPN umpan: permintaan tiketnya = sinyal serangan
 ```
 
@@ -205,7 +196,8 @@ setspn -S HTTP/honey.iamlab.test svc-honey   # SPN umpan: permintaan tiketnya = 
 `import-ad.ps1` membaca CSV lalu membuat akun + keanggotaan grup + sandi awal acak +
 flag "ganti saat login pertama". Jalankan di DC (salin folder ini ke DC lebih dulu):
 ```powershell
-.\import-ad.ps1 -Csv .\users_dummy.csv -UserOU "OU=Pengguna,$dn"      # 200 pengguna
+# -SendEmail: sandi awal tiap pengguna dikirim ke Mailpit (https://mail.iamlab.test) via host Docker
+.\import-ad.ps1 -Csv .\users_dummy.csv -UserOU "OU=Pengguna,$dn" -SendEmail -SmtpServer 10.10.10.5   # 200 pengguna
 .\import-ad.ps1 -Csv .\users_batch2.csv -UserOU "OU=Pengguna,$dn"     # latihan mandiri +20
 Get-ADUser -Filter * -SearchBase "OU=Pengguna,$dn" | Measure-Object   # verifikasi jumlah
 ```
@@ -220,6 +212,10 @@ New-ADUser -Name "adm-anda" -SamAccountName "adm-anda" -Path "OU=Tier0,$dn" `
   -AccountPassword (Read-Host -AsSecureString) -Enabled $true
 Add-ADGroupMember -Identity "GG-Tier0-Admin" -Members "adm-anda"
 Get-ADGroupMember "Domain Admins"        # audit — sisakan ≤ 2
+# Admin Tier 1 (server/aplikasi) — dipakai login OpenBao via LDAP di Sesi 3:
+New-ADUser -Name "adm-t1-anda" -SamAccountName "adm-t1-anda" -UserPrincipalName "adm-t1-anda@iamlab.test" `
+  -Path "OU=Pengguna,$dn" -AccountPassword (Read-Host -AsSecureString) -Enabled $true
+Add-ADGroupMember -Identity "GG-Tier1-Admin" -Members "adm-t1-anda"
 ```
 
 ### 4. 🪟 Kebijakan kata sandi + PSO untuk admin
@@ -238,15 +234,34 @@ Set-ADUser svc-keycloak -KerberosEncryptionType AES128,AES256 ; Set-ADAccountPas
 Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force
 auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable /failure:enable
 ```
-> LDAP signing/LDAPS dan impor **Microsoft Security Baseline Windows Server 2025**
-> (Security Compliance Toolkit) diterapkan lewat GPO pada langkah berikut.
+> ⚠️ `Set-ADAccountPassword svc-keycloak -Reset` meminta sandi **baru** — catat, karena sandi
+> inilah yang diisi sebagai *Bind credential* federasi LDAP Keycloak di Sesi 2.
+> LDAP signing dan impor **Microsoft Security Baseline Windows Server 2025**
+> (Security Compliance Toolkit) diterapkan lewat GPO pada langkah berikut; LDAPS di langkah 5b.
+
+### 5b. 🪟 LDAPS: CA internal AD + ekspor CA untuk layanan IAM
+DC baru belum punya sertifikat, sehingga port 636 (LDAPS) belum melayani. Pasang **AD CS**
+sebagai *Enterprise Root CA*: DC otomatis mendaftarkan sertifikat *Domain Controller* dan
+LDAPS aktif. CA-nya lalu diekspor agar Keycloak (Sesi 2) dan OpenBao (Sesi 3) memercayainya:
+```powershell
+Install-WindowsFeature ADCS-Cert-Authority -IncludeManagementTools
+Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName "IAMLAB Root CA" -Force
+certutil -pulse                              # picu auto-enrollment sertifikat DC (atau reboot DC)
+certutil -ca.cert C:\ad-ca.cer              # ekspor CA (DER)
+certutil -encode C:\ad-ca.cer C:\ad-ca.pem  # ubah ke PEM
+```
+> **✅ Validasi.** Dari host Docker (🖥️): `openssl s_client -connect 10.10.10.10:636 </dev/null`
+> menampilkan `issuer=CN=IAMLAB Root CA`. Lalu salin `C:\ad-ca.pem` ke `deploy/certs/ad-ca.pem`
+> dan 🖥️ `docker compose up -d --force-recreate keycloak openbao` (lihat `deploy/README.md`).
 
 ### 6. 🪟 GPO: buat → tautkan → verifikasi
 1. Buka **GPMC** (`gpmc.msc`), buat GPO `SEC-Audit-Tier1`, edit:
    *Computer Config → Policies → Windows Settings → Security Settings → Advanced Audit Policy*
    (Account Logon, Logon/Logoff, DS Access).
-2. **Tautkan** ke `OU=Tier1-Servers`; atur **Security Filtering** (grup komputer).
-3. Verifikasi: `gpupdate /force` lalu `gpresult /h C:\gpreport.html`.
+2. **Tautkan** ke `OU=Workstations` (berisi klien Windows 11 setelah langkah 8); atur
+   **Security Filtering** bila perlu.
+3. Verifikasi **di klien Windows 11** (bukan di DC — DC tidak berada di OU itu):
+   `gpupdate /force` lalu `gpresult /h C:\gpreport.html`.
 
 > Lihat diagram siklus GPO di atas untuk gambaran alurnya. Tangkapan layar GUI Windows
 > (GPMC, ADUC, hasil `gpresult`) diambil langsung di VM DC saat sesi berlangsung — simpan
@@ -271,6 +286,34 @@ Terapkan dari GPMC dan tautkan ke OU workstation:
 > enkripsi saat diam). Simpan kunci pemulihan BitLocker secara ter-*escrow* dan uji
 > pemulihannya.
 
+### 8. 🪟🖥️ Gabungkan klien Windows 11 & Linux ke domain `dc1`
+
+Kedua klien memakai **DNS = DC (10.10.10.10)** — tanpa itu record SRV domain tak ditemukan
+dan join gagal. Lakukan setelah langkah 1 (OU `Workstations` sudah ada).
+
+**Klien Windows 11** — VM dari ISO Windows 11 Enterprise Evaluation (tidak dapat
+diredistribusi, jadi dipasang dari ISO, bukan OVA), NIC = Host-Only lab. PowerShell
+(Administrator) di klien:
+```powershell
+$if = (Get-NetAdapter | Where-Object Status -eq 'Up' | Select-Object -First 1).ifIndex
+Set-DnsClientServerAddress -InterfaceIndex $if -ServerAddresses 10.10.10.10
+Resolve-DnsName -Type SRV _ldap._tcp.dc._msdcs.iamlab.test        # harus menjawab dc1
+Add-Computer -DomainName iamlab.test -OUPath "OU=Workstations,DC=iamlab,DC=test" `
+  -Credential IAMLAB\Administrator -Restart
+```
+Setelah reboot, login sebagai pengguna domain (mis. `IAMLAB\dewi.puspita001`, wajib ganti
+sandi awal), lalu jalankan verifikasi GPO langkah 6.
+
+**Klien Linux** — VM Ubuntu dari `distribusi/ova/ubuntu-client-amd64.ova` (`./deploy-lab.sh
+--vms`). DNS ke DC sudah dibaking di OVA; jalankan di VM:
+```bash
+# 🖥️ di klien Linux (VM Ubuntu)
+sudo join-domain.sh                     # realm discover + realm join --user=Administrator iamlab.test
+id dewi.puspita001@iamlab.test          # harus menampilkan UID/grup dari direktori
+```
+> **✅ Validasi.** Di DC: `Get-ADComputer -Filter * | Select Name,DistinguishedName` memuat
+> klien Windows di `OU=Workstations` dan klien Linux (`UBUNTU-CLIENT`).
+
 
 ---
 
@@ -283,12 +326,13 @@ Host-Only terisolasi: runner `attack-sim/run.sh` hanya menerima target dari allo
 terjangkau. Peserta **tidak** menyerang sistem di luar lab — tujuannya melatih mata
 mengenali pola Kerberoasting/PtH pada Event 4769/4624 dan merasakan efek mitigasi secara langsung.
 
-**Mengapa ini penting:** akun layanan ber-SPN dan hash NTLM adalah dua jalur eskalasi
+**Relevansinya:** akun layanan ber-SPN dan hash NTLM adalah dua jalur eskalasi
 paling umum di Active Directory. Dengan menjalankan simulasi lalu menerapkan AES-only,
 peserta melihat sendiri perubahan `TicketEncryptionType` dari RC4 (`0x17`) ke AES (`0x12`)
 — bukti konkret bahwa mitigasi bekerja, bukan sekadar teori.
 
-1. 🪟 Pastikan akun umpan ada: `setspn -L svc-honey` menampilkan `HTTP/honey.iamlab.test`.
+1. 🪟 Pastikan SPN ada: `setspn -L svc-app` menampilkan `HTTP/app.iamlab.test` (sasaran) dan
+   `setspn -L svc-honey` menampilkan `HTTP/honey.iamlab.test` (umpan).
 2. 🐳 Jalankan simulasi Kerberoasting dari container simulasi (`docker compose --profile attack up -d attacker`). Runner `attack-sim/run.sh` memvalidasi pagar lalu menampilkan perintah **Impacket** (`impacket-GetUserSPNs`) yang **dijalankan instruktur** untuk benar-benar meminta tiket — inilah yang memunculkan Event 4769.
    ```bash
    # 🐳 contoh (target harus ada di attack-sim/TARGETS.lab; konfirmasi wajib)
@@ -308,7 +352,8 @@ peserta melihat sendiri perubahan `TicketEncryptionType` dari RC4 (`0x17`) ke AE
    > `DITOLAK: <target> di luar allowlist lab` → target tidak terdaftar di `attack-sim/TARGETS.lab`.
 3. 🪟/🌐 Amati **Event 4769** dengan `TicketEncryptionType = 0x17` (RC4) dari akun
    non-mesin, dan permintaan untuk honey SPN (Event Viewer DC atau dashboard Grafana Sesi 4).
-4. 🪟 Terapkan mitigasi, lalu ulangi — tiket kini AES:
+4. 🪟 Terapkan mitigasi pada akun layanan sasaran, lalu ulangi — tiket `svc-app` kini AES
+   (`0x12`), sedangkan `svc-honey` sengaja dibiarkan sebagai umpan deteksi:
    ```powershell
    Set-ADUser svc-app -KerberosEncryptionType AES128,AES256 ; Set-ADAccountPassword svc-app -Reset
    ```

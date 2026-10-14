@@ -86,12 +86,28 @@ write_files:
       $NET_DC_IP dc1.$DOMAIN
       $DOCKER_SUBS_LINE
       ::1 localhost ip6-localhost ip6-loopback
+  # Jaringan pasca-impor: cocokkan NIC apa pun (MAC berubah saat impor ke VirtualBox/VMware),
+  # DHCP utk IP, tetapi DNS WAJIB ke DC agar 'realm join' menemukan record SRV domain.
+  - path: /etc/netplan/99-iamlab.yaml
+    permissions: '0600'
+    content: |
+      network:
+        version: 2
+        ethernets:
+          lab:
+            match: {name: "en*"}
+            dhcp4: true
+            dhcp4-overrides: {use-dns: false}
+            nameservers: {addresses: [$NET_DC_IP], search: [$DOMAIN]}
   - path: /usr/local/sbin/join-domain.sh
     permissions: '0755'
     content: |
       #!/usr/bin/env bash
       # Gabungkan klien ini ke domain $DOMAIN (jalankan sbg root saat di kelas).
       set -e
+      # Prasyarat: DNS klien = DC ($NET_DC_IP) — diset netplan 99-iamlab.yaml.
+      resolvectl query -t SRV _ldap._tcp.$DOMAIN >/dev/null 2>&1 \
+        || { echo "DNS belum menemukan DC $DOMAIN (cek DC menyala di $NET_DC_IP & 'resolvectl status')"; exit 1; }
       realm discover $DOMAIN || true
       realm join --user=Administrator $DOMAIN
       pam-auth-update --enable mkhomedir || true
@@ -101,6 +117,10 @@ write_files:
       Klien Ubuntu Lab IAM — gabung domain: sudo join-domain.sh  (Sesi 1)
 runcmd:
   - systemctl enable sssd || true
+  # Lepas konfigurasi jaringan yang terikat MAC mesin build; cloud-init tak dijalankan lagi
+  # setelah impor (tanpa seed ISO) agar tak menulis ulang netplan.
+  - rm -f /etc/netplan/50-cloud-init.yaml
+  - touch /etc/cloud/cloud-init.disabled
   - [ sh, -c, "if command -v realm >/dev/null && command -v adcli >/dev/null && command -v sssd >/dev/null && command -v vmtoolsd >/dev/null; then echo BUILD_DONE_$HOSTNAME_VM; else echo BUILD_FAIL_$HOSTNAME_VM; fi > /dev/console" ]
 power_state:
   mode: poweroff
