@@ -2,7 +2,7 @@
 # =============================================================================
 # import-ad.sh — bulk import pengguna dummy ke Samba AD (dc1). Dijalankan DI DALAM
 # container samba-dc (Sesi 1):
-#   docker compose cp ../sesi-1-direktori-gpo samba-dc:/tmp/sesi1
+#   docker compose cp ../sesi-1-direktori-akses-cis samba-dc:/tmp/sesi1
 #   docker compose exec samba-dc bash /tmp/sesi1/import-ad.sh --csv /tmp/sesi1/users_dummy.csv --send-email
 #
 # Per baris CSV: buat user (CN = username agar unik), sandi awal acak, wajib ganti saat

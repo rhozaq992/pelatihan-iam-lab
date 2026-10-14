@@ -34,7 +34,7 @@ Untuk kelas, panitia memakai **paket build** siap-serah ([`build-bag/`](build-ba
 | `lab/` | Berkas untuk VM: cloud-init, skrip (`join-domain.sh`, `cis-scan.sh`), Alloy host, aturan auditd | dipakai `build-lab.ps1` |
 | `deploy/` | **Stack Docker**: `compose.yaml` + konfigurasi (Caddy, Keycloak, OpenBao, Warpgate, monitoring, **Samba AD**) + aplikasi | `docker compose up -d` |
 | `sesi-0-pengantar/` | Pengantar: topologi + teori dasar | baca dulu |
-| `sesi-1-direktori-gpo/` | Pengamanan Samba AD/LDAP, join domain, kebijakan akses & CIS + `import-ad.sh`, CSV | ikuti modul |
+| `sesi-1-direktori-akses-cis/` | Pengamanan Samba AD/LDAP, join domain, kebijakan akses & CIS + `import-ad.sh`, CSV | ikuti modul |
 | `sesi-2-sso-mfa/` | SSO & MFA (Keycloak) + App-Komentar RBAC | ikuti modul |
 | `sesi-3-pam/` | OpenBao (vault) + Warpgate (bastion) | ikuti modul |
 | `sesi-4-audit-monitoring/` | Alloy/Loki/Grafana + capstone | ikuti modul |

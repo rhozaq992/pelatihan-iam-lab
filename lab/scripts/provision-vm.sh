@@ -85,6 +85,20 @@ if [ "$ROLE" = desktop ]; then
   printf 'user-db:user\nsystem-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n' > /etc/dconf/profile/gdm
   printf '[org/gnome/login-screen]\ndisable-user-list=true\n' > /etc/dconf/db/gdm.d/00-iamlab
   dconf update || true
+  # VirtualBox DI ATAS Hyper-V: driver guest vmwgfx (VMSVGA) rusak ("unsupported hypervisor") ->
+  # KMS gagal & GDM tak pernah naik. Paksa render software: nomodeset (llvmpipe) + Xorg (bukan
+  # Wayland, yg butuh KMS). Greeter lalu muncul ~3-5 mnt (boot pertama lebih lama) — ini NORMAL.
+  if ! grep -q 'nomodeset' /etc/default/grub; then
+    sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 nomodeset"/' /etc/default/grub
+  fi
+  update-grub || true
+  CF=/etc/gdm3/custom.conf
+  if [ -f "$CF" ] && grep -q '^\[daemon\]' "$CF"; then
+    if grep -q 'WaylandEnable' "$CF"; then sed -i 's/^#\?WaylandEnable=.*/WaylandEnable=false/' "$CF"
+    else sed -i '/^\[daemon\]/a WaylandEnable=false' "$CF"; fi
+  else
+    printf '[daemon]\nWaylandEnable=false\n' > "$CF"
+  fi
 else
   log "6/7 (server) lewati desktop"
 fi

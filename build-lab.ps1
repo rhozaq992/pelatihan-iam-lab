@@ -94,15 +94,18 @@ function Test-Admin {
 function Invoke-Quiet {
   # Jalankan program native, buang semua output, kembalikan exit code. Di Windows PowerShell 5.1
   # stderr yang dialihkan menjadi ErrorRecord -> fatal bila ErrorActionPreference=Stop; matikan lokal.
+  # '*> $null' tetap bocor ke log Start-Transcript (error merah palsu); '2>&1' ke $null tidak.
   param([string]$Exe, [string[]]$ArgList)
   $ErrorActionPreference = 'Continue'
-  & $Exe @ArgList *> $null
+  $null = & $Exe @ArgList 2>&1
   return $LASTEXITCODE
 }
 function Invoke-Exe {
   param([string]$Exe, [string[]]$ArgList, [switch]$Quiet, [switch]$AllowFail)
   $ErrorActionPreference = 'Continue'
-  if ($Quiet) { $out = & $Exe @ArgList 2>$null } else { $out = & $Exe @ArgList }
+  # -Quiet: buang stderr tanpa bocor ke log transcript (lihat Invoke-Quiet)
+  if ($Quiet) { $out = & $Exe @ArgList 2>&1 | Where-Object { $_ -isnot [Management.Automation.ErrorRecord] } }
+  else { $out = & $Exe @ArgList }
   if (-not $AllowFail -and $LASTEXITCODE -ne 0) { Fail "$([IO.Path]::GetFileName($Exe)) $($ArgList -join ' ') (exit $LASTEXITCODE)" }
   return $out
 }
@@ -152,15 +155,47 @@ function Test-Wsl {
 }
 function Test-PendingReboot {
   # Reboot tertunda membuat instalasi MSI (VirtualBox) gagal kriptik. Deteksi & minta reboot.
+  # Sinyal OTORITATIF (servicing/Windows Update) = blocker sesungguhnya utk MSI VBox/Docker/WSL.
   if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { return $true }
   if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { return $true }
+  # PendingFileRenameOperations SANGAT berisik: sering hanya hapus file temp aplikasi (mis. update
+  # Firefox/Chrome) yang TIDAK memerlukan reboot dan tak mengganggu MSI. Flag HANYA bila ada entri
+  # yang menyentuh direktori sistem Windows (ganti file OS yang terkunci) - itulah yang butuh reboot.
   $sm = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
-  if ($sm -and $sm.PendingFileRenameOperations) { return $true }
+  if ($sm -and $sm.PendingFileRenameOperations) {
+    foreach ($e in @($sm.PendingFileRenameOperations)) {
+      if ([string]::IsNullOrWhiteSpace($e)) { continue }
+      $path = $e -replace '^[!*]+', '' -replace '^\\\?\?\\', ''
+      if ($path -match '(?i)\\Windows\\(System32|SysWOW64|WinSxS|servicing|drivers|Microsoft\.NET)\\') { return $true }
+    }
+  }
   return $false
 }
 function Test-DockerUp {
   $d = Get-DockerCli; if (-not $d) { return $false }
   return ((Invoke-Quiet $d @('info')) -eq 0)
+}
+
+# --- versi komponen (untuk laporan ringkasan) ---
+function Get-VBoxVersion {
+  $vb = Get-VBoxManage; if (-not $vb) { return $null }
+  return ((Invoke-Exe $vb @('--version') -Quiet -AllowFail) -replace 'r\d+$', '').Trim()
+}
+function Get-DockerVersion {
+  $e = Get-DockerDesktopExe; if (-not $e) { return $null }
+  try { return (Get-Item $e).VersionInfo.ProductVersion } catch { return $null }
+}
+function Get-VcVersion {
+  (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction SilentlyContinue).Version
+}
+function Get-WslVersion {
+  try {
+    $o = ((& wsl.exe --version 2>$null) -join "`n") -replace "`0", ''
+    $m = [regex]::Match($o, 'WSL[^\d]*([\d][\d\.]+)')
+    if ($m.Success) { return $m.Groups[1].Value }
+  } catch { }
+  if (Test-Wsl) { return 'aktif' }
+  return $null
 }
 
 # ============================ FASE: CHECK ============================
@@ -226,12 +261,32 @@ function Invoke-Requirements {
   }
   if ($busy) { Warn "port lab dipakai aplikasi lain: $($busy -join ', ') - hentikan dulu (mis. layanan VMware/IIS)."; }
   else { Ok 'port lab bebas' }
+
+  $names = @{ VirtualBox='VirtualBox'; VcRedist='VC++ x64'; Docker='Docker Desktop'; Wsl='WSL2' }
+  $todo = @($script:Missing.Keys | ForEach-Object { $names[$_] } | Where-Object { $_ })
+  if ($todo) { Info ("Akan dipasang dari build-bag (cache offline): {0}" -f ($todo -join ', ')) }
+  else { Info 'Semua kebutuhan sudah ada - tidak perlu instalasi.' }
 }
 
 # ============================ FASE: DOWNLOAD ============================
+function Import-BagInstallers {
+  # Installer dari build-bag (disalin ke distribusi/installer di repo hasil clone) -> isi cache,
+  # agar Get-File tak mengunduh ulang. Hardlink (instan, satu volume); salin bila beda volume.
+  $src = Join-Path $Root 'distribusi\installer'
+  Get-ChildItem $src -File -Include *.exe,*.msi,*.ova -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+    $dst = Join-Path $Cache $_.Name
+    if (Test-Path $dst) { return }
+    try { New-Item -ItemType HardLink -Path $dst -Target $_.FullName -ErrorAction Stop | Out-Null }
+    catch { Copy-Item $_.FullName $dst }
+    Ok "dari build-bag: $($_.Name)"
+  }
+}
+function Test-AllPrebaked { -not ($VMs | Where-Object { -not (Test-Path (Join-Path $Prebaked "$($_.Name).vdi")) }) }
+
 function Invoke-Download {
   Step '3. Unduh kebutuhan'
   New-Item -ItemType Directory -Force $Cache | Out-Null
+  Import-BagInstallers
   # -BundleAll (paket build): ambil semua installer walau sudah terpasang di PC penyiap.
   if ($BundleAll) { $script:Missing = @{ VirtualBox=$true; VcRedist=$true; Docker=$true; Wsl=$true } }
   if ($script:Missing.VirtualBox) {
@@ -245,6 +300,8 @@ function Invoke-Download {
   if ($script:Missing.Docker) { Get-File $Cfg.DockerDesktop (Join-Path $Cache 'DockerDesktopInstaller.exe') }
   if ($script:Missing.Wsl) { Get-File $Cfg.WslMsi (Join-Path $Cache 'wsl-update.msi') }
 
+  # cloud image hanya perlu bila ada VM yang di-provision (tak ada VDI siap-pakai di distribusi/vms)
+  if (Test-AllPrebaked) { Ok 'VM siap-pakai tersedia (distribusi/vms) - Ubuntu cloud image tak diperlukan'; return }
   $ova = Join-Path $Cache 'ubuntu-24.04-server-cloudimg-amd64.ova'
   $fresh = -not (Test-Path $ova)
   Get-File $Cfg.UbuntuOva $ova
@@ -259,22 +316,25 @@ function Invoke-Download {
 
 # ============================ FASE: INSTALL ============================
 $script:NeedReboot = $false
+$script:Installed  = @()   # komponen yang BENAR-BENAR dipasang di run ini (utk laporan)
 function Invoke-Install {
   Step '4. Pasang kebutuhan'
+  New-Item -ItemType Directory -Force $Cache | Out-Null
+  Import-BagInstallers
   if (Test-PendingReboot) {
     Fail 'Ada REBOOT TERTUNDA (mis. sisa uninstall/Windows Update). Reboot dulu PC, lalu jalankan lagi .\build-lab.ps1 -- instalasi VirtualBox/Docker akan gagal bila reboot belum dilakukan.'
   }
   if ($script:Missing.VcRedist -or ($script:Missing.VirtualBox -and -not (Test-VcRedist))) {
     Info 'pasang VC++ runtime...'
     Start-Process (Join-Path $Cache 'vc_redist.x64.exe') -ArgumentList '/install','/quiet','/norestart' -Wait
-    Ok 'VC++ runtime'
+    Ok 'VC++ runtime'; $script:Installed += 'VC++ x64'
   }
   if ($script:Missing.VirtualBox) {
     $inst = Get-ChildItem $Cache -Filter 'VirtualBox-*-Win.exe' | Sort-Object Name | Select-Object -Last 1
     Info "pasang $($inst.Name) (silent)..."
     $p = Start-Process $inst.FullName -ArgumentList '--silent','--ignore-reboot' -Wait -PassThru
     if ($p.ExitCode -ne 0) { Fail "instalasi VirtualBox gagal (exit $($p.ExitCode))" }
-    Ok 'VirtualBox terpasang'
+    Ok 'VirtualBox terpasang'; $script:Installed += 'VirtualBox'
   }
   if ($script:Missing.Wsl) {
     Info 'pasang WSL2 secara OFFLINE (aktifkan fitur Windows + MSI terbundel)...'
@@ -298,6 +358,7 @@ function Invoke-Install {
       & wsl.exe --install --no-distribution; $script:NeedReboot = $true
     }
     Invoke-Quiet 'wsl.exe' @('--set-default-version','2') | Out-Null
+    $script:Installed += 'WSL2'
   }
   if ($script:Missing.Docker) {
     Info 'pasang Docker Desktop (silent, backend WSL2)...'
@@ -305,14 +366,38 @@ function Invoke-Install {
     if ($p.ExitCode -ne 0) { Fail "instalasi Docker Desktop gagal (exit $($p.ExitCode))" }
     $u = "$env:USERDOMAIN\$env:USERNAME"
     try { Add-LocalGroupMember -Group 'docker-users' -Member $u -ErrorAction Stop; Ok "$u ditambahkan ke grup docker-users" } catch { }
-    Ok 'Docker Desktop terpasang'
+    Ok 'Docker Desktop terpasang'; $script:Installed += 'Docker Desktop'
     $script:NeedReboot = $true
   }
   if (-not ($script:Missing.Keys.Count)) { Ok 'semua kebutuhan sudah terpasang' }
+  Show-Report
   if ($script:NeedReboot) {
     Warn 'REBOOT diperlukan (WSL2/Docker Desktop). Setelah reboot jalankan lagi: .\build-lab.ps1'
     exit 3010
   }
+}
+
+# ============================ LAPORAN RINGKASAN ============================
+function Show-Report {
+  Step '4b. Ringkasan requirement'
+  $rows = @(
+    [pscustomobject]@{ Name='VirtualBox';     Ver=(Get-VBoxVersion);   Key='VirtualBox' },
+    [pscustomobject]@{ Name='Docker Desktop'; Ver=(Get-DockerVersion); Key='Docker Desktop' },
+    [pscustomobject]@{ Name='WSL2';           Ver=(Get-WslVersion);    Key='WSL2' },
+    [pscustomobject]@{ Name='VC++ x64';       Ver=(Get-VcVersion);     Key='VC++ x64' }
+  )
+  foreach ($r in $rows) {
+    $did = $script:Installed -contains $r.Key
+    if ($r.Ver) {
+      $ver = ([string]$r.Ver).TrimStart('v','V')   # nilai registri VC++ sudah berawalan 'v'
+      $act = if ($did) { 'baru dipasang dari build-bag' } else { 'sudah sesuai dgn sistem' }
+      Ok ("{0,-15} v{1,-14} ({2})" -f $r.Name, $ver, $act)
+    } else {
+      Warn ("{0,-15} {1,-11} (belum terpasang)" -f $r.Name, '-')
+    }
+  }
+  if ($script:Installed.Count) { Info ("Dipasang kali ini dari build-bag: {0}" -f ($script:Installed -join ', ')) }
+  else { Info 'Tidak ada instalasi - semua requirement sudah sesuai dengan sistem.' }
 }
 
 # ============================ FASE: BUILD ============================
@@ -417,6 +502,16 @@ function Initialize-DockerStack {
   if (Test-Path $tar) {
     Info 'muat image offline (distribusi/offline-images/iam-images.tar)...'
     Invoke-Exe (Get-DockerCli) @('load','-i',$tar) | Select-Object -Last 3 | ForEach-Object { Info $_ }
+    # tar usang (mis. dibuat sebelum compose berubah) bisa tak memuat semua image -> bangun yang kurang
+    # service tanpa 'image:' (hanya build:) memakai nama bawaan compose: <project>-<service>
+    $cc = Invoke-Compose @('config','--format','json') | Out-String | ConvertFrom-Json
+    $miss = @($cc.services.PSObject.Properties | Where-Object {
+      $img = if ($_.Value.image) { $_.Value.image } else { "$($cc.name)-$($_.Name)" }
+      (Invoke-Quiet (Get-DockerCli) @('image','inspect',$img)) -ne 0 } | ForEach-Object Name)
+    if ($miss.Count) {
+      Warn "image belum ada di iam-images.tar: $($miss -join ', ') - dibangun sekarang (butuh internet)"
+      Invoke-Compose (@('build') + $miss) | Out-Null
+    }
     Invoke-Compose @('up','-d','--no-build') | Out-Null
   } else {
     Info 'unduh & bangun image (butuh internet, +/-10-20 menit pertama kali)...'
@@ -695,7 +790,7 @@ try {
   switch ($Phase) {
     'All'          { Invoke-Check; Invoke-Requirements; Invoke-Download; Invoke-Install; Invoke-Build }
     'Check'        { Invoke-Check }
-    'Requirements' { Invoke-Requirements }
+    'Requirements' { Invoke-Requirements; Show-Report }
     'Download'     { Invoke-Requirements; Invoke-Download }
     'Install'      { Invoke-Requirements; Invoke-Install }
     'Build'        { Invoke-Requirements; Invoke-Download; Invoke-Build }

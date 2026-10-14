@@ -18,6 +18,11 @@ x-logging: &default-logging
 networks:
   iamnet:
     driver: bridge
+  # Jaringan simulasi serangan: internal -> TANPA rute ke internet (hanya attacker <-> dc1).
+  # Pengaman run.sh (tolak bila internet terjangkau) lolos secara sah tanpa memutus internet PC.
+  attacknet:
+    driver: bridge
+    internal: true
 
 volumes:
   pg-data:
@@ -253,7 +258,7 @@ services:
     entrypoint: ["sleep", "infinity"]
     volumes:
       - ../attack-sim:/attack-sim:ro
-    networks: [iamnet]
+    networks: [attacknet]         # terisolasi: hanya menjangkau dc1, tanpa internet
     logging: *default-logging
 
   # ---------- Direktori: Samba AD DC (dc1.iamlab.test) — Sesi 1 ----------
@@ -287,5 +292,7 @@ services:
       - samba-etc:/etc/samba
     networks:
       iamnet:
+        aliases: [dc1.iamlab.test]
+      attacknet:                  # target simulasi Kerberoasting (Sesi 1.8)
         aliases: [dc1.iamlab.test]
     logging: *default-logging
