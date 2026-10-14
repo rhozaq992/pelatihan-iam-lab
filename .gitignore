@@ -21,3 +21,6 @@ __pycache__/
 # CA AD hasil ekspor per peserta (Sesi 1)
 deploy/certs/*.pem
 deploy/certs/*.cer
+
+# build lab lokal (cache unduhan, disk VM, log)
+.lab/

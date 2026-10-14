@@ -12,7 +12,7 @@ Perintah unattended membuat config /data/warpgate.yaml + akun admin tanpa wizard
 
 ## Yang dikonfigurasi peserta
 - SSO OIDC ke Keycloak (https://kc.iamlab.test/realms/iamlab), MFA wajib
-- Target SSH: srv-app01, srv-db01 (role per target)
+- Target SSH: srv1 (10.10.10.20), role terbatas; Warpgate pakai kunci kliennya ke srv1
 - Aktifkan perekaman sesi; akses https://pam.iamlab.test dan `ssh -p 2222`
 
 > Pin versi image ke rilis TERPATCH terbaru (≥ 0.28.3) saat build final.

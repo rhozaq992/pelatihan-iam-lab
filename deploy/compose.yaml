@@ -1,6 +1,7 @@
 # Lab IAM — stack Docker (Keycloak, OpenBao, Warpgate, monitoring, apps).
-# Jalan di Docker Desktop (WSL2) ATAU VM Ubuntu pada VMware.
-# AD (Windows Server 2025) berada di VM VMware terpisah (DC_IP), DI LUAR compose ini.
+# Jalan di Docker Desktop (WSL2) pada PC Windows peserta (dibangun oleh build-lab.ps1).
+# AD/LDAP = container samba-dc (dc1.iamlab.test). VM VirtualBox srv1 & client1 (Ubuntu)
+# bergabung ke domain lewat port yang dipublikasikan di 10.10.10.5 (adapter Host-Only host).
 #
 # Prinsip lab: infrastruktur BERJALAN tetapi belum aman/kosong.
 # Peserta mengonfigurasi keamanan (realm, federasi, MFA, policy, dashboard, dll).
@@ -27,6 +28,7 @@ volumes:
   loki-data:
   grafana-data:
   samba-data:
+  samba-etc:
 
 services:
   # ---------- Edge: reverse proxy + TLS internal CA ----------
@@ -51,10 +53,8 @@ services:
           - pam.${LAB_DOMAIN}
     logging: *default-logging
 
-  # ---------- Direktori: AD di luar compose ----------
-  # DC (Windows Server 2025) diakses via DC_IP. Alias DNS agar container
-  # dapat menghubungi dc1.iamlab.test (LDAPS 636, Kerberos 88).
-  # Lihat extra_hosts pada keycloak & openbao.
+  # ---------- Direktori ----------
+  # DC = service samba-dc (bawah); container lain menjangkaunya lewat alias dc1.iamlab.test.
 
   # ---------- IdP: Keycloak + PostgreSQL ----------
   postgres:
@@ -99,8 +99,6 @@ services:
       # CA AD (ad-ca.pem, diekspor dari DC di Sesi 1) → Keycloak 26 otomatis memercayai
       # semua sertifikat di conf/truststores → federasi ldaps://dc1.iamlab.test:636 lolos TLS.
       - ./certs:/opt/keycloak/conf/truststores:ro
-    extra_hosts:
-      - "${DC_HOST}:${DC_IP}"
     depends_on:
       postgres: { condition: service_healthy }
     networks: [iamnet]
@@ -117,7 +115,7 @@ services:
     image: axllent/mailpit:v1.21.0
     restart: unless-stopped
     ports:
-      - "1025:1025"   # SMTP — agar VM DC dapat mengirim email sandi awal (import-ad.ps1)
+      - "1025:1025"   # SMTP — import-ad.sh (Sesi 1) & VM lab dapat mengirim email ke Mailpit
     networks: [iamnet]
     logging: *default-logging
 
@@ -160,8 +158,6 @@ services:
       - ./openbao/config.hcl:/openbao/config/config.hcl:ro
       - bao-data:/openbao/file
       - ./certs:/openbao/certs:ro     # CA AD utk auth LDAP (certificate=@/openbao/certs/ad-ca.pem)
-    extra_hosts:
-      - "${DC_HOST}:${DC_IP}"
     networks: [iamnet]
     logging: *default-logging
 
@@ -179,26 +175,6 @@ services:
       - warpgate-data:/data
     ports:
       - "2222:2222"   # SSH bastion
-    networks: [iamnet]
-    logging: *default-logging
-
-  srv-app01:
-    build: ./targets
-    restart: unless-stopped
-    hostname: srv-app01
-    networks: [iamnet]
-    logging: *default-logging
-
-  # srv-db01: target SSH KEDUA (role "server DB"), build identik srv-app01 — dipakai untuk
-  # latihan MULTI-TARGET/role via satu bastion (Sesi 3). Opsional agar deploy minimum hemat
-  # sumber daya; diaktifkan saat diperlukan: `docker compose --profile targets-extra up -d srv-db01`
-  # (atau sebut eksplisit namanya, mis. perintah Sesi 3). Satu target (srv-app01) sudah cukup
-  # untuk alur SSH-CA/bastion dasar.
-  srv-db01:
-    build: ./targets
-    profiles: ["targets-extra"]
-    restart: unless-stopped
-    hostname: srv-db01
     networks: [iamnet]
     logging: *default-logging
 
@@ -243,6 +219,10 @@ services:
       GF_SMTP_HOST: mailpit:1025
       GF_SMTP_FROM_ADDRESS: grafana@${LAB_DOMAIN}
       GF_SMTP_SKIP_VERIFY: "true"
+      # Logs Drilldown (Explore → Drilldown → Logs): discovery label/field/pola tanpa menulis
+      # LogQL — dipakai menelusuri aktivitas user (Sesi 4). Terunduh saat build (online),
+      # lalu tersimpan di volume grafana-data sehingga tetap ada saat lab offline.
+      GF_PLUGINS_PREINSTALL: grafana-lokiexplore-app
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
@@ -273,30 +253,39 @@ services:
     entrypoint: ["sleep", "infinity"]
     volumes:
       - ../attack-sim:/attack-sim:ro
-    extra_hosts:
-      - "${DC_HOST}:${DC_IP}"
     networks: [iamnet]
     logging: *default-logging
 
-  # ---------- Samba AD DC (Sesi 1 Bagian A — direktori sisi Linux, dc2) ----------
-  # Tidak autorun. Mulai saat Sesi 1 Bagian A:
-  #   docker compose --profile direktori up -d samba-dc
-  #   docker compose exec samba-dc samba-tool ...
-  # Windows Server AD (dc1) berada di VM terpisah (VirtualBox/VMware), DI LUAR compose ini.
+  # ---------- Direktori: Samba AD DC (dc1.iamlab.test) — Sesi 1 ----------
+  # AD/LDAP lab untuk VM Ubuntu srv1 & client1 serta sumber federasi Keycloak/OpenBao.
+  # Port 53/135/445 SENGAJA tidak dipublikasikan (bentrok layanan Windows host); klien lab
+  # join via adcli/sssd dengan server ditunjuk langsung (lihat lab/scripts/join-domain.sh).
   samba-dc:
-    image: diegogslomp/samba-ad-dc:latest   # versi dibekukan di iam-images.tar (jangan pull ulang di kelas)
-    profiles: ["direktori"]
-    hostname: dc2
-    privileged: true
+    build: ./samba-dc
+    image: iamlab-samba-dc
+    restart: unless-stopped
+    hostname: dc1
+    domainname: iamlab.test
+    privileged: true          # Samba AD butuh xattr/ACL penuh pada sysvol
     environment:
       REALM: IAMLAB.TEST
       DOMAIN: IAMLAB
+      HOST_NAME: dc1
       ADMIN_PASS: ${SAMBA_ADMIN_PASS:-Passw0rd#Lab2026}
-      DNS_FORWARDER: "1.1.1.1"
-      DNS_BACKEND: SAMBA_INTERNAL
+    ports:
+      - "88:88/tcp"
+      - "88:88/udp"
+      - "389:389/tcp"
+      - "389:389/udp"
+      - "464:464/tcp"
+      - "464:464/udp"
+      - "636:636/tcp"
+      - "3268:3268/tcp"
+      - "3269:3269/tcp"
     volumes:
       - samba-data:/var/lib/samba
+      - samba-etc:/etc/samba
     networks:
       iamnet:
-        aliases: [dc2.iamlab.test]
+        aliases: [dc1.iamlab.test]
     logging: *default-logging

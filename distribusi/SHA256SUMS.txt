@@ -1,3 +1,1 @@
-09666a050ff0d313045826d2a350037e7133980fb5dc96a2ae04da20ef9c1ef7 *offline-images/iam-images.tar
-64497854298688f18d275b5492b39b84823dbd52856612da7961171837f19241 *ova/ubuntu-client-amd64.ova
-6f413553a48fff9be3db156239b43c20096c97121b3d47d3cbe8c171ff8d0ad0 *ova/ubuntu-client-arm64.ova
+# Diisi otomatis oleh download.sh / make-build-bag.ps1 (sha256 iam-images.tar)

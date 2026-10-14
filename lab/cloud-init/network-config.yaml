@@ -1,0 +1,16 @@
+# netplan v2 — dirender build-lab.ps1. NIC1 Host-Only (IP statis lab), NIC2 NAT (hanya saat
+# build; dilepas sesudahnya → 'optional' agar boot tak menunggu). Tanpa DNS server lab:
+# resolusi nama memakai /etc/hosts (lihat user-data).
+version: 2
+ethernets:
+  lab:
+    match:
+      macaddress: "{{MAC1}}"
+    set-name: lab0
+    addresses: [{{IP}}/24]
+  nat:
+    match:
+      macaddress: "{{MAC2}}"
+    set-name: nat0
+    dhcp4: true
+    optional: true

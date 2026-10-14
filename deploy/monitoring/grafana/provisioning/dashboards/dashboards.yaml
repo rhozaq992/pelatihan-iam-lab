@@ -1,0 +1,11 @@
+# Dashboard ter-provision otomatis (folder "IAM Lab").
+apiVersion: 1
+providers:
+  - name: iam-lab
+    folder: IAM Lab
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true      # peserta boleh menambah panel; simpan sebagai salinan bila ingin permanen
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

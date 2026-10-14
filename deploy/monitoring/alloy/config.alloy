@@ -1,6 +1,7 @@
 // Grafana Alloy — pipeline log lab IAM.
 // Status: SEBAGIAN terisi (sumber Docker + parse Keycloak). Bagian bertanda
-// TODO diselesaikan PESERTA di Sesi 4 (OpenBao, Warpgate, sshd, Windows Event DC).
+// TODO diselesaikan PESERTA di Sesi 4 (OpenBao, Warpgate).
+// Log VM srv1/client1 (auth, audit, CIS) dikirim Alloy di VM masing-masing (lab/alloy/host.alloy).
 //
 // Prinsip label: label HANYA low-cardinality (service, event).
 // user/ip DISIMPAN sebagai field di baris log, dikueri via `| json` di LogQL —
@@ -78,19 +79,73 @@ loki.process "router" {
 	// stage.match { selector = "{service=\"openbao\"}" ... }
 
 	// TODO PESERTA: service="warpgate" → login, buka sesi target, gagal auth
-	// TODO PESERTA: service=~"srv-app01|srv-db01" → sshd Accepted/Failed, sudo
+
+	// Samba AD DC (dc1): audit JSON di stdout container
+	// (smb.conf: log level = 1 auth_json_audit:3 dsdb_group_json_audit:5).
+	// Image lab memancarkan JSON MENTAH per baris, mis.
+	//   {"timestamp":"..","type":"Authentication","Authentication":{..}}
+	//   {"timestamp":"..","type":"groupChange","groupChange":{..}}
+	// (bukan berprefiks "JSON Authentication:"). Saring baris audit berdasar field type.
+	stage.match {
+		selector = "{service=\"samba-dc\"}"
+
+		// Baris audit berupa JSON mentah {"type":"Authentication"|"groupChange",...}.
+		stage.json {
+			expressions = {
+				samba_type   = "type",
+				auth_status  = "Authentication.status",
+				auth_client  = "Authentication.clientAccount",
+				auth_service = "Authentication.serviceDescription",
+				grp_action   = "groupChange.action",
+				grp_user     = "groupChange.user",
+				grp_group    = "groupChange.group",
+			}
+		}
+		// Line-filter pada selector stage.match TIDAK berfungsi di Alloy v1.5, jadi baris
+		// non-audit disaring di sini: keep_flag "keep" hanya utk type audit → sisanya di-drop
+		// (mencegah Loki penuh debug & label event="" kosong).
+		stage.template {
+			source   = "keep_flag"
+			template = "{{ if or (eq .samba_type \"groupChange\") (eq .samba_type \"Authentication\") }}keep{{ end }}"
+		}
+		stage.drop {
+			source              = "keep_flag"
+			expression          = "^$"
+			drop_counter_reason = "samba_non_audit"
+		}
+		// Nama akun pendek: "IAMLAB\dewi" / "dewi@IAMLAB.TEST" → "dewi"; groupChange.user = DN.
+		stage.regex {
+			source     = "auth_client"
+			expression = "^(?:[^\\\\]*\\\\)?(?P<samba_user>[^@]+)"
+		}
+		stage.regex {
+			source     = "grp_user"
+			expression = "^CN=(?P<samba_user>[^,]+)"
+		}
+		stage.template {
+			source   = "samba_event"
+			template = "{{ if eq .samba_type \"groupChange\" }}group_change{{ else if eq .auth_status \"NT_STATUS_OK\" }}login_ok{{ else }}login_fail{{ end }}"
+		}
+		stage.template {
+			source   = "samba_user"
+			template = "{{ if .samba_user }}{{ ToLower .samba_user }}{{ end }}"
+		}
+		// Akun mesin (SRV1$, CLIENT1$) sering login → buang dari jejak pengguna.
+		stage.drop {
+			source              = "samba_user"
+			expression          = ".*\\$$"
+			drop_counter_reason = "samba_machine_account"
+		}
+		stage.labels {
+			values = { event = "samba_event" }
+		}
+		stage.structured_metadata {
+			values = { user = "samba_user", group = "grp_group", action = "grp_action", samba_service = "auth_service", status = "auth_status" }
+		}
+	}
 
 	forward_to = [loki.write.default.receiver]
 }
-
-// ---------- Sumber: Windows Event dari DC (dijalankan di VM DC, BUKAN di sini) ----------
-// Di VM Windows Server, pasang Grafana Alloy dan konfigurasikan:
-//   loki.source.windowsevent "security" {
-//     eventlog_name = "Security"
-//     forward_to = [loki.write.dc.receiver]   // kirim ke Loki lab (http://<docker-host>:3100)
-//   }
-// Event kunci: 4624/4625 logon, 4768/4769 Kerberos, 4728/4732 grup, 5136 perubahan objek.
-// (Didokumentasikan di Sesi 4; tidak dapat berjalan di container Linux.)
 
 // ---------- Tujuan ----------
 loki.write "default" {

@@ -1,7 +1,7 @@
 # deploy/ — Stack layanan IAM (Docker)
 
 Jalan di **Docker Desktop (WSL2)** atau **VM Ubuntu** pada VirtualBox/VMware.
-AD (Windows Server 2025) ada di VM terpisah (lihat `DC_IP`).
+AD/LDAP = container Samba `samba-dc` (dc1.iamlab.test). VM Ubuntu `srv1`/`client1` bergabung ke domain.
 
 ## Menjalankan
 ```bash

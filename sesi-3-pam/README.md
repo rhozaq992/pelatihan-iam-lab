@@ -64,11 +64,11 @@ kredensial curian tak berguna lama.
 ### 0. 🖥️ Deploy (sudah disiapkan — tetap dipahami)
 ```bash
 cd deploy
-# srv-db01 = target KEDUA (opsional, profile 'targets-extra') untuk latihan multi-target.
-docker compose --profile targets-extra up -d openbao warpgate srv-app01 srv-db01   # OpenBao BELUM di-init
+docker compose up -d openbao warpgate      # OpenBao BELUM di-init; Warpgate perlu setup sekali
 ```
-OpenBao sengaja mulai dalam keadaan *uninitialized*; Warpgate perlu *setup* sekali.
-(Jika hanya ingin satu target, cukup `docker compose up -d openbao warpgate srv-app01` — lewati `srv-db01`.)
+OpenBao sengaja mulai dalam keadaan *uninitialized*; Warpgate perlu *setup* sekali. **Target
+akses istimewa di lab ini adalah VM `srv1`** (`10.10.10.20`, Ubuntu Server anggota domain dari
+Sesi 1) — bukan container. Peserta mengakses `srv1` **hanya** lewat bastion Warpgate.
 
 ### A. 🐳 OpenBao (brankas kredensial)
 Jalankan `bao` **di dalam container** OpenBao. Tiap langkah dijelaskan di komentar:
@@ -91,7 +91,7 @@ path "ssh/sign/t1"          { capabilities=["update"] }
 HCL
 bao write auth/ldap/groups/GG-Tier1-Admin policies=admin-t1 # grup AD → policy
 bao secrets enable -path=kv kv-v2                            # brankas KV
-bao kv put kv/breakglass/srv-app01 user=labadmin pass='BreakGlass#2026'   # root login dimatikan di bagian B
+bao kv put kv/breakglass/srv1 user=labadmin pass='BreakGlass#2026'   # root login dimatikan di bagian B
 bao secrets enable ssh                                       # mesin SSH CA
 bao write ssh/config/ca generate_signing_key=true
 # Role sign SSH: allowed_users WAJIB (OpenBao 2.x menolak sign tanpa principal), permit-pty
@@ -138,15 +138,21 @@ Status nyata setelah init/unseal (OpenBao di lab ini berbasis **CLI**, tanpa web
 
 *Gambar 2. Terminal OpenBao — status, audit, engine kv & ssh*
 
-### B. 🐳 Target memercayai SSH CA
-Ambil kunci publik CA dari OpenBao lalu salurkan ke tiap target **yang sedang berjalan**
-(srv-db01 hanya ada bila profil `targets-extra` aktif), dan matikan sandi:
+### B. 🖥️ Target `srv1` memercayai SSH CA
+Ambil kunci publik CA dari OpenBao, pasang di **VM `srv1`** sebagai `TrustedUserCAKeys`, lalu
+matikan autentikasi sandi (akses hanya via sertifikat SSH dari CA / bastion):
 ```bash
-for t in $(docker compose ps --services --status running | grep '^srv-'); do
-  docker compose exec -T -e BAO_ADDR=http://127.0.0.1:8200 openbao bao read -field=public_key ssh/config/ca \
-    | docker compose exec -T $t tee /etc/ssh/openbao_ca.pub >/dev/null
-  docker compose exec $t sh -c 'printf "\nTrustedUserCAKeys /etc/ssh/openbao_ca.pub\nPasswordAuthentication no\nPermitRootLogin no\n" >> /etc/ssh/sshd_config; kill -HUP 1'
-done
+# 🖥️ terminal host — ambil kunci publik CA OpenBao
+docker compose exec -T -e BAO_ADDR=http://127.0.0.1:8200 openbao \
+  bao read -field=public_key ssh/config/ca > openbao_ca.pub
+scp openbao_ca.pub labadmin@srv1.iamlab.test:/tmp/openbao_ca.pub
+```
+```bash
+# 🖥️ di srv1
+sudo install -m 644 /tmp/openbao_ca.pub /etc/ssh/openbao_ca.pub
+printf 'TrustedUserCAKeys /etc/ssh/openbao_ca.pub\nPasswordAuthentication no\nPermitRootLogin no\n' \
+  | sudo tee /etc/ssh/sshd_config.d/10-iamlab-ca.conf
+sudo systemctl restart ssh
 ```
 
 ### C. 🌐 Warpgate (bastion + rekam sesi)
@@ -190,10 +196,11 @@ YAML
 docker compose cp ./warpgate.yaml warpgate:/data/warpgate.yaml && docker compose restart warpgate
 ```
 Di konsol admin, beri pengguna Warpgate kredensial **SSO** (email sama dengan akun AD-nya).
-Lalu tambahkan **target** SSH `srv-app01`/`srv-db01` dengan **role** terbatas, dan aktifkan
+Lalu tambahkan **target** SSH `srv1` (host `10.10.10.20`) dengan **role** terbatas, dan aktifkan
 **perekaman sesi**. Warpgate masuk ke target memakai **kunci klien Warpgate** (konsol →
-*SSH* → kunci milik Warpgate) yang dipasang di `authorized_keys` target — bukan sandi, karena
-sandi target sudah dimatikan di bagian B. Skrip `configure-target.sh` di bawah mengerjakan ini:
+*SSH* → kunci milik Warpgate) yang dipasang di `authorized_keys` milik `labadmin` di `srv1` —
+bukan sandi, karena sandi target sudah dimatikan di bagian B. Skrip `configure-target.sh` di
+bawah mengerjakan ini:
 
 ![Warpgate — konsol admin (Config): tambah target SSH, Users, Access roles, perekaman sesi](gambar/warpgate-admin.png)
 
@@ -203,29 +210,29 @@ sandi target sudah dimatikan di bagian B. Skrip `configure-target.sh` di bawah m
 Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate memakai
 `user:target@bastion`; sesi direkam dan bisa diputar ulang di web UI:
 
-![Diagram akses SSH ke srv-app01 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
+![Diagram akses SSH ke srv1 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
 
-*Gambar 4. Akses SSH ke srv-app01 via bastion Warpgate*
+*Gambar 4. Akses SSH ke srv1 via bastion Warpgate*
 
 *Legenda: penuh = koneksi/sesi; putus-putus = SSO/MFA & permintaan sertifikat; teal = rekaman sesi untuk audit.*
 
 **Agenda Aktivitas (nomor pada diagram):**
-1. Peserta `ssh -p 2222 <user>:srv-app01@pam.iamlab.test` ke **bastion**.
+1. Peserta `ssh -p 2222 <user>:srv1@pam.iamlab.test` ke **bastion**.
 2. Warpgate meminta autentikasi via **Keycloak** (SSO OIDC + MFA).
 3. Warpgate membuka sesi ke target memakai **kunci kliennya sendiri** (terdaftar di target).
    Jalur alternatif tanpa bastion — mis. *break-glass* — memakai **sertifikat SSH** berumur
    pendek yang ditandatangani **OpenBao** (SSH CA) untuk akun `labadmin`.
-4. Sesi diteruskan ke **srv-app01**.
+4. Sesi diteruskan ke **srv1**.
 5. Sesi **direkam** → dapat diputar ulang & diaudit.
 
 ```bash
-ssh -p 2222 <user>:srv-app01@pam.iamlab.test     # bastion mencegat, minta SSO/MFA, lalu teruskan
+ssh -p 2222 <user>:srv1@pam.iamlab.test          # bastion mencegat, minta SSO/MFA, lalu teruskan
 ```
 
 > **Otomasi (opsional).** Alih-alih klik di konsol, target+user+role bisa didaftarkan via
 > Admin API dengan [`../deploy/warpgate/configure-target.sh`](../deploy/warpgate/configure-target.sh)
 > (mis. `PUBKEY="$(cat ~/.ssh/id_ed25519.pub)" ./configure-target.sh` → lalu
-> `ssh -p 2222 peserta:srv-app01@pam.iamlab.test`). Diverifikasi tembus ke target
+> `ssh -p 2222 peserta:srv1@pam.iamlab.test`). Diverifikasi tembus ke target
 > sebagai `labadmin` dengan sesi terekam — peserta tak pernah memegang sandi server.
 >
 > **Troubleshooting (penting):**

@@ -16,7 +16,7 @@ sebelum mulai. **Dipakai sesi berikutnya:** SSO Keycloak ini menjadi login untuk
 
 Peserta mampu:
 - Memahami cara sistem SSO di-*deploy*, lalu **mengonfigurasinya** sendiri.
-- Membuat *realm* dan **federasi LDAP** Keycloak ke Active Directory.
+- Membuat *realm* dan **federasi LDAP** Keycloak ke direktori (Samba AD).
 - Mengintegrasikan aplikasi via **OIDC** (Authorization Code + PKCE) dan **SAML 2.0**.
 - Memetakan **grup → peran** sehingga beda hak akses terlihat nyata (RBAC).
 - Menegakkan **MFA (Google Authenticator)** bersyarat pada layanan kritikal.
@@ -47,7 +47,7 @@ kebijakan & audit terpusat, dan penonaktifan akun berlaku serentak.
 1. Pengguna membuka aplikasi (akses `/`).
 2. Aplikasi mengarahkan ke Keycloak — OIDC *Authorization Code + PKCE* atau SAML *AuthnRequest*.
 3. Pengguna mengisi form login di Keycloak.
-4. Keycloak memverifikasi kredensial ke **Active Directory** (LDAPS 636) + menarik atribut/grup.
+4. Keycloak memverifikasi kredensial ke **direktori (Samba AD)** via LDAPS 636 + menarik atribut/grup.
 5. Keycloak meminta **MFA** bila kondisi (grup/klien kritikal) terpenuhi.
 6. Keycloak mengembalikan **token/assertion** ke aplikasi.
 7. Aplikasi membuka sesi; peran ditentukan dari klaim grup.
@@ -114,11 +114,11 @@ federasi/MFA** — semua itu Anda buat berikut.
 > cek kesiapan host di **Sesi 0**.
 
 ### 1. 🌐 Realm + federasi LDAP ke AD
-**Prasyarat (Sesi 1 langkah 5b):** CA AD sudah disalin ke `deploy/certs/ad-ca.pem` dan
+**Prasyarat (Sesi 1 langkah 5b):** CA Samba sudah disalin ke `deploy/certs/ad-ca.pem` dan
 Keycloak di-*recreate* — tanpa itu koneksi LDAPS gagal dengan galat sertifikat (PKIX).
 
 Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis seperti ini:
-- Vendor: *Active Directory* · Connection URL: `ldaps://dc1.iamlab.test:636`
+- Vendor: *Active Directory* (Samba AD kompatibel-AD) · Connection URL: `ldaps://dc1.iamlab.test:636`
 - Bind DN: `CN=svc-keycloak,OU=AkunLayanan,DC=iamlab,DC=test` · Bind credential: sandi
   svc-keycloak **terbaru** (yang Anda set saat reset di Sesi 1 langkah 5)
 - Edit mode: **READ_ONLY** · **Users DN: `DC=iamlab,DC=test`** (root — mencakup akun

@@ -6,11 +6,11 @@ audit identitas *end-to-end* dan dashboard pemantauan. Penanda: 🖥️ **termin
 
 ## Keterhubungan dengan sesi sebelumnya
 
-Sesi ini **menutup rangkaian**: ia memanen event dari **Sesi 1** (Windows AD: logon,
-Kerberos, perubahan grup), **Sesi 2** (Keycloak: LOGIN/LOGIN_ERROR, perubahan MFA), dan
-**Sesi 3** (OpenBao: akses vault; Warpgate: sesi bastion; sshd target). Tanpa konfigurasi
-audit di sesi-sesi itu (mis. Events Keycloak di Sesi 2, audit device OpenBao di Sesi 3),
-dashboard di sini akan kosong — jadi pastikan sumbernya sudah aktif.
+Sesi ini **menutup rangkaian**: ia memanen event dari **Sesi 1** (Samba AD: autentikasi
+Kerberos/LDAP, perubahan grup; endpoint `srv1`/`client1`: login, sudo, perintah user, skor CIS),
+**Sesi 2** (Keycloak: LOGIN/LOGIN_ERROR), dan **Sesi 3** (OpenBao: akses vault; Warpgate: sesi
+bastion; sshd target). Tanpa konfigurasi audit di sesi-sesi itu, dashboard di sini akan kosong —
+jadi pastikan sumbernya sudah aktif.
 
 ## a. Tujuan Sesi
 
@@ -71,7 +71,7 @@ mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & 
 *Legenda: teal = aliran log; label hanya service/event (low-cardinality). Nomor dijelaskan pada Agenda Aktivitas di bawah.*
 
 **Agenda Aktivitas (nomor pada diagram):**
-1. Sumber log (Windows AD, Keycloak, OpenBao, Warpgate/sshd, Caddy) mengirim ke **Alloy**.
+1. Sumber log (Samba AD, Keycloak, OpenBao, Warpgate, Caddy via Alloy container; `srv1`/`client1` via Alloy host) mengirim ke **Alloy**.
 2. Alloy mem-*parse* & memberi label (hanya `service`/`event`) lalu mengirim ke **Loki**.
 3. **Grafana** membaca Loki untuk dashboard & evaluasi alert.
 4. Alert dikirim sebagai email ke **Mailpit** (kotak surat uji).
@@ -81,8 +81,9 @@ mem-*parse*, memberi label → **Loki** menyimpan → **Grafana** menampilkan & 
 `event`); nilai seperti `user`/`ip` disimpan sebagai *structured metadata*/field (dikueri
 LogQL), **bukan** label — agar kardinalitas tidak meledak dan Loki tetap cepat.
 
-**Sumber log kunci:** Windows AD (Event 4624/4625, 4768/4769 Kerberos, 4728/4732
-grup), Keycloak (LOGIN, LOGIN_ERROR), OpenBao (audit device), Warpgate, sshd, Caddy.
+**Sumber log kunci:** Samba AD (autentikasi JSON, perubahan grup), endpoint `srv1`/`client1`
+(auth.log: login/sudo; auditd: perintah user & perubahan identitas; ringkasan CIS), Keycloak
+(LOGIN, LOGIN_ERROR), OpenBao (audit device), Warpgate, Caddy.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
@@ -103,12 +104,12 @@ Anda lengkapi.
 > Keluaran query terakhir harus memuat layanan-layanan yang berjalan, mis.:
 > ```json
 > {"status":"success","data":["alloy","app-komentar","app-saml","caddy","grafana",
->  "keycloak","loki","mailpit","openbao","postgres","samba-dc","srv-app01","warpgate"]}
+>  "keycloak","loki","mailpit","openbao","postgres","samba-dc","warpgate"]}
 > ```
-> Jumlahnya 12–14 tergantung tahap: `warpgate` muncul **setelah** setup Sesi 3; `srv-db01`
-> hanya bila profil `targets-extra` aktif; `attacker` hanya saat profil `attack` aktif (dan
-> memang tak perlu diaudit). Yang penting **titik akses inti** ada: `caddy` (semua HTTPS),
-> `keycloak` (SSO), `openbao` (vault), `warpgate` (bastion), `srv-app01` (SSH).
+> Container `warpgate` muncul **setelah** setup Sesi 3; `attacker` hanya saat profil `attack`
+> aktif. Selain container, Loki juga menerima `job="host"` dari VM `srv1` & `client1` (Alloy host).
+> Yang penting **titik akses inti** ada: `caddy` (HTTPS), `keycloak` (SSO), `samba-dc` (direktori),
+> `openbao` (vault), `warpgate` (bastion), plus host `srv1`/`client1`.
 > **Jika** `/ready` membalas `503 Service Unavailable` → Loki masih pemanasan; tunggu
 > ±30–60 dtk lalu ulangi. **Jika** `data` kosong `[]` → Alloy belum mengirim; cek
 > `docker compose logs alloy` dan pastikan `/var/run/docker.sock` ter-mount.
@@ -125,10 +126,11 @@ stage.match {
 }
 ```
 Lakukan serupa untuk Warpgate & sshd, lalu 🖥️ `docker compose restart alloy`.
-Untuk **Windows Event dari DC**: 🪟 pasang Grafana Alloy di VM DC dan kirim ke Loki lab
-(`loki.source.windowsevent` eventlog `Security` → `loki.write` ke
-`http://10.10.10.5:3100/loki/api/v1/push`; port 3100 sudah dipublikasikan compose). Uji dari
-DC: `Test-NetConnection 10.10.10.5 -Port 3100` → `TcpTestSucceeded : True`.
+Log direktori **Samba AD** sudah dipungut Alloy container (`service="samba-dc"`, event
+`login_ok`/`login_fail`/`group_change`). Log **endpoint** `srv1`/`client1` dikirim oleh **Alloy
+host** (`lab/alloy/host.alloy`, sudah dipasang saat build) ke `http://10.10.10.5:3100` dengan
+label `job="host"`, `host`, `source` (`auth`/`audit`/`cis`), `event`, dan `user`. Uji dari VM:
+`nc -vz 10.10.10.5 3100`.
 
 ### 2. 🌐 Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
 Buat panel di datasource Loki (sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
@@ -146,7 +148,7 @@ tersedia sebagai *structured metadata* sehingga langsung dipakai di `sum by (...
 **Panel tren (timeseries/bargauge) di bawahnya:**
 - Login sukses vs gagal: `sum(count_over_time({service="keycloak", event="LOGIN"}[5m]))` vs `event="LOGIN_ERROR"`.
 - Top IP gagal: `topk(10, sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"}[15m])))`.
-- Aktivitas per layanan · Perubahan grup (Windows Event 4728/4732).
+- Aktivitas per layanan · Perubahan grup Samba (`{service="samba-dc", event="group_change"}`).
 
 > Dua panel email & password memakai **line-filter** (`|~`) karena email akun dan reset sandi
 > dipicu via Admin API Keycloak (tercatat sebagai operasi `ACTION`, bukan event `type=` biasa).
@@ -172,8 +174,9 @@ Buat aturan alert dengan *contact point* Mailpit (kotak surat uji):
 |--------|-------------------------|--------|
 | Brute force / spraying | `LOGIN_ERROR` per IP | > 10 gagal / 5 menit |
 | Gagal → sukses | ≥5 gagal lalu sukses (user sama) | 1 kejadian |
-| Perubahan grup istimewa | Event 4728/4732 ke Domain Admins/GG-Tier0 | tiap kejadian |
-| Tiket Kerberos RC4 | 4769 enctype `0x17` dari akun non-mesin | tiap kejadian |
+| Perubahan grup istimewa | `event="group_change"` ke Domain Admins/GG-Tier0 (Samba) | tiap kejadian |
+| Perintah sudo tak lazim | `event="sudo"` di luar admin yang berwenang | tiap kejadian |
+| Skor CIS turun | skor `source="cis"` di bawah ambang | tiap scan |
 
 ---
 

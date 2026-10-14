@@ -1,22 +1,32 @@
 # distribusi/ — Aset berat (dibagikan manual, TIDAK via Git)
 
-Folder ini sengaja kosong di Git (hanya `.gitkeep`). Isi dengan file besar yang
-dibagikan ke peserta lewat USB/share lokal **sebelum** kelas, agar `git clone` tetap ringan.
+Folder ini sengaja kosong di Git (hanya `.gitkeep`). Isi dengan file besar yang dibagikan ke
+panitia/peserta lewat USB/share lokal **sebelum** kelas, agar `git clone` tetap ringan dan lab
+dapat dibangun **offline**. Semua ini dipakai otomatis oleh [`build-lab.ps1`](../build-lab.ps1)
+bila ada; bila tidak ada, `build-lab.ps1` mengunduhnya saat build (butuh internet sekali).
 
 | Folder | Isi |
 |--------|-----|
-| `ova/` | `ubuntu-client-amd64.ova` (klien Linux, PC peserta x86-64) & `ubuntu-client-arm64.ova` (instruktur Apple Silicon), `IAMLAB-DC.ova` (DC, opsional) — dipakai `deploy-lab.sh --vms` |
-| `offline-images/` | `iam-images.tar` — hasil `docker save` semua image (muat: `docker load -i iam-images.tar`) |
-| `installer/` | VirtualBox (atau VMware Workstation Pro), Docker Desktop, Google Authenticator/FreeOTP, `docker/*.deb` (opsional, Ubuntu offline) |
-| `iso/` + `iso/windows/` | ISO Windows Server 2025 & Windows 11 Enterprise Evaluation (x86-64, unduh manual dari Microsoft), ISO Ubuntu; `autounattend.xml` + `Install-DC.ps1` hasil `prep-windows-server.sh` |
+| `offline-images/` | `iam-images.tar` — hasil `docker save` **semua** image (layanan IAM + Samba AD). Dimuat otomatis oleh `build-lab.ps1`. |
+| `installer/` | Installer **VirtualBox** (Win.exe), **Docker Desktop**, **VC++ runtime**, dan `ubuntu-24.04-server-cloudimg-amd64.ova` (cloud image dasar VM). |
 
-## Skrip penyiapan
-- `./build-client-ova.sh --arch amd64` dan `--arch arm64` — bangun OVA klien Ubuntu dari
-  Ubuntu cloud image resmi (realmd/sssd **dibaking** agar `realm join` jalan offline).
-  `deploy-lab.sh --vms` otomatis memilih OVA sesuai arch host.
-- `./prep-windows-server.sh` — verifikasi ISO WS2025 (x86-64, unduh manual dari Microsoft) +
-  hasilkan `autounattend.xml` & `Install-DC.ps1` (promosi DC `iamlab.test` tanpa interaksi).
-- `./download.sh` — unduh ISO Ubuntu + petunjuk ISO Windows.
+> Untuk kelas **sepenuhnya offline**, salin juga paket yang diunduh VM saat provisioning
+> (sssd/adcli, auditd, OpenSCAP + SCAP Security Guide, Grafana Alloy, ubuntu-desktop-minimal)
+> sebagai cache APT, atau sediakan cermin APT lokal. Tanpa itu, build pertama perlu internet
+> sekali untuk kedua VM; sesudahnya lab berjalan terisolasi Host-Only.
 
-Checksum dicatat di `SHA256SUMS.txt`; peserta memverifikasi dengan `sha256sum -c SHA256SUMS.txt`.
-> Hanya **amd64** untuk Windows (tak ada Windows Server arm). Klien Ubuntu disediakan **amd64 & arm64**.
+## Menyiapkan paket build (build bag)
+Lihat **[`../build-bag/README.md`](../build-bag/README.md)**: skrip `make-build-bag.ps1`
+mengumpulkan `build-lab.ps1`, repo lab, dan seluruh installer + `iam-images.tar` ke satu folder
+siap-serah untuk panitia.
+
+## Membuat `iam-images.tar` (dari PC ber-internet)
+```powershell
+cd ..\deploy
+docker compose --profile "*" pull --ignore-buildable
+docker compose --profile "*" build          # termasuk image samba-dc
+docker save (docker compose --profile "*" config --images) -o ..\distribusi\offline-images\iam-images.tar
+```
+
+Checksum dicatat di `SHA256SUMS.txt`; verifikasi dengan `sha256sum -c SHA256SUMS.txt`.
+> Seluruh lab **amd64** (Ubuntu cloud image + image Docker amd64). Tidak ada komponen Windows guest.

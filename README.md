@@ -8,68 +8,60 @@ di PC peserta.
 > **defensif** — hanya untuk menguji deteksi & mitigasi, memakai perkakas *open source*
 > standar yang dikunci ke target lab, di jaringan Host-Only tanpa internet.
 
-## Memulai (setelah `git clone`)
+## Memulai
 
-Cara tercepat — satu perintah (deteksi OS/arch, muat image offline, selaraskan `.env` &
-`hosts`, nyalakan stack): lihat [Sesi 0 › Deploy awal](sesi-0-pengantar/README.md#deploy-awal-satu-perintah).
-```bash
-export MSYS_NO_PATHCONV=1      # Windows/Git Bash saja
-cd sesi-0-pengantar && ./deploy-lab.sh
+Seluruh lab dibangun satu skrip di **PowerShell (Administrator)** pada PC Windows peserta:
+```powershell
+cd <folder-repo>
+Set-ExecutionPolicy -Scope Process Bypass -Force
+.uild-lab.ps1          # Check -> Requirements -> Download -> Install -> Build
 ```
-Cara manual:
-```bash
-cd deploy
-cp .env.example .env            # sesuaikan DC_IP & sandi
-# Lab Host-Only tanpa internet → muat image yang sudah disiapkan (USB/share lokal) lebih dulu.
-# Image di-build butuh internet (pip/apt), jadi JANGAN andalkan auto-build di VM terisolasi.
-docker load -i ../distribusi/offline-images/iam-images.tar
-docker compose up -d            # image sudah ada → langsung menyala, tanpa build/pull
-docker compose ps
-```
-> Punya internet saat menyiapkan? Boleh bangun sendiri: `docker compose pull && docker compose build`
-> (lalu `docker save` untuk distribusi offline — lihat `distribusi/download.sh`).
-> Catatan: setelah `up`, **OpenBao** menyala dalam keadaan *sealed* (perlu init/unseal di
-> Sesi 3) dan **Warpgate** akan keluar sampai di-*setup* sekali (Sesi 3) — ini normal.
+Skrip memasang VirtualBox + Docker Desktop (bila belum ada), menjalankan stack layanan
+(termasuk Samba AD `dc1`), lalu membuat VM Ubuntu `srv1` & `client1` di jaringan Host-Only
+`10.10.10.0/24`. Rinciannya di [Sesi 0](sesi-0-pengantar/README.md#deploy-awal-satu-skrip).
+Untuk kelas, panitia memakai **paket build** siap-serah ([`build-bag/`](build-bag/README.md)).
 
-Tambahkan subdomain `*.iamlab.test` ke berkas `hosts` (atau DNS DC) → IP host Docker.
-Rincian endpoint & pengelolaan: [`deploy/README.md`](deploy/README.md). Lalu ikuti modul
-mulai [Sesi 0](sesi-0-pengantar/).
+> Setelah build: **OpenBao** menyala *sealed* (init/unseal di Sesi 3) dan **Warpgate** perlu
+> *setup* sekali (Sesi 3) — ini normal. Endpoint & pengelolaan: [`deploy/README.md`](deploy/README.md).
 
 ## Peta Direktori
 
 | Path | Isi | Dijalankan? |
 |------|-----|-------------|
-| `deploy/` | **Yang di-deploy**: `compose.yaml` + konfigurasi (Caddy, Keycloak, OpenBao, Warpgate, monitoring) + aplikasi | `docker compose up -d` |
+| `build-lab.ps1` | **Pembangun lab** di PC Windows (cek sistem, pasang deps, stack Docker, VM Ubuntu) | `.uild-lab.ps1` |
+| `build-bag/` | Pembuat paket instalasi siap-serah untuk panitia | `build-bag/make-build-bag.ps1` |
+| `lab/` | Berkas untuk VM: cloud-init, skrip (`join-domain.sh`, `cis-scan.sh`), Alloy host, aturan auditd | dipakai `build-lab.ps1` |
+| `deploy/` | **Stack Docker**: `compose.yaml` + konfigurasi (Caddy, Keycloak, OpenBao, Warpgate, monitoring, **Samba AD**) + aplikasi | `docker compose up -d` |
 | `sesi-0-pengantar/` | Pengantar: topologi + teori dasar | baca dulu |
-| `sesi-1-direktori-gpo/` | Pengamanan AD/LDAP & GPO + simulasi + skrip provisioning (`import-ad.ps1`, CSV) | ikuti modul |
+| `sesi-1-direktori-gpo/` | Pengamanan Samba AD/LDAP, join domain, kebijakan akses & CIS + `import-ad.sh`, CSV | ikuti modul |
 | `sesi-2-sso-mfa/` | SSO & MFA (Keycloak) + App-Komentar RBAC | ikuti modul |
 | `sesi-3-pam/` | OpenBao (vault) + Warpgate (bastion) | ikuti modul |
 | `sesi-4-audit-monitoring/` | Alloy/Loki/Grafana + capstone | ikuti modul |
 | `attack-sim/` | Runner simulasi berpagar (dipakai Sesi 1) | via compose profil |
-| `distribusi/` | Skrip penyiapan (OVA klien, autounattend DC, unduh); ISO/OVA/image dibagikan manual (tidak di Git) | lihat README-nya |
+| `distribusi/` | Aset berat offline (`iam-images.tar`, installer) dibagikan manual (tidak di Git) | lihat README-nya |
 
 ## Alur Sesi (saling menyambung)
 
 Tiap sesi **membangun di atas sesi sebelumnya** memakai data yang sama:
 
 ```
-Sesi 1 (AD: OU, grup GG-*, akun svc-*, kebijakan sandi)
-   └─► Sesi 2 (Keycloak federasi ke AD via svc-keycloak; grup GG-App-* → peran; MFA)
-          └─► Sesi 3 (Warpgate SSO ke Keycloak; OpenBao auth LDAP via svc-openbao + GG-Tier1-Admin)
-                 └─► Sesi 4 (audit semua event Sesi 1–3 → dashboard & deteksi)
+Sesi 1 (Samba AD: OU, grup GG-*, akun svc-*; join srv1/client1; kebijakan akses; CIS)
+   └─► Sesi 2 (Keycloak federasi ke Samba AD via svc-keycloak; grup GG-App-* → peran; MFA)
+          └─► Sesi 3 (Warpgate SSO ke Keycloak; OpenBao auth LDAP via svc-openbao + GG-Tier1-Admin; target srv1)
+                 └─► Sesi 4 (audit event Sesi 1–3 + aktivitas user srv1/client1 → dashboard & deteksi)
 ```
 
 ## Prasyarat PC peserta
 
-- Windows, RAM ≥ 16 GB (disarankan 32 GB), disk ≥ 120 GB, virtualisasi (VT-x/AMD-V) aktif.
-- VirtualBox (atau VMware Workstation Pro) untuk VM Windows Server 2025 (DC) & klien; Docker Desktop untuk stack layanan.
+- Windows 10/11 Pro, RAM 16 GB, disk kosong ≥ 80 GB, virtualisasi (VT-x/AMD-V) aktif.
+- VirtualBox (VM Ubuntu `srv1`/`client1`) + Docker Desktop (layanan IAM & Samba AD) — keduanya dipasang otomatis oleh `build-lab.ps1`.
 - Google Authenticator / FreeOTP di ponsel.
 
-> Aset berat (ISO/OVA/image) **tidak** di Git — dibagikan manual lewat `distribusi/`
-> (lihat [`distribusi/README.md`](distribusi/README.md)).
+> Aset berat (image Docker, installer) **tidak** di Git — dibagikan manual lewat `distribusi/`
+> atau paket build (lihat [`build-bag/README.md`](build-bag/README.md)).
 
 ## Lisensi komponen
 
-Komponen inti *open source*: Keycloak (Apache-2.0), OpenBao (MPL-2.0), Warpgate
-(Apache-2.0), Grafana/Loki (AGPL-3.0), Caddy (Apache-2.0), Locust (MIT), dll. Windows
-Server memakai edisi evaluasi.
+Komponen inti *open source*: Samba (GPL-3.0), Keycloak (Apache-2.0), OpenBao (MPL-2.0),
+Warpgate (Apache-2.0), Grafana/Loki (AGPL-3.0), Caddy (Apache-2.0), Locust (MIT),
+OpenSCAP + SCAP Security Guide (CIS, LGPL/public), Ubuntu 24.04 LTS. Tanpa komponen berbayar.

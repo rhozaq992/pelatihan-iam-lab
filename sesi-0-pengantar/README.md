@@ -10,9 +10,9 @@ Sepanjang modul, setiap langkah diberi penanda tempat eksekusi agar tidak keliru
 
 | Penanda | Tempat menjalankan |
 |---------|--------------------|
-| 🪟 **DC (PowerShell)** | Di dalam VM Windows Server 2025 (Domain Controller), via PowerShell/Server Manager/GPMC. |
-| 🐳 **Container (host)** | Di terminal PC peserta, memakai `docker compose exec <service> …` untuk masuk ke dalam container. |
-| 🖥️ **Terminal peserta** | Di terminal PC peserta langsung (host), mis. `docker compose …`, `ssh …`, `python3 …`. |
+| 🪟 **PowerShell (host)** | Di PC Windows peserta, PowerShell **Administrator** (mis. `build-lab.ps1`, `VBoxManage`). |
+| 🐳 **Container (dc1/svc)** | Masuk ke container lewat `docker compose exec <service> …` (mis. `samba-dc` untuk `samba-tool`, `openbao`). |
+| 🖥️ **VM Ubuntu** | Di dalam VM `srv1`/`client1` (SSH atau konsol VirtualBox), mis. `sudo join-domain.sh`, `sudo cis-scan.sh`. |
 | 🌐 **Web UI** | Di browser peserta: Keycloak, Grafana, Warpgate, Mailpit. |
 
 ## a. Tujuan Sesi
@@ -76,13 +76,14 @@ panggung (aplikasi) menerimanya tanpa periksa ulang identitas.
 
 ## d. Struktur Sistem (Topologi)
 
-Seluruh lab berjalan terisolasi di PC peserta (jaringan Host-Only, tanpa internet),
-domain sintetis **`iamlab.test`**. AD berjalan sebagai VM Windows Server 2025; sisanya
-sebagai container Docker di belakang satu reverse proxy (Caddy) dengan TLS dari CA internal.
+Seluruh lab berjalan terisolasi di PC peserta (jaringan Host-Only `10.10.10.0/24`, tanpa
+internet), domain sintetis **`iamlab.test`**. **Direktori AD/LDAP = Samba AD DC** yang
+berjalan sebagai container bersama layanan lain di **Docker Desktop**; dua **VM Ubuntu**
+(VirtualBox) menjadi server & klien yang bergabung ke domain.
 
-Diagram berikut membagi sistem menjadi **tiga segmen** — Direktori & Klien,
-Layanan IAM, dan Observability — dengan alur data/aktivitas **bernomor** yang dijelaskan
-pada *Agenda Aktivitas* di bawahnya.
+Diagram berikut membagi sistem menjadi **tiga segmen** — Direktori & Klien, Layanan IAM,
+dan Observability — dengan alur data/aktivitas **bernomor** yang dijelaskan pada *Agenda
+Aktivitas* di bawahnya.
 
 ![Arsitektur & alur IAM — 3 partisi (Direktori & Klien · Layanan IAM · Observability) dengan alur bernomor](gambar/arsitektur.png)
 
@@ -92,129 +93,115 @@ pada *Agenda Aktivitas* di bawahnya.
 
 | # | Aktivitas | Sistem terhubung |
 |---|-----------|------------------|
-| **1** | Pengguna membuka aplikasi/konsol lewat HTTPS; TLS diterminasi reverse proxy | Klien Windows/Linux → **Caddy** |
+| **1** | Pengguna membuka aplikasi/konsol lewat HTTPS; TLS diterminasi reverse proxy | Klien Ubuntu → **Caddy** |
 | **2** | Proxy meneruskan permintaan login ke Identity Provider (SSO) | Caddy → **Keycloak** |
-| **3** | Keycloak memverifikasi kredensial & menarik atribut/grup lewat LDAPS 636 | Keycloak → **Windows Server AD (dc1)** |
-| **3b** | Latihan administrasi direktori sisi Linux (tanpa federasi; klien tetap join ke dc1) | **Samba AD (dc2)** |
-| **4** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Klien → **Warpgate** |
-| **5** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
-| **6** | Sesi SSH diproksikan ke target **dan direkam** | Warpgate → **Klien/target Linux** |
-| **7** | Komponen mengirim event audit (login, akses vault, Windows Event) | Keycloak / OpenBao / Windows AD → **Alloy** |
-| **8** | Log terstruktur disimpan | Alloy → **Loki** |
-| **9** | Visualisasi dashboard & alert (UBA) | Loki → **Grafana** |
+| **3** | Keycloak memverifikasi kredensial & menarik atribut/grup lewat LDAPS 636 | Keycloak → **Samba AD DC (dc1)** |
+| **4** | Klien & server Ubuntu bergabung ke domain (Kerberos/LDAP) untuk login akun direktori | Ubuntu srv1/client1 → **dc1** |
+| **5** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Pengguna → **Warpgate** |
+| **6** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
+| **7** | Sesi SSH diproksikan ke target **dan direkam** | Warpgate → **srv1** |
+| **8** | Komponen & host mengirim event audit (login, akses vault, perintah user, skor CIS) | Keycloak/OpenBao/dc1/srv1/client1 → **Alloy** |
+| **9** | Log terstruktur disimpan lalu divisualkan (dashboard & alert, UBA) | Alloy → **Loki** → **Grafana** |
 
 Secara **jaringan/penempatan**, blok-blok itu berjalan sebagai berikut:
 
-![Topologi sistem IAM — 4 sistem (Windows Server AD, Samba AD, klien Windows & Linux) + layanan IAM, domain iamlab.test](gambar/topologi.png)
+![Topologi sistem IAM — Docker Desktop (Samba AD + layanan IAM) + VM Ubuntu srv1 & client1, domain iamlab.test](gambar/topologi.png)
 
-*Gambar 2. Topologi sistem IAM — 4 sistem + layanan IAM*
+*Gambar 2. Topologi sistem IAM — Docker Desktop + 2 VM Ubuntu*
+
+| Node | Peran | Alamat |
+|------|-------|--------|
+| **PC Windows Pro** (16 GB) | Menjalankan VirtualBox + Docker Desktop; browser peserta | adapter Host-Only `10.10.10.5` |
+| **Container Docker** | Samba AD DC (`dc1`), Keycloak+Postgres, OpenBao, Warpgate, Mailpit, Caddy, Grafana/Loki/Alloy, App-Komentar, App-SAML | di `10.10.10.5` (port dipublikasikan) |
+| **VM `srv1`** (Ubuntu Server) | Anggota domain; target SSH/bastion; subjek CIS *server* | `10.10.10.20` |
+| **VM `client1`** (Ubuntu Desktop) | Anggota domain; login GUI pengguna direktori; subjek CIS *workstation* | `10.10.10.30` |
 
 **Legenda:**
-- 🟦 **Zona Endpoint/Klien** — perangkat pengguna (klien Windows 11 & Linux).
-- 🟥 **Zona Direktori (Tier 0)** — server identitas: Windows Server 2025 (`dc1`) untuk sisi
-  Windows, Samba AD DC (`dc2`) untuk sisi Linux.
+- 🟦 **Zona Endpoint/Klien** — VM Ubuntu `srv1` & `client1`.
+- 🟥 **Zona Direktori (Tier 0)** — Samba AD DC `dc1` (container): LDAP/LDAPS, Kerberos, direktori.
 - 🟩 **Blok Layanan IAM (Docker)** — Keycloak, OpenBao, Warpgate, Grafana/Loki/Alloy, di
   belakang **Caddy** (reverse proxy + TLS CA internal).
 - **Garis panah:** garis penuh = akses pengguna/aplikasi (HTTPS); **putus-putus** =
-  federasi/autentikasi ke direktori (LDAPS 636); **teal** = aliran event audit ke pemantauan.
-- Kotak **box-3D** = server/direktori; kotak biasa = klien; kotak membulat = layanan/proxy.
+  federasi/autentikasi & join direktori (LDAPS/Kerberos); **teal** = aliran event audit.
 
-**Aliran data inti:** pengguna membuka aplikasi → diarahkan ke **Keycloak** →
-Keycloak memverifikasi kredensial ke **AD** (LDAPS) dan meminta **MFA** bila perlu →
-menerbitkan token → aplikasi memberi akses sesuai peran (klaim grup). Semua aktivitas
-autentikasi/otorisasi mengalir sebagai log ke **Alloy → Loki → Grafana** untuk audit.
+**Aliran data inti:** pengguna membuka aplikasi → diarahkan ke **Keycloak** → Keycloak
+memverifikasi kredensial ke **Samba AD** (LDAPS) dan meminta **MFA** bila perlu → menerbitkan
+token → aplikasi memberi akses sesuai peran (klaim grup). Aktivitas autentikasi/otorisasi —
+termasuk login & perintah di VM Ubuntu — mengalir sebagai log ke **Alloy → Loki → Grafana**.
+
+> **Mengapa Samba, bukan Windows Server?** Samba AD menyediakan protokol direktori yang sama
+> (LDAP, Kerberos, Group Policy) secara *open source* dan ringan, sehingga seluruh lab —
+> direktori + layanan — muat di satu PC 16 GB tanpa lisensi Windows Server. Konsep AD/LDAP,
+> *tiering*, dan kebijakan akses terpusat identik; yang berbeda hanya perkakas administrasinya
+> (`samba-tool` dan kebijakan sisi klien Linux, bukan GPMC).
 
 ## Peta Sesi
 
 | Sesi | Fokus | Indikator |
 |------|-------|-----------|
-| **1** | Pengamanan Direktori (AD/LDAP) & GPO; simulasi terkendali | 1.1, 1.2 |
+| **1** | Pengamanan Direktori (Samba AD/LDAP), join domain, kebijakan akses terpusat & **CIS Benchmark** | 1.1, 1.2 |
 | **2** | SSO & MFA (Keycloak) + App-Komentar (RBAC) | 2.1, 2.2 |
 | **3** | Privileged Access Management (OpenBao + Warpgate) | 3.1, 3.2 |
-| **4** | Audit & Monitoring (Alloy/Loki/Grafana) + capstone | 4.1, 4.2 |
+| **4** | Audit, Monitoring & **trace aktivitas pengguna** (Alloy/Loki/Grafana) + capstone | 4.1, 4.2 |
 
-> Lingkungan (VM AD + stack layanan) disiapkan terlebih dahulu; peserta berfokus pada
-> **konfigurasi keamanan** di tiap sesi, bukan instalasi dari nol. Proses *deploy*
-> awal tetap ditunjukkan di tiap sesi agar peserta paham cara sistem dinyalakan.
+> Lingkungan (container layanan + 2 VM Ubuntu) disiapkan `build-lab.ps1`; peserta berfokus pada
+> **konfigurasi keamanan** di tiap sesi, bukan instalasi dari nol.
 
-## Deploy awal (satu perintah)
+## Prasyarat PC peserta
 
-Jaringan antar-VM / host / Docker **sudah dikonfigurasi panitia** — peserta tidak perlu
-mengaturnya. Dari direktori ini (🖥️ **terminal host / VM Docker**), jalankan skrip
-[`deploy-lab.sh`](deploy-lab.sh): ia mendeteksi OS & arsitektur, memasang Docker bila belum
-ada, memuat image offline (`distribusi/offline-images/iam-images.tar`), lalu `docker compose up -d`.
+- **Windows 10/11 Pro/Enterprise**, RAM **16 GB** (disarankan lebih), disk kosong ≥ 80 GB,
+  virtualisasi (VT-x/AMD-V) aktif di BIOS/UEFI.
+- Hak **Administrator** (membuat VM, jaringan Host-Only, aturan firewall, mengisi berkas hosts).
+- Google Authenticator / FreeOTP di ponsel (MFA, Sesi 2).
+- VirtualBox & Docker Desktop **tidak perlu dipasang manual** — `build-lab.ps1` memasangnya.
 
-> ### ⚠️ Prasyarat & Cek Kesiapan Host Windows (WAJIB dibaca)
-> Lab ini diuji pada **Windows + VirtualBox + Docker Desktop** (sama seperti PC peserta).
-> Sebelum `deploy-lab.sh`, pastikan:
->
-> 1. **Git Bash: matikan konversi path otomatis.** Git Bash (MSYS) mengubah argumen
->    berawalan `/` (mis. `/openbao/file/audit.log`, `/data`) menjadi path Windows
->    sebelum sampai ke dalam container → perintah `docker … exec` bisa **gagal**
->    (`mkdir C:: permission denied`). Jalankan **sekali** di awal tiap sesi:
->    ```bash
->    export MSYS_NO_PATHCONV=1      # wajib di Git Bash Windows (abaikan di Linux/macOS)
->    ```
-> 2. **Port 80 & 443 harus bebas.** Caddy (reverse proxy) mengikatnya. Jika **VMware**
->    terpasang, layanan `vmware-hostd` merebut `:443` dan browser akan menampilkan
->    halaman yang salah. Cek & bebaskan:
->    ```bash
->    netstat -ano | grep -E ":(80|443)\b"   # pastikan hanya com.docker.backend yang LISTEN
->    ```
->    Bila ada `vmware-hostd`/aplikasi lain: hentikan layanan itu (Services.msc → *VMware
->    Workstation Server* → Stop) sebelum lanjut.
-> 3. **Docker Desktop berjalan** (ikon paus hijau) dan memakai image **amd64** (lihat di bawah).
-> 4. **Untuk `--vms` (VirtualBox):** pastikan `VBoxManage` ada di PATH
->    (`export PATH="$PATH:/c/Program Files/Oracle/VirtualBox"`). Skrip membuat **Host-Only
->    network `10.10.10.0/24`** dengan IP host **10.10.10.5** (= host Docker yang dituju klien),
->    DC=10.10.10.10, klien via DHCP .100–.200. Jalankan Git Bash *as Administrator* sekali.
+## Deploy awal (satu skrip)
 
-```bash
-# 🖥️ terminal host (Linux/Ubuntu, macOS, atau Windows via Git Bash)
-export MSYS_NO_PATHCONV=1   # Windows/Git Bash saja (cegah path mangling)
-cd sesi-0-pengantar
-./deploy-lab.sh            # cek deps → pasang Docker (bila perlu) → muat image → nyalakan stack
+Seluruh lab dibangun oleh **[`build-lab.ps1`](../build-lab.ps1)** di root repo. Jalankan
+🪟 **PowerShell sebagai Administrator**:
+
+```powershell
+cd <folder-repo>
+Set-ExecutionPolicy -Scope Process Bypass -Force
+.\build-lab.ps1                 # Check → Requirements → Download → Install → Build
 ```
 
-> **✅ Validasi / Output yang diharapkan.** Di akhir skrip, `docker compose ps` menampilkan
-> seluruh layanan `running` (Keycloak `healthy` setelah ±1 menit). Contoh nyata (amd64):
-> ```text
-> NAME                    STATUS
-> iamlab-caddy-1          Up (running)
-> iamlab-postgres-1       Up (healthy)
-> iamlab-keycloak-1       Up (healthy)        # ±60 dtk sampai healthy
-> iamlab-grafana-1        Up
-> iamlab-loki-1           Up
-> iamlab-alloy-1          Up
-> iamlab-mailpit-1        Up (healthy)
-> iamlab-openbao-1        Up                  # sealed — di-init di Sesi 3 (normal)
-> iamlab-app-komentar-1   Up (healthy)        # app hidup; login aktif setelah client OIDC dibuat (Sesi 2)
-> iamlab-srv-app01-1      Up
-> iamlab-app-saml-1       Up
-> iamlab-samba-dc-1       Up (healthy)        # DC Samba Sesi 1A (profil 'direktori')
-> iamlab-warpgate-1       Up (healthy)        # muncul/healthy setelah setup Sesi 3
-> ```
-> (Daftar di atas contoh ringkas; pada deploy default muncul ±13 kontainer — itu normal.
-> `srv-db01` hanya muncul bila profil `targets-extra` dinyalakan di Sesi 3.)
-> Pesan `✓ Selesai. Endpoint: https://kc.iamlab.test · …` menandakan sukses.
-> **Pastikan TIDAK ada baris** `The requested image's platform (linux/arm64) does not match …`
-> — bila muncul, image Anda masih arm64 (salah); minta tar `iam-images.tar` versi **amd64**.
-> Verifikasi cepat arsitektur: `docker image inspect quay.io/keycloak/keycloak:26.1 --format '{{.Architecture}}'` → harus `amd64`.
+Fase skrip (bisa dijalankan satu per satu dengan `-Phase <nama>`):
 
-| Opsi | Guna |
-|------|------|
-| `./deploy-lab.sh` | Deploy penuh (default). |
-| `./deploy-lab.sh --check` | Hanya laporkan OS/arch/Docker/image — tidak mengubah apa pun. |
-| `./deploy-lab.sh --compose-only` | **Bila langkah pasang-deps bermasalah**: lewati, langsung muat image + `compose up`. |
-| `./deploy-lab.sh --vms` | **Di host fisik**: impor & nyalakan VM klien (`ubuntu-client-amd64.ova`) dari `distribusi/ova` via VirtualBox/VMware. |
-| `./deploy-lab.sh --no-samba` | Tanpa DC Samba (Sesi 1 Bagian A). |
-| `./deploy-lab.sh --down` | Hentikan & bersihkan stack. |
+| Fase | Yang dilakukan |
+|------|----------------|
+| **Check** | Verifikasi edisi Windows, RAM ≥ 16 GB, disk, virtualisasi CPU, WSL2. |
+| **Requirements** | Cek VirtualBox/`VBoxManage`, VC++ runtime, Docker Desktop, jaringan lab, konflik port. |
+| **Download** | Unduh yang belum ada (VirtualBox, VC++, Docker Desktop, Ubuntu 24.04 cloud image) ke `.lab\cache`. |
+| **Install** | Pasang VirtualBox/VC++/Docker Desktop secara *silent* (bisa minta **reboot** sekali untuk WSL2 — setelah reboot jalankan ulang). |
+| **Build** | Buat jaringan Host-Only `10.10.10.5/24` + aturan firewall + isi `hosts`; jalankan stack Docker (termasuk Samba AD `dc1`); buat & *provision* VM `srv1` dan `client1` lalu melepas NAT (lab jadi terisolasi). |
 
-**Dua konteks eksekusi** (jaringan antar-VM/host/Docker sudah diatur panitia):
-- **Host fisik** (ber-VMware/VirtualBox) → `./deploy-lab.sh --vms` menyalakan VM (klien Ubuntu
-  yang di-*realm join* pada Sesi 1, VM AD, dll). Nama VM = nama file `.ova`.
-- **Di dalam VM/host Docker** → `./deploy-lab.sh` menyalakan stack kontainer.
+> Build butuh **internet sekali** (unduh paket & image). Sesudahnya lab berjalan **offline**
+> di jaringan Host-Only. Untuk kelas tanpa internet, letakkan `iam-images.tar` di
+> `distribusi/offline-images/` (lihat `distribusi/README.md`) — skrip memuatnya alih-alih menarik image.
 
-> Docker Desktop (Windows/macOS) tak bisa dipasang via skrip — pasang dari
-> `distribusi/installer` lebih dulu, lalu jalankan skrip. Di Ubuntu, skrip memakai paket
-> `.deb` offline di `distribusi/installer/docker/` bila ada, atau `get.docker.com` bila online.
+Perintah lain:
+
+| Perintah | Guna |
+|----------|------|
+| `.\build-lab.ps1 -Phase Check` | Hanya laporkan kesiapan sistem. |
+| `.\build-lab.ps1 -Phase Status` | Tampilkan kondisi VM, stack Docker, dan port lab. |
+| `.\build-lab.ps1 -Phase Start` | Nyalakan lab yang sudah dibangun (stack + VM). |
+| `.\build-lab.ps1 -Phase Build -AutoJoin` | Jalan pintas instruktur: `srv1`/`client1` langsung join domain. |
+| `.\build-lab.ps1 -Phase Destroy` | Hapus VM lab, stack, entri hosts & firewall lab. |
+
+> **✅ Validasi / Output yang diharapkan.** Setelah `Build`, `-Phase Status` menampilkan
+> kedua VM `running` (ping OK) dan stack Docker `running`/`healthy`. Dari browser Windows,
+> `https://kc.iamlab.test` membuka halaman *Welcome to Keycloak*, dan
+> `https://grafana.iamlab.test` membuka Grafana. Port `389`/`636` di `10.10.10.5` **terbuka**
+> (jalur join domain dari VM). Container inti: `samba-dc` (healthy), `caddy`, `keycloak`
+> (healthy ±60 dtk), `postgres`, `openbao` (sealed — normal, di-init Sesi 3), `warpgate`
+> (muncul setelah setup Sesi 3), `grafana`, `loki`, `alloy`, `mailpit`, `app-komentar`, `app-saml`.
+>
+> **Jika `build-lab.ps1` berhenti:** baca pesan `BERHENTI:` dan log lengkap di
+> `.lab\logs\build-*.log`. Masalah umum: **port 443 dipakai** `vmware-hostd` (hentikan layanan
+> *VMware Workstation Server*), atau **reboot WSL2 belum dilakukan** (jalankan skrip lagi).
+
+> Catatan Docker Desktop: skrip menyetel `%USERPROFILE%\.wslconfig` (batas RAM 6 GB, 2 CPU) agar
+> VM VirtualBox dan Docker berbagi 16 GB dengan aman. Ubah nilai di blok konfigurasi atas
+> `build-lab.ps1` bila RAM PC berbeda.
