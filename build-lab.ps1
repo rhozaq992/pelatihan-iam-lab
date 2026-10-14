@@ -28,6 +28,7 @@ param(
   [string]$Phase = 'All',
   [switch]$AutoJoin,     # srv1/client1 langsung join domain saat build (default: peserta join di Sesi 1)
   [switch]$Rebuild,      # hapus & bangun ulang VM yang sudah ada
+  [switch]$Gui,          # tampilkan jendela VM (bukan headless) saat provisioning — untuk QA/demo
   [switch]$Purge,        # Destroy: ikut hapus volume data Docker
   [switch]$Yes           # jangan tanya konfirmasi
 )
@@ -431,17 +432,28 @@ public class IamlabIso {
 function Format-Mac($m) { (($m.ToLower()) -split '(..)' | Where-Object { $_ }) -join ':' }
 
 function Get-BaseDisk {
+  # Hasilkan "golden" VDI SEKALI dari cloud image, lalu lepas dari media registry VirtualBox
+  # (berkas tetap). Tiap VM menyalin golden ini + beri UUID baru -> idempoten, tanpa clonemedium
+  # berulang yang menimbulkan bentrok UUID di registry saat build ulang.
+  $vb = Get-VBoxManage
+  $dir = Join-Path $Cache 'ubuntu-base'
+  $golden = Join-Path $dir 'golden.vdi'
+  if (Test-Path $golden) { return $golden }
   $ova = Join-Path $Cache 'ubuntu-24.04-server-cloudimg-amd64.ova'
   if (-not (Test-Path $ova)) { Fail 'cloud image belum diunduh - jalankan fase Download.' }
-  $dir = Join-Path $Cache 'ubuntu-base'
+  New-Item -ItemType Directory -Force $dir | Out-Null
   $vmdk = Get-ChildItem $dir -Filter *.vmdk -ErrorAction SilentlyContinue | Select-Object -First 1
   if (-not $vmdk) {
-    New-Item -ItemType Directory -Force $dir | Out-Null
     & $Tar -xf $ova -C $dir
     $vmdk = Get-ChildItem $dir -Filter *.vmdk | Select-Object -First 1
     if (-not $vmdk) { Fail 'VMDK tak ditemukan di dalam OVA' }
   }
-  return $vmdk.FullName
+  Invoke-Exe $vb @('clonemedium','disk',$vmdk.FullName,$golden,'--format','VDI') | Out-Null
+  # lepas vmdk & golden dari registry (berkas tetap) agar tak mengunci build berikutnya
+  Invoke-Quiet $vb @('closemedium','disk',$vmdk.FullName) | Out-Null
+  Invoke-Quiet $vb @('closemedium','disk',$golden) | Out-Null
+  Ok "golden VDI dasar dibuat (sekali)"
+  return $golden
 }
 function Get-VmState($name) {
   $vb = Get-VBoxManage
@@ -463,9 +475,11 @@ function New-LabVm($vm) {
   if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
   New-Item -ItemType Directory -Force $dir | Out-Null
 
-  # disk: klon cloud image -> VDI, perbesar (cloud-init memperluas partisi otomatis)
+  # disk: salin golden VDI (file) + UUID baru, lalu perbesar (cloud-init memperluas partisi).
+  # Salin-file + sethduuid menghindari pendaftaran ganda sumber di media registry (idempoten).
   $vdi = Join-Path $dir "$name.vdi"
-  Invoke-Exe $vb @('clonemedium','disk',(Get-BaseDisk),$vdi,'--format','VDI') | Out-Null
+  Copy-Item (Get-BaseDisk) $vdi -Force
+  Invoke-Exe $vb @('internalcommands','sethduuid',$vdi) | Out-Null
   Invoke-Exe $vb @('modifymedium','disk',$vdi,'--resize',"$($vm.DiskMB)") | Out-Null
 
   # seed cloud-init
@@ -499,7 +513,8 @@ function New-LabVm($vm) {
   Invoke-Exe $vb @('storageattach',$name,'--storagectl','SATA','--port','1','--device','0','--type','dvddrive','--medium',$iso) | Out-Null
 
   # provisioning (NAT aktif) -> VM mati sendiri bila selesai
-  Invoke-Exe $vb @('startvm',$name,'--type','headless') | Out-Null
+  $provType = if ($Gui) { 'gui' } else { 'headless' }
+  Invoke-Exe $vb @('startvm',$name,'--type',$provType) | Out-Null
   Info "provisioning berjalan (maks $($vm.TimeoutMin) menit; log: $serial)..."
   $deadline = (Get-Date).AddMinutes($vm.TimeoutMin); $seen = 0; $result = $null
   while ((Get-Date) -lt $deadline) {
@@ -605,6 +620,8 @@ function Show-Summary {
 }
 
 # ============================ MAIN ============================
+# Dot-source (. .\build-lab.ps1) hanya memuat fungsi tanpa menjalankan fase — berguna untuk QA.
+if ($MyInvocation.InvocationName -eq '.') { return }
 New-Item -ItemType Directory -Force $Logs | Out-Null
 $log = Join-Path $Logs ("build-{0}.log" -f (Get-Date -Format yyyyMMdd-HHmmss))
 Start-Transcript -Path $log -Append | Out-Null

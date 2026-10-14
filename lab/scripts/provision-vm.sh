@@ -37,16 +37,33 @@ chmod 0750 /var/log/audit; chmod 0640 /var/log/audit/audit.log 2>/dev/null || tr
 
 log "4/7 SCAP Security Guide (CIS Benchmark Ubuntu 24.04)"
 mkdir -p /opt/cis
-SSG_URL="$(curl -fsSL https://api.github.com/repos/ComplianceAsCode/content/releases/latest \
-  | python3 -c 'import sys,json;a=json.load(sys.stdin)["assets"];print(next(x["browser_download_url"] for x in a if x["name"].startswith("scap-security-guide-") and x["name"].endswith(".zip") and "nist" not in x["name"]))' || true)"
-[ -n "$SSG_URL" ] || SSG_URL="https://github.com/ComplianceAsCode/content/releases/download/v0.1.76/scap-security-guide-0.1.76.zip"
-curl -fsSL -o /tmp/ssg.zip "$SSG_URL"
-unzip -j -o /tmp/ssg.zip '*/ssg-ubuntu2404-ds.xml' -d /opt/cis >/dev/null
-rm -f /tmp/ssg.zip
-echo "$SSG_URL" > /opt/cis/SOURCE
+DS=/opt/cis/ssg-ubuntu2404-ds.xml
+# Versi DIPIN (lingkungan terkontrol, deterministik). Datastream v0.1.82 memuat profil
+# cis_level1_server & cis_level1_workstation untuk Ubuntu 24.04. Prioritas: salinan offline
+# dari payload (lab/cis/) bila disertakan, lalu unduh terpin dengan retry + cek integritas.
+SSG_VER="${SSG_VER:-0.1.82}"
+SSG_URL="https://github.com/ComplianceAsCode/content/releases/download/v${SSG_VER}/scap-security-guide-${SSG_VER}.zip"
+if [ -f "$PAYLOAD/cis/ssg-ubuntu2404-ds.xml" ]; then
+  install -m 0644 "$PAYLOAD/cis/ssg-ubuntu2404-ds.xml" "$DS"
+  echo "offline payload" > /opt/cis/SOURCE
+else
+  ok=0
+  for n in 1 2 3; do
+    if curl -fL --retry 3 --connect-timeout 20 -o /tmp/ssg.zip "$SSG_URL" && unzip -t /tmp/ssg.zip >/dev/null 2>&1; then
+      unzip -j -o /tmp/ssg.zip '*/ssg-ubuntu2404-ds.xml' -d /opt/cis >/dev/null && { ok=1; break; }
+    fi
+    log "  unduh SSG percobaan $n gagal, ulangi..."; sleep 5
+  done
+  rm -f /tmp/ssg.zip
+  [ "$ok" = 1 ] || { log "GAGAL unduh/ekstrak SSG ($SSG_URL) - sertakan lab/cis/ssg-ubuntu2404-ds.xml utk offline"; exit 1; }
+  echo "$SSG_URL" > /opt/cis/SOURCE
+fi
+[ -s "$DS" ] || { log "datastream SSG kosong/korup"; exit 1; }
 KIND=$([ "$ROLE" = desktop ] && echo workstation || echo server)
-oscap info /opt/cis/ssg-ubuntu2404-ds.xml | grep -q "cis_level1_${KIND}" \
-  || { log "profil cis_level1_${KIND} tak ada di datastream ($SSG_URL)"; exit 1; }
+PROFILE="xccdf_org.ssgproject.content_profile_cis_level1_${KIND}"
+INFO="$(oscap info "$DS" 2>&1)"
+echo "$INFO" | grep -q "cis_level1_${KIND}" \
+  || { log "profil cis_level1_${KIND} tak ada. oscap info:"; echo "$INFO" | grep -iE 'profile|error|Id:' | head -20 > /dev/ttyS0 2>/dev/null; exit 1; }
 mkdir -p /var/log/cis; chgrp adm /var/log/cis; chmod 0750 /var/log/cis
 
 log "5/7 Grafana Alloy (log host → Loki lab)"

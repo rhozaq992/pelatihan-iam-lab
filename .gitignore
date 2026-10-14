@@ -24,3 +24,6 @@ deploy/certs/*.cer
 
 # build lab lokal (cache unduhan, disk VM, log)
 .lab/
+
+# datastream SCAP besar (disertakan via build-bag/offline, bukan git)
+lab/cis/*.xml
