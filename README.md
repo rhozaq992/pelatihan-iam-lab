@@ -4,10 +4,6 @@ Repositori ini berisi **modul praktik** untuk peserta pelatihan IAM: membangun, 
 memantau sistem identitas terpusat. Seluruh data bersifat **sintetis** (domain `iamlab.test`) dan
 lab berjalan **terisolasi** (jaringan Host-Only, tanpa internet).
 
-> ⚠️ **Etika & lingkup.** Topik serangan (Pass-the-Hash, Kerberoasting) dibahas secara
-> **defensif** — hanya untuk menguji deteksi & mitigasi, memakai perkakas *open source*
-> standar yang dikunci ke target lab, di jaringan terisolasi.
-
 ## Lab sudah disiapkan fasilitator
 
 Infrastruktur lab (Docker stack + Samba AD `dc1`, VM Ubuntu `srv1` & `client1`) **dibangun oleh
