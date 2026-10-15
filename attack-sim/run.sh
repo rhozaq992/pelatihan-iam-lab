@@ -20,8 +20,9 @@ echo "[lab] ($ACTION) simulasi terhadap $TARGET untuk menguji deteksi/mitigasi."
 echo "[lab] Contoh perintah open source (jalankan manual oleh instruktur di lab):"
 case "$ACTION" in
   kerberoast)
-    echo "      impacket-GetUserSPNs iamlab.test/<user>:<pass> -request -dc-ip $TARGET" ;;
+    echo "      GetUserSPNs.py iamlab.test/<user>:<pass> -request -dc-ip $TARGET" ;;
   *)
     echo "      (lihat modul Sesi 1 — hanya untuk menghasilkan sinyal pada log)" ;;
 esac
-echo "[lab] Setelah ini: amati Event 4769 (enctype RC4) di Grafana, terapkan AES-only, ulangi."
+echo "[lab] Setelah ini: amati permintaan tiket layanan (SPN) di log KDC Samba via Grafana/Loki"
+echo "[lab] (Sesi 4); terapkan AES-only; ulangi & bandingkan enctype tiket: RC4 (\$krb5tgs\$23\$) -> AES (\$krb5tgs\$18\$)."

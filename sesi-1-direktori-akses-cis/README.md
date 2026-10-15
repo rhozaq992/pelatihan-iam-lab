@@ -176,9 +176,14 @@ samba-tool domain passwordsettings show
 ### 5. 🐳 Hardening inti direktori
 Paksa Kerberos AES pada akun layanan (reset sandi agar kunci dibuat ulang) dan matikan NTLM:
 ```bash
-samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # catat utk Sesi 2
-# AES-only: hilangkan RC4 untuk akun layanan ber-SPN (lihat simulasi di bawah)
-samba-tool domain trust ... ; # (lab: NTLM dimatikan lewat smb.conf — lihat catatan)
+# 🐳 di dalam container samba-dc
+# AES-only untuk akun layanan ber-SPN: set enctype ke AES128+AES256 (24) — buang RC4 — lalu
+# reset sandi agar kunci Kerberos baru dibuat. (svc-app = sasaran simulasi; svc-keycloak = Sesi 2.)
+for s in svc-app svc-keycloak svc-openbao svc-honey; do
+  printf 'dn: CN=%s,OU=AkunLayanan,DC=iamlab,DC=test\nchangetype: modify\nreplace: msDS-SupportedEncryptionTypes\nmsDS-SupportedEncryptionTypes: 24\n' "$s" \
+    | ldbmodify -H /var/lib/samba/private/sam.ldb
+done
+samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # catat utk Sesi 2 (Bind credential)
 ```
 > ⚠️ Sandi baru `svc-keycloak` inilah yang diisi sebagai *Bind credential* federasi LDAP
 > Keycloak di Sesi 2 — catat baik-baik.
@@ -187,9 +192,11 @@ samba-tool domain trust ... ; # (lab: NTLM dimatikan lewat smb.conf — lihat ca
 > `smb.conf` DC: `ntlm auth = disabled` (tutup NTLM) dan membatasi enctype ke AES. Di lab,
 > edit lewat container lalu muat ulang:
 > ```bash
-> # 🐳 di dalam container samba-dc
-> echo '    ntlm auth = disabled' >> /etc/samba/smb.conf
+> # 🐳 di dalam container samba-dc — sisipkan DI DALAM seksi [global] (bukan di akhir berkas,
+> # yang akan masuk ke seksi [netlogon] dan tak berlaku)
+> sed -i '/^\[global\]/a\    ntlm auth = disabled' /etc/samba/smb.conf
 > smbcontrol all reload-config
+> testparm -sv 2>/dev/null | grep -i 'ntlm auth'    # validasi -> "ntlm auth = disabled"
 > ```
 
 ### 5b. 🐳🖥️ LDAPS: percayakan CA Samba ke layanan IAM
@@ -200,9 +207,11 @@ dan OpenBao (Sesi 3) memercayainya, ekspor CA Samba ke folder `deploy/certs/`:
 docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem
 docker compose up -d --force-recreate keycloak openbao     # muat truststore CA
 ```
-> **✅ Validasi.** `docker compose exec srv1 openssl s_client -connect dc1.iamlab.test:636` —
-> atau dari host `openssl s_client -connect 10.10.10.5:636` — menampilkan sertifikat ber-CN
-> `DC1.iamlab.test`. (CA ini otomatis dipercaya Keycloak/OpenBao via mount `deploy/certs`.)
+> **✅ Validasi.** Dari host (git bash) atau dari `srv1` (SSH):
+> `echo | openssl s_client -connect 10.10.10.5:636 2>/dev/null | openssl x509 -noout -subject`
+> menampilkan sertifikat ber-`CN = DC1.iamlab.test`. (`srv1`/`client1` adalah VM — bukan service
+> Docker — jadi perintah dijalankan di VM lewat SSH/konsol, bukan `docker compose exec`.)
+> CA ini otomatis dipercaya Keycloak/OpenBao via mount `deploy/certs`.
 
 ### 6. 🖥️ Gabungkan `srv1` & `client1` ke domain
 Login ke VM sebagai admin lokal (`labadmin` / `Lab#Admin2026`), lalu jalankan skrip join
@@ -261,8 +270,10 @@ sudo cis-scan.sh                      # scan ulang — skor harus naik
 
 Bagian ini memperlihatkan **bagaimana serangan tampak dari sisi log**, lalu membuktikan bahwa
 kontrol yang Anda pasang menutupnya. Sepenuhnya defensif dan berjalan di jaringan Host-Only
-terisolasi: runner `attack-sim/run.sh` hanya menerima target dari allowlist `iamlab.test`,
-mewajibkan `IAMLAB_CONFIRM=1`, dan menolak berjalan bila internet terjangkau. Tujuannya melatih
+terisolasi: container `attacker` berjalan di jaringan `attacknet` (`internal: true`) yang hanya
+menjangkau `dc1` tanpa rute ke internet, sehingga runner `attack-sim/run.sh` — yang hanya menerima
+target dari allowlist `iamlab.test`, mewajibkan `IAMLAB_CONFIRM=1`, dan menolak berjalan bila
+internet terjangkau — lolos pagar tanpa perlu memutus Wi-Fi/LAN PC. Tujuannya melatih
 mata mengenali pola Kerberoasting/PtH dan merasakan efek mitigasi secara langsung.
 
 1. 🐳 Pastikan SPN ada: `samba-tool spn list svc-app` menampilkan `HTTP/app.iamlab.test`
@@ -280,9 +291,10 @@ mata mengenali pola Kerberoasting/PtH dan merasakan efek mitigasi secara langsun
    > Hash tidak dipecahkan di kelas — cukup amati perubahan enctype sebagai bukti mitigasi.
 3. 🐳 Terapkan mitigasi pada akun layanan sasaran (AES-only), lalu ulangi langkah 2:
    ```bash
-   # 🐳 di dalam container samba-dc — set hanya AES, reset sandi agar kunci AES dibuat
+   # 🐳 di dalam container samba-dc — paksa AES-only utk svc-app, lalu reset sandi (kunci AES baru)
+   printf 'dn: CN=svc-app,OU=AkunLayanan,DC=iamlab,DC=test\nchangetype: modify\nreplace: msDS-SupportedEncryptionTypes\nmsDS-SupportedEncryptionTypes: 24\n' \
+     | ldbmodify -H /var/lib/samba/private/sam.ldb
    samba-tool user setpassword svc-app --newpassword='Svc#Lab2026AES'
-   # (pastikan 'kerberos encryption types = strong' / tanpa RC4 di smb.conf DC)
    ```
 4. **Diskusi PtH (tanpa langkah ofensif):** mengapa menonaktifkan NTLM (`ntlm auth = disabled`),
    isolasi tier, dan kredensial unik per host memutus pemakaian ulang hash.

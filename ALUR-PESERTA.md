@@ -12,7 +12,7 @@ tangkapan layar ada di README tiap sesi.
 | **samba-dc** (container, `dc1`) | AD/LDAP: direktori, Kerberos, LDAPS | `dc1.iamlab.test` = `10.10.10.5` | 🐳 `docker compose exec samba-dc` |
 | Layanan IAM (container) | Caddy, Keycloak+Postgres, OpenBao, Warpgate, Mailpit, Grafana/Loki/Alloy, App-Komentar/SAML | `*.iamlab.test` → `10.10.10.5` | 🐳 / 🌐 web UI |
 | **VM `srv1`** (Ubuntu Server) | Anggota domain; target SSH/bastion; CIS *server* | `srv1.iamlab.test` = `10.10.10.20` | 🖥️ di `srv1` |
-| **VM `client1`** (Ubuntu Desktop) | Anggota domain; login GUI pengguna; CIS *workstation* | `client1.iamlab.test` = `10.10.10.30` | 🖥️ di `client1` |
+| **VM `client1`** (Ubuntu Desktop) | Anggota domain; login GUI pengguna; CIS *workstation*. Layar login (GDM) muncul ±3–5 mnt setelah VM nyala; pesan `vmwgfx` di konsol normal | `client1.iamlab.test` = `10.10.10.30` | 🖥️ di `client1` |
 
 Domain sintetis `iamlab.test`. Jaringan Host-Only `10.10.10.0/24`, tanpa internet (terisolasi).
 Akun: Administrator domain `Passw0rd#Lab2026` · admin lokal VM `labadmin` / `Lab#Admin2026`.

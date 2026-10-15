@@ -206,6 +206,12 @@ Perintah lain:
 > VM VirtualBox dan Docker berbagi 16 GB dengan aman. Ubah nilai di blok konfigurasi atas
 > `build-lab.ps1` bila RAM PC berbeda.
 
+> **Layar login `client1` lambat muncul — ini normal.** Karena VirtualBox berjalan di atas
+> Hyper-V (dibutuhkan Docker Desktop), VM desktop memakai render grafis **software**, jadi layar
+> login (GDM) baru muncul **±3–5 menit** setelah VM dinyalakan (boot pertama paling lama).
+> Pesan `vmwgfx ... unsupported hypervisor` di konsol VM **boleh diabaikan** — tunggu saja sampai
+> layar login tampil. `srv1` berjalan *headless* (tanpa jendela), diakses lewat SSH.
+
 ---
 
 > **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):

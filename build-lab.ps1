@@ -774,6 +774,8 @@ function Show-Summary {
   Info 'Browser Windows : https://kc.iamlab.test | https://grafana.iamlab.test | https://pam.iamlab.test | https://mail.iamlab.test'
   Info "VM            : srv1 10.10.10.20 (ssh $($Cfg.LabAdmin)@srv1.iamlab.test) | client1 10.10.10.30 (jendela VirtualBox, GUI)"
   Info "Akun lokal VM : $($Cfg.LabAdmin) / $($Cfg.LabAdminPass)   |   Domain: Administrator / $($Cfg.DomainAdminPass)"
+  Warn 'client1: layar login (GDM) butuh ~3-5 menit setelah nyala (render software krn VirtualBox di atas Hyper-V).'
+  Info '          Pesan "vmwgfx ... unsupported hypervisor" di konsol VM itu NORMAL - tunggu sampai layar login muncul.'
   if ($AutoJoin) { Info 'VM sudah join domain (-AutoJoin).' } else { Info 'Berikutnya: Sesi 1 -> tata direktori, lalu "sudo join-domain.sh" di srv1 & client1.' }
 }
 
