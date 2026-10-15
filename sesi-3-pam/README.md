@@ -176,7 +176,7 @@ sso_providers:
       client_id: warpgate
       client_secret: <secret client warpgate dari Keycloak>
       issuer_url: https://kc.iamlab.test/realms/iamlab
-      scopes: ["email"]
+      scopes: ["openid", "email"]
 ```
 ```bash
 # (3) salin balik ke container & restart
@@ -184,6 +184,25 @@ docker compose cp ./warpgate.yaml warpgate:/data/warpgate.yaml
 docker compose restart warpgate
 ```
 → Halaman login bastion kini menampilkan tombol **"Keycloak (iamlab)"**.
+
+> **⚠️ Tiga penyesuaian WAJIB agar SSO bastion berfungsi** (sekali, saat setup):
+> 1. **Warpgate percaya CA Caddy** (discovery OIDC ke `https://kc.iamlab.test`). Buat bundle =
+>    root sistem + root Caddy, lalu arahkan `SSL_CERT_FILE`:
+>    ```bash
+>    docker compose exec -T warpgate cat /etc/ssl/certs/ca-certificates.crt > certs/ca-bundle-warpgate.crt
+>    cat caddy/data/caddy/pki/authorities/local/root.crt >> certs/ca-bundle-warpgate.crt
+>    echo 'WARPGATE_SSL_CERT_FILE=/certs/ca-bundle-warpgate.crt' >> .env   # dibaca compose
+>    docker compose up -d warpgate
+>    ```
+> 2. **URL eksternal lewat 443 (Caddy)** agar `redirect_uri` cocok dengan client Keycloak. Di
+>    `/data/warpgate.yaml` seksi `http:`, set `external_host: pam.iamlab.test`, `external_port: 443`,
+>    `trust_x_forwarded_headers: true` (lalu `docker compose restart warpgate`). Tanpa ini Keycloak
+>    menolak: *Invalid parameter: redirect_uri* (Warpgate mengirim `:8888`).
+> 3. **Email akun Keycloak terverifikasi** — Warpgate menolak SSO *"e-mail is not verified"*. Set
+>    sekali: `docker compose exec keycloak /opt/keycloak/bin/kcadm.sh update users/<id> -r iamlab -s emailVerified=true`.
+>
+> *(Setelah menyunting `warpgate.yaml`, pastikan kepemilikannya uid 1000 & mode 600 agar Warpgate
+> mau memuatnya; dan isi `sso_providers` yang ADA — jangan menambah kunci `sso_providers` kedua.)*
 
 **C4. Tambah target `srv1` 🌐** — **Config → Targets → Add → SSH**: Name `srv1`, Host `10.10.10.20`,
 Port `22`, Username `labadmin`, Authentication **Public key**, Session recording **Enabled**.
@@ -215,21 +234,44 @@ Peserta **tidak** SSH langsung ke server — selalu lewat bastion. Format Warpga
 ```bash
 ssh -p 2222 peserta:srv1@pam.iamlab.test
 ```
-Warpgate **mencegat** koneksi lalu meminta autentikasi SSO: ia menampilkan **URL** untuk dibuka di
-browser → **Keycloak** meminta sandi lalu **kode OTP (MFA, Sesi 2)** → setelah lolos, sesi
-diteruskan ke `srv1` dan **direkam**.
+Warpgate **mencegat** koneksi lalu menampilkan **URL** + **security key** untuk diverifikasi di browser:
 
-![Terminal — SSH via bastion: Warpgate mencegat, buka URL SSO, Keycloak minta OTP, lalu tersambung](gambar/bastion-sso-mfa.png)
+![Terminal — SSH via bastion: Warpgate meminta verifikasi autentikasi SSO di browser + security key](gambar/bastion-ssh.png)
 
-*Gambar 9. Terminal — interupsi **SSO + MFA** saat SSH via bastion, lalu tersambung ke `srv1`*
+*Gambar 9. Terminal — bastion meminta autentikasi SSO (URL + security key)*
 
-Setelah autentikasi Anda berada di `srv1` sebagai `labadmin` (`hostname` → `srv1`) **tanpa pernah
-memegang sandi server**. Sesi muncul **terekam** di **Config → Sessions** dan dapat diputar ulang
-(bukti audit, Sesi 4):
+Buka URL → **Keycloak** meminta login (SSO). Bila **MFA/OTP** diaktifkan (Sesi 2), Keycloak juga
+meminta kode OTP di langkah ini:
 
-![Warpgate — Sessions: sesi srv1 ← peserta berstatus Recorded, bisa diputar ulang](gambar/warpgate-sessions.png)
+![Keycloak — halaman login SSO saat akses bastion (realm iamlab)](gambar/bastion-sso.png)
 
-*Gambar 10. Warpgate — Sessions (sesi `srv1 ← peserta` terekam)*
+*Gambar 10. Keycloak — login SSO saat akses bastion*
+
+Setelah login, Warpgate menampilkan **permintaan otorisasi**: cocokkan **security key** di layar
+dengan yang tampil di terminal, lalu klik **Authorize** (konfirmasi *out-of-band*):
+
+![Warpgate — authorization request: cocokkan security key lalu Authorize](gambar/bastion-approve.png)
+
+*Gambar 11. Warpgate — persetujuan sesi SSH (security key, *out-of-band*)*
+
+Sesi lalu diteruskan ke `srv1` sebagai `labadmin` **tanpa peserta memegang sandi server**. Akses
+dapat lewat klien SSH atau **terminal web** di portal Warpgate (`https://pam.iamlab.test`):
+
+![Warpgate — terminal web ke srv1 (labadmin), hostname srv1](gambar/bastion-webterm.png)
+
+*Gambar 12. Terminal web Warpgate ke `srv1` (via bastion, tersambung)*
+
+Setiap sesi **terekam** dan tampil di **Status → Sessions** (SSH `peserta on srv1`):
+
+![Warpgate — Status: daftar sesi, SSH peserta on srv1 (aktif & lampau)](gambar/warpgate-sessions.png)
+
+*Gambar 13. Warpgate — Status/Sessions (sesi `peserta on srv1`)*
+
+Detail sesi menampilkan **rekaman (Live view)** dan **log perintah** — bukti audit untuk Sesi 4:
+
+![Warpgate — detail sesi: live view shell + log perintah (whoami; hostname; uptime)](gambar/warpgate-session-detail.png)
+
+*Gambar 14. Warpgate — detail sesi (rekaman + log perintah)*
 
 ### D. Serah-terima kredensial via email + formulir
 Akses istimewa tidak diberikan lisan — alurnya berbasis **email + formulir yang dikembalikan**.
