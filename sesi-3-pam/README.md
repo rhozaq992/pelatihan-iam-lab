@@ -154,6 +154,14 @@ printf 'TrustedUserCAKeys /etc/ssh/openbao_ca.pub\nPasswordAuthentication no\nPe
   | sudo tee /etc/ssh/sshd_config.d/10-iamlab-ca.conf
 sudo systemctl restart ssh
 ```
+> **✅ Validasi / Output yang diharapkan.** `sudo sshd -T | grep -E 'passwordauthentication|trustedusercakeys'`
+> menampilkan `passwordauthentication no` dan `trustedusercakeys /etc/ssh/openbao_ca.pub`. Login sandi
+> ke `srv1` kini **ditolak** (`Permission denied (publickey)`); yang diterima hanya sertifikat SSH dari
+> CA OpenBao (break-glass) atau koneksi via bastion.
+
+![Terminal — srv1: pasang TrustedUserCAKeys, matikan sandi, login via sertifikat OpenBao](gambar/srv1-ssh-ca.png)
+
+*Gambar 3. Terminal srv1 — percaya SSH CA, sandi dimatikan, login via sertifikat (break-glass)*
 
 ### C. 🌐 Warpgate (bastion + rekam sesi)
 Setup sekali di 🖥️ terminal, lalu konfigurasi di 🌐 web UI `https://pam.iamlab.test`:
@@ -204,7 +212,7 @@ bawah mengerjakan ini:
 
 ![Warpgate — konsol admin (Config): tambah target SSH, Users, Access roles, perekaman sesi](gambar/warpgate-admin.png)
 
-*Gambar 3. Warpgate — konsol admin (target SSH, Users, roles, rekam sesi)*
+*Gambar 4. Warpgate — konsol admin (target SSH, Users, roles, rekam sesi)*
 
 ### C.1 🖥️ Akses target via SSH melalui bastion (sesuai silabus)
 Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate memakai
@@ -212,7 +220,7 @@ Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate m
 
 ![Diagram akses SSH ke srv1 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
 
-*Gambar 4. Akses SSH ke srv1 via bastion Warpgate*
+*Gambar 5. Akses SSH ke srv1 via bastion Warpgate*
 
 *Legenda: penuh = koneksi/sesi; putus-putus = SSO/MFA & permintaan sertifikat; teal = rekaman sesi untuk audit.*
 
@@ -228,6 +236,14 @@ Peserta tidak SSH langsung ke server — selalu lewat bastion. Format Warpgate m
 ```bash
 ssh -p 2222 <user>:srv1@pam.iamlab.test          # bastion mencegat, minta SSO/MFA, lalu teruskan
 ```
+
+> **✅ Validasi / Output yang diharapkan.** Setelah autentikasi, Anda berada di `srv1` sebagai
+> `labadmin` (`hostname` → `srv1`), **tanpa pernah memegang sandi server**. Sesi muncul di konsol
+> admin Warpgate dengan status **terekam** dan dapat diputar ulang.
+
+![Terminal — sesi SSH ke srv1 lewat bastion Warpgate (user:target@bastion), terekam](gambar/bastion-session.png)
+
+*Gambar 6. Terminal — akses SSH ke srv1 via bastion Warpgate (sesi terekam)*
 
 > **Otomasi (opsional).** Alih-alih klik di konsol, target+user+role bisa didaftarkan via
 > Admin API dengan `configure-target.sh` (di `IAMLAB-BuildBag/deploy/warpgate/`)

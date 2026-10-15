@@ -179,24 +179,37 @@ ulang aplikasi: `docker compose up -d app-komentar`.
 - Valid redirect URIs: `https://pam.iamlab.test/@warpgate/api/sso/return`.
 - Simpan **Client secret** — diisi di konfigurasi SSO Warpgate pada Sesi 3 bagian C.
 
+Cocokkan layar client `warpgate` Anda dengan tangkapan berikut (perhatikan redirect URI khusus
+bastion dan Direct access grants **Off**):
+
+![Keycloak — detail Client warpgate (redirect URI bastion, Standard flow, Direct access grants Off)](gambar/kc-client-warpgate.png)
+
+*Gambar 8. Keycloak — detail Client warpgate (OIDC untuk bastion Sesi 3)*
+
 ### 3. 🌐 Client SAML untuk App-SAML
 **Clients → Create → SAML**. Tukar metadata IdP
 (`https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`) untuk konfigurasi SP
 (mod_auth_mellon); assertion **signed**.
+
+Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign assertions On**:
+
+![Keycloak — detail Client SAML app-saml (Name ID, Sign documents/assertions On, metadata descriptor)](gambar/kc-client-saml.png)
+
+*Gambar 9. Keycloak — detail Client SAML (assertion ditandatangani)*
 
 ### 4. 🌐 MFA bersyarat (Google Authenticator)
 - **Authentication → Required actions**: *Configure OTP* = On.
 
   ![Keycloak — Required actions (Configure OTP aktif)](gambar/kc-required-actions.png)
 
-*Gambar 8. Keycloak — Required actions (Configure OTP aktif)*
+*Gambar 10. Keycloak — Required actions (Configure OTP aktif)*
 
 - **Authentication → Flows**: duplikat *Browser*, tambah sub-flow **Conditional OTP** →
   *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Warpgate).
 
   ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
 
-*Gambar 9. Keycloak — Authentication flows (Conditional OTP = Required)*
+*Gambar 11. Keycloak — Authentication flows (Conditional OTP = Required)*
 
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
   Google Authenticator.
@@ -214,21 +227,21 @@ Cocokkan layar Anda dengan tiga tangkapan berikut:
 
 ![Keycloak — Security defenses: Brute force detection aktif](gambar/kc-bruteforce.png)
 
-*Gambar 10. Keycloak — Brute force detection aktif*
+*Gambar 12. Keycloak — Brute force detection aktif*
 
 
 *Gambar: proteksi brute force menyala — akun dikunci sementara setelah sejumlah kegagalan login (mis. 10), waktu tunggu bertambah.*
 
 ![Keycloak — Realm settings → Email (SMTP ke Mailpit)](gambar/kc-email.png)
 
-*Gambar 11. Keycloak — Email (SMTP ke Mailpit)*
+*Gambar 13. Keycloak — Email (SMTP ke Mailpit)*
 
 
 *Gambar: SMTP diarahkan ke Mailpit (`mailpit:1025`) agar email reset/verifikasi tertangkap di kotak surat uji, bukan terkirim ke internet.*
 
 ![Keycloak — konfigurasi Events (user + admin, listener jboss-logging)](gambar/kc-events.png)
 
-*Gambar 12. Keycloak — konfigurasi Events*
+*Gambar 14. Keycloak — konfigurasi Events*
 
 
 *Gambar: pencatatan event diaktifkan sehingga login/perubahan admin terekam dan bisa dipanen Alloy → Loki di Sesi 4.*
@@ -241,13 +254,13 @@ yang tersedia berbeda, dan penolakan ditegakkan **di server** (bukan sekadar tom
 |---|---|---|
 | ![Viewer](gambar/app-viewer.png) | ![Editor](gambar/app-editor.png) | ![Admin](gambar/app-admin.png) |
 
-*Gambar 13. App-Komentar — tampilan peran Viewer, Editor, Admin*
+*Gambar 15. App-Komentar — tampilan peran Viewer, Editor, Admin*
 
 Halaman login SSO Keycloak yang muncul saat menekan "masuk":
 
 ![Halaman login Keycloak (SSO)](gambar/kc-login.png)
 
-*Gambar 14. Halaman login Keycloak (SSO)*
+*Gambar 16. Halaman login Keycloak (SSO)*
 
 
 ### (Terkait) Distribusi kata sandi awal via email
@@ -256,7 +269,7 @@ Keycloak juga mengirim email aksi akun (set sandi/verifikasi). Alurnya:
 
 ![Distribusi kata sandi awal via email (Mailpit) untuk akun AD & Keycloak](gambar/distribusi-sandi.png)
 
-*Gambar 15. Distribusi kata sandi awal via email*
+*Gambar 17. Distribusi kata sandi awal via email*
 
 
 > Catatan: realm Keycloak 26 punya aksi default **Verify Profile**. Pengguna AD sudah
