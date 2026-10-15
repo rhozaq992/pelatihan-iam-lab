@@ -1,12 +1,12 @@
 # Sesi 0 — Pengantar: Topologi Sistem & Teori Dasar
 
-Sesi pembuka. Tujuannya memberi **gambaran utuh** sistem IAM yang akan dibangun dan
+Sesi pembuka. Tujuannya memberi **gambaran umum** sistem IAM yang akan dibangun dan
 **fondasi teori** yang dipakai berulang di sesi berikutnya. Detail teknis diperdalam
 per sesi (`sesi-1` … `sesi-4`).
 
 ## Konvensi "di mana perintah dijalankan"
 
-Sepanjang modul, setiap langkah diberi penanda tempat eksekusi agar tidak keliru:
+Sepanjang modul, setiap langkah diberi penanda tempat eksekusi agar tidak ambigu:
 
 | Penanda | Tempat menjalankan |
 |---------|--------------------|
@@ -18,7 +18,7 @@ Sepanjang modul, setiap langkah diberi penanda tempat eksekusi agar tidak keliru
 ## a. Tujuan Sesi
 
 Peserta memahami:
-- Peta keseluruhan sistem (komponen, jaringan, aliran data) sebelum masuk praktik.
+- Topologi dan Gambaran Umum keseluruhan sistem (komponen, jaringan, aliran data) sebelum masuk praktik.
 - Konsep dasar identitas: **IAAA** (Identifikasi, Autentikasi, Otorisasi, Audit).
 - Peran **AD/LDAP**, **SSO (SAML/OIDC)**, **MFA**, **PAM**, dan **audit/UBA** serta
   bagaimana semuanya saling terhubung.
@@ -57,11 +57,11 @@ jejak audit terkumpul di satu tempat.
 - **Active Directory (AD/LDAP)** — direktori + *control plane* identitas: pengguna,
   grup, Kerberos, DNS, Group Policy. *(Sesi 1)*
 - **Keycloak (Identity Provider)** — gerbang SSO yang memverifikasi ke direktori,
-  menerbitkan token/assertion, dan menegakkan **MFA**. *(Sesi 2)*
-- **MFA (Google Authenticator / TOTP)** — faktor "sesuatu yang dimiliki" selain sandi
-  "sesuatu yang diketahui". *(Sesi 2)*
-- **PAM (OpenBao + Warpgate)** — brankas kredensial istimewa + *jump server* yang
-  merekam sesi admin. *(Sesi 3)*
+  menerbitkan token/assertion, dan menambahkan **MFA**. *(Sesi 2)*
+- **MFA (Google Authenticator / TOTP)** — faktor "something you have" selain password
+  "something you know". *(Sesi 2)*
+- **PAM (OpenBao + Warpgate)** — brankas kredensial + *jump server* yang
+  merekam sesi akses admin. *(Sesi 3)*
 - **Audit & Monitoring (Alloy → Loki → Grafana)** — mengumpulkan log identitas dan
   menampilkan dashboard + alert; **UBA** mendeteksi perilaku tak lazim. *(Sesi 4)*
 
@@ -99,11 +99,11 @@ Aktivitas* di bawahnya.
 | **4** | Klien & server Ubuntu bergabung ke domain (Kerberos/LDAP) untuk login akun direktori | Ubuntu srv1/client1 → **dc1** |
 | **5** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Pengguna → **Warpgate** |
 | **6** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
-| **7** | Sesi SSH diproksikan ke target **dan direkam** | Warpgate → **srv1** |
+| **7** | Sesi SSH diteruskan ke target **dan direkam** | Warpgate → **srv1** |
 | **8** | Komponen & host mengirim event audit (login, akses vault, perintah user, skor CIS) | Keycloak/OpenBao/dc1/srv1/client1 → **Alloy** |
 | **9** | Log terstruktur disimpan lalu divisualkan (dashboard & alert, UBA) | Alloy → **Loki** → **Grafana** |
 
-Secara **jaringan/penempatan**, blok-blok itu berjalan sebagai berikut:
+Secara **jaringan/penempatan**, blok-blok tersebut berjalan sebagai berikut:
 
 ![Topologi sistem IAM — Docker Desktop (Samba AD + layanan IAM) + VM Ubuntu srv1 & client1, domain iamlab.test](gambar/topologi.png)
 
@@ -112,7 +112,7 @@ Secara **jaringan/penempatan**, blok-blok itu berjalan sebagai berikut:
 | Node | Peran | Alamat |
 |------|-------|--------|
 | **PC Windows Pro** (16 GB) | Menjalankan VirtualBox + Docker Desktop; browser peserta | adapter Host-Only `10.10.10.5` |
-| **Container Docker** | Samba AD DC (`dc1`), Keycloak+Postgres, OpenBao, Warpgate, Mailpit, Caddy, Grafana/Loki/Alloy, App-Komentar, App-SAML | di `10.10.10.5` (port dipublikasikan) |
+| **Container Docker** | Samba AD DC (`dc1`), Keycloak+Postgres, OpenBao, Warpgate, Mailpit, Caddy, Grafana/Loki/Alloy, App-Komentar, App-SAML | di `10.10.10.5` (port diexpose) |
 | **VM `srv1`** (Ubuntu Server) | Anggota domain; target SSH/bastion; subjek CIS *server* | `10.10.10.20` |
 | **VM `client1`** (Ubuntu Desktop) | Anggota domain; login GUI pengguna direktori; subjek CIS *workstation* | `10.10.10.30` |
 
@@ -164,68 +164,6 @@ Tata letak di PC lab: `IAMLAB-BuildBag\{build-lab.ps1, deploy, lab, attack-sim, 
 dirujuk `../Pelatihan_IAM/sesi-…`.
 
 Google Authenticator / FreeOTP di ponsel diperlukan untuk MFA (Sesi 2).
-
----
-
-## Untuk fasilitator: membangun lab (sebelum pelatihan)
-
-Lab dibangun **sekali oleh fasilitator** dengan `build-lab.ps1` (ada di `IAMLAB-BuildBag`, bukan di
-repo modul) pada PC: **Windows 10/11 Pro**, RAM **16 GB**, disk ≥ 80 GB, virtualisasi aktif, hak
-**Administrator**. 🪟 **PowerShell sebagai Administrator**:
-
-```powershell
-cd C:\Lab\IAMLAB-BuildBag
-Set-ExecutionPolicy -Scope Process Bypass -Force
-.\build-lab.ps1                 # Check → Requirements → Download → Install → Build
-```
-
-Fase skrip (bisa dijalankan satu per satu dengan `-Phase <nama>`):
-
-| Fase | Yang dilakukan |
-|------|----------------|
-| **Check** | Verifikasi edisi Windows, RAM ≥ 16 GB, disk, virtualisasi CPU, WSL2. |
-| **Requirements** | Cek VirtualBox/`VBoxManage`, VC++ runtime, Docker Desktop, jaringan lab, konflik port. |
-| **Download** | Unduh yang belum ada (VirtualBox, VC++, Docker Desktop, Ubuntu 24.04 cloud image) ke `.lab\cache`. |
-| **Install** | Pasang VirtualBox/VC++/Docker Desktop secara *silent* (bisa minta **reboot** sekali untuk WSL2 — setelah reboot jalankan ulang). |
-| **Build** | Buat jaringan Host-Only `10.10.10.5/24` + aturan firewall + isi `hosts`; jalankan stack Docker (termasuk Samba AD `dc1`); buat & *provision* VM `srv1` dan `client1` lalu melepas NAT (lab jadi terisolasi). |
-
-> Build butuh **internet sekali** (unduh paket & image). Sesudahnya lab berjalan **offline**
-> di jaringan Host-Only. Untuk kelas tanpa internet, letakkan `iam-images.tar` di
-> `distribusi/offline-images/` (lihat `distribusi/README.md`) — skrip memuatnya alih-alih menarik image.
-
-Perintah lain:
-
-| Perintah | Guna |
-|----------|------|
-| `.\build-lab.ps1 -Phase Check` | Hanya laporkan kesiapan sistem. |
-| `.\build-lab.ps1 -Phase Status` | Tampilkan kondisi VM, stack Docker, dan port lab. |
-| `.\build-lab.ps1 -Phase Start` | Nyalakan lab yang sudah dibangun (stack + VM). |
-| `.\build-lab.ps1 -Phase Build -AutoJoin` | Jalan pintas instruktur: `srv1`/`client1` langsung join domain. |
-| `.\build-lab.ps1 -Phase Destroy` | Hapus VM lab, stack, entri hosts & firewall lab. |
-
-> **✅ Validasi / Output yang diharapkan.** Setelah `Build`, `-Phase Status` menampilkan
-> kedua VM `running` (ping OK) dan stack Docker `running`/`healthy`. Dari browser Windows,
-> `https://kc.iamlab.test` membuka halaman *Welcome to Keycloak*, dan
-> `https://grafana.iamlab.test` membuka Grafana. Port `389`/`636` di `10.10.10.5` **terbuka**
-> (jalur join domain dari VM). Container inti: `samba-dc` (healthy), `caddy`, `keycloak`
-> (healthy ±60 dtk), `postgres`, `openbao` (sealed — normal, di-init Sesi 3), `warpgate`
-> (muncul setelah setup Sesi 3), `grafana`, `loki`, `alloy`, `mailpit`, `app-komentar`, `app-saml`.
->
-> **Jika `build-lab.ps1` berhenti:** baca pesan `BERHENTI:` dan log lengkap di
-> `.lab\logs\build-*.log`. Masalah umum: **port 443 dipakai** `vmware-hostd` (hentikan layanan
-> *VMware Workstation Server*), atau **reboot WSL2 belum dilakukan** (jalankan skrip lagi).
-
-> Catatan Docker Desktop: skrip menyetel `%USERPROFILE%\.wslconfig` (batas RAM 6 GB, 2 CPU) agar
-> VM VirtualBox dan Docker berbagi 16 GB dengan aman. Ubah nilai di blok konfigurasi atas
-> `build-lab.ps1` bila RAM PC berbeda.
-
-> **Layar login `client1` lambat muncul — ini normal.** Karena VirtualBox berjalan di atas
-> Hyper-V (dibutuhkan Docker Desktop), VM desktop memakai render grafis **software**, jadi layar
-> login (GDM) baru muncul **±3–5 menit** setelah VM dinyalakan (boot pertama paling lama).
-> Pesan `vmwgfx ... unsupported hypervisor` di konsol VM **boleh diabaikan** — tunggu saja sampai
-> layar login tampil. `srv1` berjalan *headless* (tanpa jendela), diakses lewat SSH.
-
----
 
 > **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):
 > lihat [`../ALUR-PESERTA.md`](../ALUR-PESERTA.md).
