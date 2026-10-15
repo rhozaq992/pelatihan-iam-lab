@@ -191,9 +191,19 @@ docker compose restart warpgate
 >    ```bash
 >    docker compose exec -T warpgate cat /etc/ssl/certs/ca-certificates.crt > certs/ca-bundle-warpgate.crt
 >    cat caddy/data/caddy/pki/authorities/local/root.crt >> certs/ca-bundle-warpgate.crt
->    echo 'WARPGATE_SSL_CERT_FILE=/certs/ca-bundle-warpgate.crt' >> .env   # dibaca compose
+>    echo 'WARPGATE_SSL_CERT_FILE=/certs/ca-bundle-warpgate.crt' >> .env   # dibaca compose terbaru
 >    docker compose up -d warpgate
 >    ```
+>    *Lab lama (compose belum punya `SSL_CERT_FILE`)?* Buat `deploy/compose.override.yaml`:
+>    ```yaml
+>    services:
+>      warpgate:
+>        environment:
+>          SSL_CERT_FILE: /certs/ca-bundle-warpgate.crt
+>        volumes:
+>          - ./certs:/certs:ro
+>    ```
+>    lalu `docker compose up -d warpgate`.
 > 2. **URL eksternal lewat 443 (Caddy)** agar `redirect_uri` cocok dengan client Keycloak. Di
 >    `/data/warpgate.yaml` seksi `http:`, set `external_host: pam.iamlab.test`, `external_port: 443`,
 >    `trust_x_forwarded_headers: true` (lalu `docker compose restart warpgate`). Tanpa ini Keycloak

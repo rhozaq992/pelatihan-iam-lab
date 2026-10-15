@@ -226,9 +226,23 @@ docker compose up -d --force-recreate keycloak openbao     # muat truststore CA
 > menampilkan sertifikat ber-`CN = DC1.iamlab.test`. (`srv1`/`client1` adalah VM — bukan service
 > Docker — jadi perintah dijalankan di VM lewat SSH/konsol, bukan `docker compose exec`.)
 > CA ini otomatis dipercaya Keycloak/OpenBao via mount `deploy/certs`.
-> ⚠️ **Untuk OpenBao (Sesi 3):** sertifikat auto-generate Samba hanya ber-CN (tanpa SAN); klien Go
-> (OpenBao) menolaknya. Image samba-dc kini **meregenerasi cert ber-SAN otomatis**. Validasi:
-> `… | openssl x509 -noout -ext subjectAltName` menampilkan `DNS:dc1.iamlab.test, IP:10.10.10.5`.
+> ⚠️ **Untuk OpenBao (Sesi 3) — sertifikat butuh SAN.** Cert auto-generate Samba hanya ber-CN
+> (tanpa SAN); klien Go (OpenBao) menolaknya (`x509: legacy Common Name`). Image samba-dc terbaru
+> meregenerasi cert ber-SAN otomatis. **Pada lab yang sudah terbangun dengan image lama**, jalankan
+> sekali di container untuk membuat cert ber-SAN, lalu re-ekspor CA:
+> ```bash
+> # 🐳 di dalam container samba-dc — regen cert LDAPS DENGAN SAN (idempoten)
+> docker compose exec samba-dc sh -c 'cd /var/lib/samba/private/tls; \
+>   openssl x509 -in cert.pem -noout -text | grep -q "Subject Alternative Name" || { \
+>   openssl req -x509 -newkey rsa:4096 -keyout key.new -out cert.new -days 3650 -nodes \
+>     -subj "/O=Samba Administration/CN=DC1.iamlab.test" \
+>     -addext "subjectAltName=DNS:dc1.iamlab.test,IP:10.10.10.5"; \
+>   mv cert.new cert.pem; mv key.new key.pem; cp cert.pem ca.pem; chmod 600 key.pem; }'
+> docker compose restart samba-dc
+> docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem
+> docker compose up -d --force-recreate keycloak openbao
+> ```
+> Validasi: `… | openssl x509 -noout -ext subjectAltName` menampilkan `DNS:dc1.iamlab.test, IP:10.10.10.5`.
 
 ![Terminal — validasi LDAPS: subject CN=DC1.iamlab.test + SAN (DNS dc1 + IP)](gambar/ldaps-validasi.png)
 

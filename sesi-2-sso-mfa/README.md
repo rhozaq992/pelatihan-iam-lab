@@ -151,6 +151,11 @@ lalu **Sync LDAP groups**. Daftar provider federasi:
 - **Advanced → PKCE: S256** (aplikasi mewajibkannya — tanpa ini login gagal
   "Missing parameter: code_challenge_method").
 - Tambah **Group Membership mapper**: claim `groups`, **Full group path = Off**.
+- ⚠️ **Client scope `groups` (wajib).** App-Komentar meminta *scope* `groups` saat login; bila scope
+  itu tak ada, Keycloak menolak: *"Invalid scopes: … groups"* dan `/callback` gagal. Buat sekali:
+  **Client scopes → Create** nama `groups` (OpenID Connect), tambah **Group Membership mapper** di
+  dalamnya (claim `groups`, Full path Off, Add to userinfo On), lalu di client `app-komentar` →
+  **Client scopes → Add → groups** sebagai **Default**.
 
 Cocokkan layar pengaturan client:
 
