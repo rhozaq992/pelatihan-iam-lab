@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Rakit "paket build" Lab IAM: HANYA aset berat untuk build (installer VirtualBox, Docker
-  Desktop, WSL2, VC++; iam-images.tar; VM Ubuntu SIAP-PAKAI). Modul, skrip & konfigurasi TIDAK
-  disertakan - peserta tetap `git clone` repo, lalu menyalin folder `distribusi\` dari paket ke
-  repo hasil clone. Tujuan: build di PC peserta tanpa unduhan besar.
+  Rakit "paket build" Lab IAM yang MANDIRI: repo lab lengkap (skrip + modul) DITAMBAH aset berat
+  (installer VirtualBox/Docker Desktop/WSL2/VC++; iam-images.tar; VM Ubuntu SIAP-PAKAI). Peserta
+  TIDAK perlu git clone maupun internet - cukup salin folder Pelatihan_IAM lalu jalankan
+  build-lab.ps1. Cruft v1 (distribusi\iso, distribusi\ova) & .git/.lab tidak ikut.
 
 .DESCRIPTION
   Dijalankan di PC "penyiap" (ada internet + Docker Desktop + VirtualBox). Langkah:
@@ -12,9 +12,9 @@
     2. Bangun & simpan iam-images.tar (semua image Docker, termasuk Samba AD); tar usang dibangun ulang.
     3. (-BakeVMs) Ekspor VM `iamlab-srv1`/`iamlab-client1` yang sudah di-provision (dari
        .lab/vms) menjadi VDI siap-pakai di distribusi/vms/ -> peserta impor tanpa apt/internet.
-    4. Tulis paket berstruktur sama dengan repo (distribusi\installer|offline-images|vms) +
-       INSTALL.txt + SHA256SUMS.txt. Ubuntu cloud image & datastream CIS tidak disertakan: hanya
-       dipakai saat provisioning VM, yang memang butuh internet (apt).
+    4. Salin repo lab ke <Out>\Pelatihan_IAM (tanpa .git/.lab & cruft v1 iso/ova), tambahkan aset
+       ke Pelatihan_IAM\distribusi\{installer,offline-images,vms}, tulis INSTALL.txt + SHA256SUMS.txt.
+       Ubuntu cloud image tidak disertakan: hanya dipakai bila VM di-provision dari nol (butuh apt).
 
   Alur khas penyiap:
     .\build-lab.ps1                      # bangun lab sekali (VM ter-provision di .lab/vms)
@@ -113,13 +113,25 @@ if ($BakeVMs) {
   Ok 'pakai VDI siap-pakai yang sudah ada di distribusi/vms (ekspor ulang: -BakeVMs)'
 } else { Warn 'tanpa VDI siap-pakai: VM di PC peserta akan di-provision (butuh internet untuk apt).' }
 
-# 4. paket = HANYA aset build, berstruktur sama dengan repo (distribusi\...) -> disalin ke repo hasil clone
-Step 'Tulis aset build ke paket'
-# tata letak lama (salinan repo utuh di <Out>\Pelatihan_IAM) & aset usang dibuang dulu
-foreach ($old in 'Pelatihan_IAM','distribusi') {
+# 4. paket MANDIRI = repo lengkap + aset berat (installer, tar, VDI); tanpa cruft v1 & tanpa git clone
+Step 'Rakit paket mandiri (repo + aset)'
+$repoOut = Join-Path $Out 'Pelatihan_IAM'
+foreach ($old in 'Pelatihan_IAM','distribusi') {   # bersihkan tata letak lama (termasuk assets-only)
   $p = Join-Path $Out $old
   if (Test-Path $p) { Remove-Item $p -Recurse -Force; Ok "hapus isi paket lama: $old\" }
 }
+# Salin repo (tanpa .git/.lab, cruft v1 iso/ova, dan biner distribusi yg ditambah terpisah di bawah)
+$exDirs = @(
+  (Join-Path $Repo '.git'), (Join-Path $Repo '.lab'), (Join-Path $Repo 'node_modules'),
+  (Join-Path $Repo 'distribusi\iso'), (Join-Path $Repo 'distribusi\ova'),
+  (Join-Path $Repo 'distribusi\installer'), (Join-Path $Repo 'distribusi\offline-images'),
+  (Join-Path $Repo 'distribusi\vms'),
+  (Join-Path $Deploy 'caddy\data'), (Join-Path $Deploy 'caddy\config')
+)
+& robocopy $Repo $repoOut /E /NFL /NDL /NJH /NJS /NP /XF .DS_Store *.part /XD @exDirs | Out-Null
+if ($LASTEXITCODE -ge 8) { Fail "robocopy repo gagal (kode $LASTEXITCODE)" }
+Ok 'repo lab tersalin (tanpa .git/.lab, tanpa cruft iso/ova)'
+
 function Add-Asset([string]$Src, [string]$RelDir) {
   # hardlink bila satu volume (instan, hemat disk); salin bila beda volume (mis. -Out ke USB)
   $dir = Join-Path $Out $RelDir; New-Item -ItemType Directory -Force $dir | Out-Null
@@ -128,58 +140,56 @@ function Add-Asset([string]$Src, [string]$RelDir) {
   catch { Copy-Item $Src $dst -Force }
   Ok ("{0}\{1} ({2} GB)" -f $RelDir, (Split-Path $Src -Leaf), [math]::Round((Get-Item $Src).Length/1GB,2))
 }
-# installer Windows saja (tanpa Ubuntu cloud image / golden VDI di cache)
+# installer Windows (tanpa Ubuntu cloud image / golden VDI); VirtualBox hanya versi terbaru
 $inst = @(Get-ChildItem $Cache -File | Where-Object { $_.Name -match '^(VirtualBox-.*-Win\.exe|vc_redist\.x64\.exe|DockerDesktopInstaller\.exe|wsl-update\.msi)$' })
 foreach ($n in 'VirtualBox-*-Win.exe','vc_redist.x64.exe','DockerDesktopInstaller.exe','wsl-update.msi') {
   if (-not ($inst | Where-Object Name -like $n)) { Fail "installer tak ada di cache: $n" }
 }
-# VirtualBox: hanya versi terbaru (sama dengan yang dipilih fase Install)
 $vbOld = @($inst | Where-Object Name -like 'VirtualBox-*' | Sort-Object Name | Select-Object -SkipLast 1)
-$inst | Where-Object { $vbOld -notcontains $_ } | ForEach-Object { Add-Asset $_.FullName 'distribusi\installer' }
-if (-not $SkipImages) { Add-Asset $Tar 'distribusi\offline-images' }
+$inst | Where-Object { $vbOld -notcontains $_ } | ForEach-Object { Add-Asset $_.FullName 'Pelatihan_IAM\distribusi\installer' }
+if (-not $SkipImages) { Add-Asset $Tar 'Pelatihan_IAM\distribusi\offline-images' }
 Get-ChildItem $PrebakedDir -Filter *.vdi -ErrorAction SilentlyContinue | Where-Object { $VMs -contains $_.BaseName } |
-  ForEach-Object { Add-Asset $_.FullName 'distribusi\vms' }
+  ForEach-Object { Add-Asset $_.FullName 'Pelatihan_IAM\distribusi\vms' }
 
 # 5. INSTALL.txt + checksum
 Step 'Tulis INSTALL.txt & checksum'
 $install = @'
 ==========================================================
-  PAKET BUILD LAB IAM - Petunjuk untuk Panitia
+  PAKET BUILD LAB IAM - Petunjuk untuk Panitia (MANDIRI/OFFLINE)
 ==========================================================
-Paket ini HANYA berisi aset berat untuk build (installer, image Docker, VM siap-pakai).
-Modul & skrip lab diambil dari repo Git.
+Paket ini LENGKAP & MANDIRI: berisi seluruh skrip + modul lab DAN aset berat
+(installer, image Docker, VM siap-pakai). TIDAK perlu git clone maupun internet.
 
 Prasyarat PC peserta: Windows 10/11 Pro, RAM 16 GB, disk kosong >= 80 GB,
-virtualisasi (VT-x/AMD-V) AKTIF di BIOS/UEFI, hak Administrator, Git.
+virtualisasi (VT-x/AMD-V) AKTIF di BIOS/UEFI, hak Administrator.
 
 LANGKAH:
-  1. Clone repo lab (mis. ke C:\Lab):
-         git clone https://github.com/rhozaq992/pelatihan-iam-lab.git C:\Lab\Pelatihan_IAM
-  2. Salin folder "distribusi" dari paket ini ke dalam repo hasil clone
-     (gabungkan dengan distribusi\ yang sudah ada):
-         robocopy <paket>\distribusi C:\Lab\Pelatihan_IAM\distribusi /E
-  3. PowerShell sebagai ADMINISTRATOR:
+  1. Salin folder "Pelatihan_IAM" dari paket ini ke PC peserta (mis. C:\Lab\Pelatihan_IAM).
+  2. PowerShell sebagai ADMINISTRATOR:
          cd C:\Lab\Pelatihan_IAM
          Set-ExecutionPolicy -Scope Process Bypass -Force
          .\build-lab.ps1
-  4. Bila diminta REBOOT (WSL2/Docker Desktop), reboot lalu jalankan lagi: .\build-lab.ps1
-  5. Selesai saat "Lab siap". Cek: .\build-lab.ps1 -Phase Status
+  3. Bila diminta REBOOT (WSL2/Docker Desktop), reboot lalu jalankan lagi: .\build-lab.ps1
+  4. Selesai saat "Lab siap". Cek: .\build-lab.ps1 -Phase Status
 
 Isi paket:
-  distribusi/installer/                      -> VirtualBox, Docker Desktop, WSL2 MSI, VC++ runtime
-  distribusi/offline-images/iam-images.tar   -> semua image Docker lab (dimuat otomatis)
-  distribusi/vms/*.vdi                       -> VM Ubuntu srv1 & client1 SIAP-PAKAI (diimpor otomatis)
-  SHA256SUMS.txt                             -> checksum aset (cek sebelum build bila disalin via USB)
+  Pelatihan_IAM\                         -> repo lab lengkap (skrip + modul sesi-0..4)
+  Pelatihan_IAM\build-lab.ps1            -> pembangun lab (JALANKAN INI)
+  Pelatihan_IAM\distribusi\installer\    -> VirtualBox, Docker Desktop, WSL2 MSI, VC++ runtime
+  Pelatihan_IAM\distribusi\offline-images\iam-images.tar -> semua image Docker (dimuat otomatis)
+  Pelatihan_IAM\distribusi\vms\*.vdi     -> VM Ubuntu srv1 & client1 SIAP-PAKAI (diimpor otomatis)
+  SHA256SUMS.txt                         -> checksum aset berat (cek bila disalin via USB)
 
-Catatan: bila distribusi/vms/ TIDAK ada, VM di-provision di PC peserta dan butuh internet
-(Ubuntu cloud image + paket apt). Dengan distribusi/vms/, build berjalan tanpa unduhan.
+Catatan: layar login client1 (GDM) muncul ~3-5 menit setelah VM nyala (render software);
+pesan "vmwgfx ... unsupported hypervisor" di konsol itu NORMAL. srv1 headless (akses via SSH).
 
 Akun lab (sintetis): Administrator domain / Passw0rd#Lab2026 ; labadmin / Lab#Admin2026
-Log bila bermasalah: .lab\logs\build-*.log (lihat baris "BERHENTI:")
+Log bila bermasalah: Pelatihan_IAM\.lab\logs\build-*.log (lihat baris "BERHENTI:")
 ==========================================================
 '@
 Set-Content (Join-Path $Out 'INSTALL.txt') $install -Encoding UTF8
-Get-ChildItem (Join-Path $Out 'distribusi') -Recurse -File | Sort-Object FullName |
+Get-ChildItem (Join-Path $repoOut 'distribusi') -Recurse -File |
+  Where-Object { $_.Extension -in '.exe','.msi','.tar','.vdi' } | Sort-Object FullName |
   ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash, ($_.FullName.Substring($Out.Length + 1) -replace '\\','/') } |
   Set-Content (Join-Path $Out 'SHA256SUMS.txt') -Encoding ASCII
 Ok 'INSTALL.txt + SHA256SUMS.txt'

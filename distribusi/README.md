@@ -18,8 +18,9 @@ bila ada; bila tidak ada, `build-lab.ps1` mengunduhnya saat build (butuh interne
 
 ## Menyiapkan paket build (build bag)
 Lihat **[`../build-bag/README.md`](../build-bag/README.md)**: skrip `make-build-bag.ps1`
-mengumpulkan **hanya** isi folder ini (installer, `iam-images.tar`, VDI) ke satu paket dengan
-struktur yang sama. Peserta `git clone` repo lalu menyalin `distribusi\` dari paket ke sini.
+merakit paket **mandiri** — seluruh repo lab + isi folder ini (installer, `iam-images.tar`, VDI).
+Peserta cukup menyalin folder `Pelatihan_IAM` dari paket lalu menjalankan `build-lab.ps1`
+(tanpa `git clone`).
 
 ## Membuat `iam-images.tar` (dari PC ber-internet)
 ```powershell

@@ -1,16 +1,16 @@
-# build-bag/ — Paket aset build untuk panitia
+# build-bag/ — Paket mandiri untuk panitia
 
-Paket build berisi **hanya aset berat** yang dibutuhkan untuk membangun lab tanpa unduhan besar:
-installer Windows, image Docker, dan VM Ubuntu siap-pakai. Modul, skrip, dan konfigurasi **tidak**
-disertakan — peserta tetap mengambilnya dengan `git clone`, lalu menyalin folder `distribusi\`
-dari paket ke repo hasil clone. Strukturnya sama persis dengan `distribusi\` di repo.
+Paket build bersifat **mandiri (self-contained)**: berisi **seluruh repo lab** (skrip + modul
+sesi-0..4) **ditambah** aset berat (installer Windows, `iam-images.tar`, VM Ubuntu siap-pakai).
+Peserta **tidak perlu `git clone` maupun internet** — cukup salin folder `Pelatihan_IAM` dari
+paket lalu jalankan `build-lab.ps1`.
 
 ## Membuat paket (di PC penyiap, ada internet + Docker Desktop + VirtualBox)
 
 ```powershell
 # dari root repo, PowerShell
 .\build-lab.ps1                              # bangun lab sekali (VM ter-provision di .lab\vms)
-.\build-bag\make-build-bag.ps1 -BakeVMs      # rakit ke ..\IAMLAB-BuildBag (di luar repo)
+.\build-bag\make-build-bag.ps1 -BakeVMs      # rakit ke ..\..\IAMLAB-BuildBag (di luar repo)
 .\build-bag\make-build-bag.ps1 -Zip          # sekalian buat .zip
 ```
 
@@ -22,41 +22,48 @@ Skrip akan:
    kurang (tar usang), tar dibangun ulang.
 3. (`-BakeVMs`) Mengekspor VDI `iamlab-srv1`/`iamlab-client1` yang sudah di-provision ke
    `distribusi\vms\`.
-4. Menulis aset ke paket (hardlink bila satu volume, salin bila beda volume), lalu
-   `INSTALL.txt` dan `SHA256SUMS.txt`.
+4. Menyalin repo lab ke `<Out>\Pelatihan_IAM` (tanpa `.git`/`.lab` dan tanpa cruft v1
+   `distribusi\iso`, `distribusi\ova`), menambahkan aset ke `Pelatihan_IAM\distribusi\`
+   (hardlink bila satu volume, salin bila beda volume), lalu menulis `INSTALL.txt` dan
+   `SHA256SUMS.txt`.
 
 Hasil akhir:
 
 ```
 IAMLAB-BuildBag/
 ├─ INSTALL.txt                         # petunjuk singkat untuk panitia
-├─ SHA256SUMS.txt                      # checksum semua aset (path relatif)
-└─ distribusi/
-   ├─ installer/       VirtualBox-*-Win.exe, DockerDesktopInstaller.exe, wsl-update.msi, vc_redist.x64.exe
-   ├─ offline-images/  iam-images.tar
-   └─ vms/             iamlab-srv1.vdi, iamlab-client1.vdi
+├─ SHA256SUMS.txt                      # checksum aset berat (path relatif)
+└─ Pelatihan_IAM/                      # repo lab LENGKAP (siap jalan)
+   ├─ build-lab.ps1                    # <- panitia menjalankan ini
+   ├─ sesi-0-pengantar/ … sesi-4-…    # modul
+   ├─ deploy/  lab/  attack-sim/  build-bag/
+   └─ distribusi/
+      ├─ installer/       VirtualBox-*-Win.exe, DockerDesktopInstaller.exe, wsl-update.msi, vc_redist.x64.exe
+      ├─ offline-images/  iam-images.tar
+      └─ vms/             iamlab-srv1.vdi, iamlab-client1.vdi
 ```
 
 Ubuntu cloud image dan datastream CIS **tidak** disertakan: keduanya hanya dipakai saat VM
-di-provision dari nol, yang memang butuh internet (apt). Dengan `distribusi\vms\`, keduanya
-tidak diperlukan.
+di-provision dari nol (butuh internet/apt). Dengan `distribusi\vms\`, VM diimpor langsung.
 
 ## Di PC peserta (panitia)
 
-1. `git clone https://github.com/rhozaq992/pelatihan-iam-lab.git C:\Lab\Pelatihan_IAM`
-2. Salin `distribusi\` dari paket ke repo hasil clone:
-   `robocopy <paket>\distribusi C:\Lab\Pelatihan_IAM\distribusi /E`
-3. PowerShell **Administrator**:
+1. Salin folder `Pelatihan_IAM` dari paket ke PC peserta (mis. `C:\Lab\Pelatihan_IAM`).
+2. PowerShell **Administrator**:
    ```powershell
    cd C:\Lab\Pelatihan_IAM
    Set-ExecutionPolicy -Scope Process Bypass -Force
    .\build-lab.ps1
    ```
-4. Bila diminta **reboot** (pemasangan WSL2/Docker Desktop), reboot lalu jalankan `.\build-lab.ps1` lagi.
-5. Verifikasi: `.\build-lab.ps1 -Phase Status` → kedua VM `running`, stack Docker `healthy`.
+3. Bila diminta **reboot** (pemasangan WSL2/Docker Desktop), reboot lalu jalankan `.\build-lab.ps1` lagi.
+4. Verifikasi: `.\build-lab.ps1 -Phase Status` → kedua VM `running`, stack Docker `healthy`.
 
 `build-lab.ps1` otomatis memakai installer di `distribusi\installer\` (tanpa unduh ulang),
 memuat `iam-images.tar`, dan mengimpor VM dari `distribusi\vms\`.
+
+> **client1 (desktop):** layar login (GDM) muncul **±3–5 menit** setelah VM nyala (render
+> software karena VirtualBox berjalan di atas Hyper-V); pesan `vmwgfx ... unsupported hypervisor`
+> di konsol VM **normal**. `srv1` berjalan *headless* (akses via SSH).
 
 ## Lingkungan terkontrol (minim bug)
 
