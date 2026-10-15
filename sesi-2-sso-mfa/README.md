@@ -122,6 +122,9 @@ Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis 
 - Edit mode: **READ_ONLY** · **Users DN: `DC=iamlab,DC=test`** (root — mencakup akun
   admin & layanan; jika hanya `OU=Pengguna`, login SSO admin gagal diam-diam)
 - Username LDAP attr: `sAMAccountName` · UUID: `objectGUID`
+- **Trust Email: On** ⚠️ **wajib.** Pengguna hasil federasi default `emailVerified=false`. Tanpa
+  ini, **Warpgate SSO menolak** mereka (*"e-mail is not verified"*, Sesi 3) dan Keycloak bisa
+  memaksa aksi *Verify Email*. "Trust Email" menandai email dari direktori sebagai terverifikasi.
 
 Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu **Save → Test
 connection & authentication → Synchronize all users**:
