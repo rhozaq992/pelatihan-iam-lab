@@ -187,6 +187,7 @@ Rujukan cepat singkatan yang dipakai berulang di seluruh modul.
 | SSH CA | SSH Certificate Authority | Penandatangan sertifikat SSH berumur pendek (OpenBao) |
 | KV | Key-Value | Mesin rahasia OpenBao (brankas) |
 | TLS | Transport Layer Security | Enkripsi transport (HTTPS/LDAPS) |
+| SAN | Subject Alternative Name | Daftar host/IP sah pada sertifikat. LDAPS **wajib** ber-SAN; cert CN-only ditolak klien Go/OpenBao (`x509: legacy Common Name`) |
 | AES / RC4 | Advanced Encryption Standard / Rivest Cipher 4 | Enctype Kerberos: AES (kuat) vs RC4 (lemah) |
 | NTLM | NT LAN Manager | Protokol autentikasi lama (dibatasi `ntlmv2-only`) |
 

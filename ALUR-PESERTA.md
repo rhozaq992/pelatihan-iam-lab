@@ -24,6 +24,14 @@ Akun: Administrator domain `Passw0rd#Lab2026` · admin lokal VM `labadmin` / `La
 > **Lab dibangun fasilitator sebelum kelas** (memakai paket `IAMLAB-BuildBag`). Peserta tidak
 > membangun lab, cukup mengambil modul lalu memverifikasi lab sudah jalan. Bila belum jalan,
 > hubungi fasilitator.
+>
+> 🛠️ **Catatan fasilitator — kapan `update-lab.ps1` dijalankan.** Hanya untuk lab yang **sudah
+> terbangun** lalu perlu menyerap perbaikan modul/infra (hasil QA) **tanpa** `Destroy`/rebuild —
+> data (volume) dan VM tetap utuh. Jalankan dari folder builder (PowerShell Administrator):
+> `.\update-lab.ps1`. Langkahnya: muat image baru → `compose up -d` (hanya service berubah) →
+> regen cert **LDAPS ber-SAN** (perbaikan OpenBao Sesi 3) → `git pull` modul. Untuk lab **baru**,
+> tetap pakai `build-lab.ps1` (bukan skrip ini). Opsi: `-SkipImages`, `-SkipGit`,
+> `-ClearWarpgateBlocks` (kosongkan blokir IP brute-force Warpgate).
 
 | # | Peserta melakukan | Perintah | ✅ Validasi / output |
 |---|-------------------|----------|----------------------|
@@ -44,7 +52,7 @@ Akun: Administrator domain `Passw0rd#Lab2026` · admin lokal VM `labadmin` / `La
 | 1.1 | 🐳 Tata OU, grup, akun layanan, SPN | `docker compose exec samba-dc bash` lalu `samba-tool ou create…`, `group add…`, `user create svc-*…`, `spn add…` | Tiap perintah: `Added ou…` / `User '…' added successfully`. `samba-tool spn list svc-app` memuat `HTTP/app.iamlab.test`. |
 | 1.2 | 🐳 Bulk import ±220 pengguna | `docker compose cp ../Pelatihan_IAM/sesi-1-direktori-akses-cis samba-dc:/tmp/sesi1` → `bash /tmp/sesi1/import-ad.sh --csv …users_dummy.csv --send-email` | `Selesai: dibuat 200 …` (batch2: `dibuat 20`). `samba-tool user show dewi.puspita001` → `pwdLastSet: 0`. Email di Mailpit. |
 | 1.3 | 🐳 Kebijakan sandi + PSO | `samba-tool domain passwordsettings set/pso …` | `Minimum password length: 14`, `Password complexity: on`; PSO-Admin min 20. |
-| 1.4 | 🐳 Hardening (AES-only, NTLM off) + 🐳🖥️ LDAPS (ekspor CA) | `samba-tool user setpassword svc-keycloak…`; `docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem`; `up -d --force-recreate keycloak openbao` | `openssl s_client -connect 10.10.10.5:636` → sertifikat CN `DC1.iamlab.test`. Catat sandi baru `svc-keycloak` (dipakai Sesi 2). |
+| 1.4 | 🐳 Hardening (AES-only, NTLM off) + 🐳🖥️ LDAPS (ekspor CA) | `samba-tool user setpassword svc-keycloak…`; `docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem`; `up -d --force-recreate keycloak openbao` | `openssl s_client -connect 10.10.10.5:636` → cert CN `DC1.iamlab.test` **ber-SAN** (`DNS:dc1.iamlab.test, IP:10.10.10.5` — wajib untuk OpenBao Sesi 3; lab lama regen via §5b). Catat sandi baru `svc-keycloak` (dipakai Sesi 2). |
 | 1.5 | 🖥️ Join `srv1` & `client1` | di tiap VM: `sudo join-domain.sh` lalu `id dewi.puspita001` | `akun domain terbaca: …`; `id` memuat grup `gg-pimpinan`, `gg-app-viewer`. Di `client1`: login GDM sebagai `dewi.puspita001`. |
 | 1.6 | 🖥️ Kebijakan akses terpusat | edit `sssd.conf` (`access_provider=simple`, `simple_allow_groups`), sudoers grup AD, `systemctl restart sssd` | Di `srv1`: SSH pimpinan **ditolak**, `adm-t1-anda` **diterima** + `sudo -l` berisi izin. |
 | 1.7 | 🖥️ CIS Benchmark + remediasi | `sudo cis-scan.sh` → `--list-fail` → `--fix <rule>` → `sudo cis-scan.sh` | Baris JSON di `/var/log/cis/summary.log` (`pass/fail/score`); skor scan **kedua > pertama**; laporan HTML di `/var/log/cis/report-latest.html`. |
