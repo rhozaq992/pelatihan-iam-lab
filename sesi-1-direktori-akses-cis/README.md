@@ -93,7 +93,8 @@ memori, lalu memakainya untuk autentikasi ke host lain **tanpa tahu sandi asliny
 *Gambar 3. Skema Pass-the-Hash — titik mitigasi & deteksi*
 
 *Analogi:* mencuri cetakan sidik jari lalu memakainya di pemindai lain. **Mitigasi:** isolasi
-tier, kurangi/nonaktifkan NTLM (`ntlm auth = disabled` di Samba), kredensial admin unik per host.
+tier, kurangi NTLM (`ntlm auth = ntlmv2-only` di Samba — tutup NTLMv1; *disabled* penuh memutus
+federasi LDAP, lihat langkah 5), kredensial admin unik per host.
 **Deteksi:** autentikasi NTLM lintas banyak host, logon tak lazim.
 
 **Catatan enctype Kerberos:** pada tiket/hasil Kerberoasting, `$krb5tgs$23$` = RC4-HMAC
@@ -189,15 +190,20 @@ samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # cat
 > Keycloak di Sesi 2 — catat baik-baik.
 >
 > **NTLM & AES di Samba (smb.conf).** Mitigasi PtH/Kerberoasting di tingkat domain diset lewat
-> `smb.conf` DC: `ntlm auth = disabled` (tutup NTLM) dan membatasi enctype ke AES. Di lab,
-> edit lewat container lalu muat ulang:
+> `smb.conf` DC: batasi NTLM ke **`ntlm auth = ntlmv2-only`** (matikan NTLMv1 yang lemah; NTLMv2
+> tetap hidup) dan batasi enctype ke AES. Di lab, edit lewat container lalu muat ulang:
 > ```bash
 > # 🐳 di dalam container samba-dc — sisipkan DI DALAM seksi [global] (bukan di akhir berkas,
 > # yang akan masuk ke seksi [netlogon] dan tak berlaku)
-> sed -i '/^\[global\]/a\    ntlm auth = disabled' /etc/samba/smb.conf
+> sed -i '/^\[global\]/a\    ntlm auth = ntlmv2-only' /etc/samba/smb.conf
 > smbcontrol all reload-config
-> testparm -sv 2>/dev/null | grep -i 'ntlm auth'    # validasi -> "ntlm auth = disabled"
+> testparm -sv 2>/dev/null | grep -i 'ntlm auth'    # validasi -> "ntlm auth = ntlmv2-only"
 > ```
+> > ⚠️ **Jangan pakai `ntlm auth = disabled`.** Mematikan NTLM sepenuhnya juga mematahkan
+> > **LDAP simple-bind** (yang dipakai federasi Keycloak & auth LDAP OpenBao untuk memverifikasi
+> > sandi) — federasi akan gagal diam-diam setelah DC di-*restart* (`ldap_bind data 418`). Untuk
+> > mengurangi PtH tanpa memutus federasi, cukup `ntlmv2-only` (NTLMv1 ditutup) + isolasi tier +
+> > kredensial admin unik per host. Diskusi PtH di atas tetap berlaku sebagai konsep.
 
 ### 5b. 🐳🖥️ LDAPS: percayakan CA Samba ke layanan IAM
 Samba AD menyalakan LDAPS (636) dengan sertifikat yang dibuat otomatis. Agar Keycloak (Sesi 2)
@@ -296,7 +302,7 @@ mata mengenali pola Kerberoasting/PtH dan merasakan efek mitigasi secara langsun
      | ldbmodify -H /var/lib/samba/private/sam.ldb
    samba-tool user setpassword svc-app --newpassword='Svc#Lab2026AES'
    ```
-4. **Diskusi PtH (tanpa langkah ofensif):** mengapa menonaktifkan NTLM (`ntlm auth = disabled`),
+4. **Diskusi PtH (tanpa langkah ofensif):** mengapa membatasi NTLM (`ntlm auth = ntlmv2-only`),
    isolasi tier, dan kredensial unik per host memutus pemakaian ulang hash.
 
 > **Troubleshooting.** `GetUserSPNs.py` → `KRB_AP_ERR_SKEW`/galat waktu: selisih jam antara
