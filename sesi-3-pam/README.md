@@ -33,7 +33,7 @@ secara khusus. **Vault** menyimpan kredensial terenkripsi, memberi akses berbasi
 kebijakan, mencatat tiap pengambilan, dan dapat menerbitkan kredensial berumur pendek.
 **Jump server/bastion** memaksa semua akses admin lewat satu pintu yang merekam sesi.
 
-Kredensial admin statis yang tersebar = permukaan serang besar; akses
+Kredensial admin statis yang tersebar = attack surface meningkat; akses
 langsung ke server tanpa jejak = sulit diaudit. PAM menutup keduanya.
 
 **Alur akses istimewa:**
@@ -61,7 +61,7 @@ kredensial curian tak berguna lama.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
-### 0. 🖥️ Deploy (sudah disiapkan — tetap dipahami)
+### 0. 🖥️ Deploy (sudah disiapkan)
 ```bash
 cd ../deploy        # stack di IAMLAB-BuildBag; modul diklon di IAMLAB-BuildBag/Pelatihan_IAM
 docker compose up -d openbao warpgate      # OpenBao BELUM di-init; Warpgate perlu setup sekali
@@ -173,7 +173,7 @@ docker compose run --rm warpgate unattended-setup \
 docker compose up -d warpgate
 ```
 
-> **✅ Validasi / Output yang diharapkan** (nyata, amd64):
+> **✅ Validasi / Output yang diharapkan** :
 > ```text
 > INFO warpgate::commands::setup: Admin user credentials:
 > INFO warpgate::commands::setup:   * Username: admin
