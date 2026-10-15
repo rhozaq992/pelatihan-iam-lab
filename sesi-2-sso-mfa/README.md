@@ -83,10 +83,8 @@ panggung mana yang boleh dimasuki.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
-### 0. 🖥️ Deploy (sudah disiapkan — tetap dipahami)
-Infrastruktur dinyalakan sekali dengan perintah di bawah; **ini bukan bagian yang
-dinilai**, tetapi peserta perlu tahu cara sistem hidup. Konfigurasi detail (langkah
-1–5) yang dikerjakan peserta.
+### 0. 🖥️ Deploy (sudah disiapkan)
+Bagian ini hanya untuk diketahui saja. Konfigurasi detail (langkah 1–5) yang dikerjakan peserta.
 ```bash
 cd ../deploy        # stack di IAMLAB-BuildBag; modul diklon di IAMLAB-BuildBag/Pelatihan_IAM
 cp .env.example .env            # sesuaikan DC_IP & sandi
