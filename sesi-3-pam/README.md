@@ -311,3 +311,7 @@ peserta **tidak perlu kredensial email**. Mailpit menangkap semua email yang dik
 
 **Hasil yang diharapkan:** OpenBao *unsealed* & audit aktif; root token tak valid; `srv1` menolak
 sandi; akses hanya via bastion dan **terekam**.
+
+---
+
+[⬅️ Sebelumnya: Sesi 2 — SSO & MFA](../sesi-2-sso-mfa/README.md) · [🏠 Home](../README.md) · [Selanjutnya: Sesi 4 — Audit & Monitoring ➡️](../sesi-4-audit-monitoring/README.md)

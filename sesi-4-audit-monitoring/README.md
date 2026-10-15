@@ -252,3 +252,7 @@ docker compose exec samba-dc samba-tool user disable <user>
 Tulis ringkas: *timeline*, bukti (query LogQL), tindakan; tinjau checklist *hardening*.
 
 **Hasil yang diharapkan:** akun kompromi terkunci di semua layanan; laporan memuat bukti query.
+
+---
+
+[⬅️ Sebelumnya: Sesi 3 — PAM](../sesi-3-pam/README.md) · [🏠 Home](../README.md) · ✅ **Akhir modul** — lihat [Checklist Validasi Akhir](../ALUR-PESERTA.md#checklist-validasi-akhir-ringkas)

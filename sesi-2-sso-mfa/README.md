@@ -282,3 +282,7 @@ Keycloak juga mengirim email aksi akun (set sandi/verifikasi). Alurnya:
 > Catatan: realm Keycloak 26 punya aksi default **Verify Profile**. Pengguna AD sudah
 > lengkap (email/nama); jika membuat pengguna lokal untuk uji, isi email + firstName +
 > lastName + sandi permanen, atau login ditolak "Account is not fully set up".
+
+---
+
+[⬅️ Sebelumnya: Sesi 1 — Direktori & CIS](../sesi-1-direktori-akses-cis/README.md) · [🏠 Home](../README.md) · [Selanjutnya: Sesi 3 — PAM ➡️](../sesi-3-pam/README.md)

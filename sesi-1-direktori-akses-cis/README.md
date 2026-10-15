@@ -356,3 +356,7 @@ sendiri perubahan enctype dari RC4 ke AES — bukti konkret bahwa mitigasi beker
 
 **Hasil yang diharapkan:** direktori terisi & terkeraskan; `srv1`/`client1` tergabung dengan
 akses terpusat; laporan CIS membaik setelah remediasi; tiket Kerberos berpindah dari RC4 ke AES.
+
+---
+
+[⬅️ Sebelumnya: Sesi 0 — Pengantar](../sesi-0-pengantar/README.md) · [🏠 Home](../README.md) · [Selanjutnya: Sesi 2 — SSO & MFA ➡️](../sesi-2-sso-mfa/README.md)

@@ -269,3 +269,7 @@ Google Authenticator / FreeOTP di ponsel diperlukan untuk MFA (Sesi 2).
 
 > **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):
 > lihat [`../ALUR-PESERTA.md`](../ALUR-PESERTA.md).
+
+---
+
+🏁 **Awal modul** · [🏠 Home](../README.md) · [Selanjutnya: Sesi 1 — Direktori & CIS ➡️](../sesi-1-direktori-akses-cis/README.md)
