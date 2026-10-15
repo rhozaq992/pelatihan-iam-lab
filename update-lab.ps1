@@ -30,7 +30,13 @@ function Invoke-Native($exe,$argList){
   try { & $exe @argList 2>&1 | Out-Host } finally { $ErrorActionPreference=$old }
   return $LASTEXITCODE
 }
-$Root=$PSScriptRoot; $Deploy=Join-Path $Root 'deploy'
+$Root=$PSScriptRoot
+# Skrip ini butuh folder BUILDER (ada deploy/). Bila dijalankan dari subfolder modul
+# (IAMLAB-BuildBag\Pelatihan_IAM, hasil git pull), naik satu level ke builder.
+if(-not (Test-Path (Join-Path $Root 'deploy')) -and (Test-Path (Join-Path (Split-Path $Root -Parent) 'deploy'))){
+  $Root=Split-Path $Root -Parent
+}
+$Deploy=Join-Path $Root 'deploy'
 $Tar=Join-Path $Root 'distribusi\offline-images\iam-images.tar'
 $docker=(Get-Command docker.exe -ErrorAction SilentlyContinue).Source
 if(-not $docker){ Fail 'docker.exe tak ada - pastikan Docker Desktop terpasang dan berjalan.' }
