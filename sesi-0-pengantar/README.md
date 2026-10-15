@@ -265,6 +265,22 @@ Tata letak di PC lab: `IAMLAB-BuildBag\{build-lab.ps1, deploy, lab, attack-sim, 
 `IAMLAB-BuildBag\deploy` (dari folder modul: `cd ..\deploy`); file modul yang disalin ke container
 dirujuk `../Pelatihan_IAM/sesi-…`.
 
+### Memperbarui ke perbaikan terbaru (bila diminta fasilitator)
+
+Bila ada pembaruan modul/perbaikan lab, jalankan dari **folder modul** di **PowerShell
+Administrator** — skrip otomatis mengenali root builder (naik satu level):
+
+```powershell
+cd C:\Lab\IAMLAB-BuildBag\Pelatihan_IAM
+git pull             # tarik dokumen + screenshot + perbaikan terbaru
+.\update-lab.ps1     # terapkan ke lab TERBANGUN — data (volume) & VM VirtualBox tetap utuh
+```
+
+Hanya container dengan image/konfig berubah yang dibuat ulang (mis. regen cert **LDAPS ber-SAN**
+untuk OpenBao Sesi 3); volume data & VM **tidak** disentuh. Untuk lab **baru** gunakan
+`build-lab.ps1` (fasilitator), bukan skrip ini. Opsi berguna: `-ClearWarpgateBlocks` (bersihkan
+blokir IP brute-force Warpgate). Detail langkah: [`../ALUR-PESERTA.md`](../ALUR-PESERTA.md) → Babak 0.
+
 Google Authenticator / FreeOTP di ponsel diperlukan untuk MFA (Sesi 2).
 
 > **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):
