@@ -63,7 +63,7 @@ kredensial curian tak berguna lama.
 
 ### 0. 🖥️ Deploy (sudah disiapkan — tetap dipahami)
 ```bash
-cd deploy
+cd ../deploy        # stack di IAMLAB-BuildBag; modul diklon di IAMLAB-BuildBag/Pelatihan_IAM
 docker compose up -d openbao warpgate      # OpenBao BELUM di-init; Warpgate perlu setup sekali
 ```
 OpenBao sengaja mulai dalam keadaan *uninitialized*; Warpgate perlu *setup* sekali. **Target
@@ -230,7 +230,7 @@ ssh -p 2222 <user>:srv1@pam.iamlab.test          # bastion mencegat, minta SSO/M
 ```
 
 > **Otomasi (opsional).** Alih-alih klik di konsol, target+user+role bisa didaftarkan via
-> Admin API dengan [`../deploy/warpgate/configure-target.sh`](../deploy/warpgate/configure-target.sh)
+> Admin API dengan `configure-target.sh` (di `IAMLAB-BuildBag/deploy/warpgate/`)
 > (mis. `PUBKEY="$(cat ~/.ssh/id_ed25519.pub)" ./configure-target.sh` → lalu
 > `ssh -p 2222 peserta:srv1@pam.iamlab.test`). Diverifikasi tembus ke target
 > sebagai `labadmin` dengan sesi terekam — peserta tak pernah memegang sandi server.

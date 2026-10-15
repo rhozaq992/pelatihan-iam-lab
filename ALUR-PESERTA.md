@@ -8,7 +8,7 @@ tangkapan layar ada di README tiap sesi.
 
 | Node | Peran | Alamat | Penanda |
 |------|-------|--------|---------|
-| **PC Windows** peserta | Menjalankan VirtualBox + Docker Desktop; browser | adapter Host-Only `10.10.10.5` | 🪟 PowerShell host · 🖥️ terminal host |
+| **PC lab** (Windows) | Disiapkan fasilitator: VirtualBox + Docker Desktop + lab sudah berjalan; browser | adapter Host-Only `10.10.10.5` | 🪟 PowerShell host · 🖥️ terminal host |
 | **samba-dc** (container, `dc1`) | AD/LDAP: direktori, Kerberos, LDAPS | `dc1.iamlab.test` = `10.10.10.5` | 🐳 `docker compose exec samba-dc` |
 | Layanan IAM (container) | Caddy, Keycloak+Postgres, OpenBao, Warpgate, Mailpit, Grafana/Loki/Alloy, App-Komentar/SAML | `*.iamlab.test` → `10.10.10.5` | 🐳 / 🌐 web UI |
 | **VM `srv1`** (Ubuntu Server) | Anggota domain; target SSH/bastion; CIS *server* | `srv1.iamlab.test` = `10.10.10.20` | 🖥️ di `srv1` |
@@ -19,16 +19,21 @@ Akun: Administrator domain `Passw0rd#Lab2026` · admin lokal VM `labadmin` / `La
 
 ---
 
-## Babak 0 — Menyalakan lab (Sesi 0)
+## Babak 0 — Mulai (Sesi 0)
+
+> **Lab dibangun fasilitator sebelum kelas** (memakai paket `IAMLAB-BuildBag`). Peserta tidak
+> membangun lab, cukup mengambil modul lalu memverifikasi lab sudah jalan. Bila belum jalan,
+> hubungi fasilitator.
 
 | # | Peserta melakukan | Perintah | ✅ Validasi / output |
 |---|-------------------|----------|----------------------|
-| 0.1 | 🪟 Bangun lab dari paket panitia | `cd <repo>; Set-ExecutionPolicy -Scope Process Bypass -Force; .\build-lab.ps1` | Berakhir `Lab siap`. Bila minta reboot (WSL2/Docker) → reboot, jalankan lagi. |
-| 0.2 | 🪟 Cek kesiapan | `.\build-lab.ps1 -Phase Status` | `srv1`/`client1` `running` (ping OK); stack Docker `running`/`healthy`; port `389/636/443` di `10.10.10.5` terbuka. |
+| 0.1 | 🪟 Masuk folder builder & ambil modul | `cd C:\Lab\IAMLAB-BuildBag; git clone <url-repo> Pelatihan_IAM; cd Pelatihan_IAM` | Folder `Pelatihan_IAM` berisi `sesi-0..4`. Tata letak: `IAMLAB-BuildBag\{deploy,...}` + `IAMLAB-BuildBag\Pelatihan_IAM`. |
+| 0.2 | 🪟 Pastikan lab (buatan fasilitator) jalan | `cd ..\deploy; docker compose ps` (atau `..\build-lab.ps1 -Phase Status`) | Stack Docker `running`/`healthy`; VM `srv1`/`client1` `running`; port `389/636/443` di `10.10.10.5` terbuka. |
 | 0.3 | 🌐 Buka layanan | Browser → `https://kc.iamlab.test` | Halaman *Welcome to Keycloak*. `https://grafana.iamlab.test` → Grafana. |
 
-> Jika `https://kc.iamlab.test` memberi halaman asing: port 443 direbut `vmware-hostd` — hentikan
-> layanan *VMware Workstation Server*, lalu ulangi (lihat Sesi 0).
+> Semua perintah `docker compose …` di modul dijalankan dari `IAMLAB-BuildBag\deploy`
+> (dari folder modul: `cd ..\deploy`). File modul yang disalin ke container dirujuk sebagai
+> `../Pelatihan_IAM/sesi-…`.
 
 ---
 
@@ -37,7 +42,7 @@ Akun: Administrator domain `Passw0rd#Lab2026` · admin lokal VM `labadmin` / `La
 | # | Peserta melakukan | Perintah (ringkas) | ✅ Validasi / output |
 |---|-------------------|--------------------|----------------------|
 | 1.1 | 🐳 Tata OU, grup, akun layanan, SPN | `docker compose exec samba-dc bash` lalu `samba-tool ou create…`, `group add…`, `user create svc-*…`, `spn add…` | Tiap perintah: `Added ou…` / `User '…' added successfully`. `samba-tool spn list svc-app` memuat `HTTP/app.iamlab.test`. |
-| 1.2 | 🐳 Bulk import ±220 pengguna | `docker compose cp ../sesi-1-direktori-akses-cis samba-dc:/tmp/sesi1` → `bash /tmp/sesi1/import-ad.sh --csv …users_dummy.csv --send-email` | `Selesai: dibuat 200 …` (batch2: `dibuat 20`). `samba-tool user show dewi.puspita001` → `pwdLastSet: 0`. Email di Mailpit. |
+| 1.2 | 🐳 Bulk import ±220 pengguna | `docker compose cp ../Pelatihan_IAM/sesi-1-direktori-akses-cis samba-dc:/tmp/sesi1` → `bash /tmp/sesi1/import-ad.sh --csv …users_dummy.csv --send-email` | `Selesai: dibuat 200 …` (batch2: `dibuat 20`). `samba-tool user show dewi.puspita001` → `pwdLastSet: 0`. Email di Mailpit. |
 | 1.3 | 🐳 Kebijakan sandi + PSO | `samba-tool domain passwordsettings set/pso …` | `Minimum password length: 14`, `Password complexity: on`; PSO-Admin min 20. |
 | 1.4 | 🐳 Hardening (AES-only, NTLM off) + 🐳🖥️ LDAPS (ekspor CA) | `samba-tool user setpassword svc-keycloak…`; `docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem`; `up -d --force-recreate keycloak openbao` | `openssl s_client -connect 10.10.10.5:636` → sertifikat CN `DC1.iamlab.test`. Catat sandi baru `svc-keycloak` (dipakai Sesi 2). |
 | 1.5 | 🖥️ Join `srv1` & `client1` | di tiap VM: `sudo join-domain.sh` lalu `id dewi.puspita001` | `akun domain terbaca: …`; `id` memuat grup `gg-pimpinan`, `gg-app-viewer`. Di `client1`: login GDM sebagai `dewi.puspita001`. |

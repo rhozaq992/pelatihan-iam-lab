@@ -88,7 +88,7 @@ Infrastruktur dinyalakan sekali dengan perintah di bawah; **ini bukan bagian yan
 dinilai**, tetapi peserta perlu tahu cara sistem hidup. Konfigurasi detail (langkah
 1–5) yang dikerjakan peserta.
 ```bash
-cd deploy
+cd ../deploy        # stack di IAMLAB-BuildBag; modul diklon di IAMLAB-BuildBag/Pelatihan_IAM
 cp .env.example .env            # sesuaikan DC_IP & sandi
 docker compose up -d            # Keycloak + PostgreSQL + aplikasi + proxy berjalan (kosong)
 ```

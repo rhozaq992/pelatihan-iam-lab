@@ -144,24 +144,37 @@ termasuk login & perintah di VM Ubuntu — mengalir sebagai log ke **Alloy → L
 | **3** | Privileged Access Management (OpenBao + Warpgate) | 3.1, 3.2 |
 | **4** | Audit, Monitoring & **trace aktivitas pengguna** (Alloy/Loki/Grafana) + capstone | 4.1, 4.2 |
 
-> Lingkungan (container layanan + 2 VM Ubuntu) disiapkan `build-lab.ps1`; peserta berfokus pada
-> **konfigurasi keamanan** di tiap sesi, bukan instalasi dari nol.
+> Lingkungan (container layanan + 2 VM Ubuntu) **sudah dibangun fasilitator** memakai paket
+> `IAMLAB-BuildBag`; peserta berfokus pada **konfigurasi keamanan** di tiap sesi, bukan instalasi.
 
-## Prasyarat PC peserta
+## Untuk peserta: ambil modul & verifikasi lab
 
-- **Windows 10/11 Pro/Enterprise**, RAM **16 GB** (disarankan lebih), disk kosong ≥ 80 GB,
-  virtualisasi (VT-x/AMD-V) aktif di BIOS/UEFI.
-- Hak **Administrator** (membuat VM, jaringan Host-Only, aturan firewall, mengisi berkas hosts).
-- Google Authenticator / FreeOTP di ponsel (MFA, Sesi 2).
-- VirtualBox & Docker Desktop **tidak perlu dipasang manual** — `build-lab.ps1` memasangnya.
-
-## Deploy awal (satu skrip)
-
-Seluruh lab dibangun oleh **[`build-lab.ps1`](../build-lab.ps1)** di root repo. Jalankan
-🪟 **PowerShell sebagai Administrator**:
+Lab **sudah disiapkan fasilitator** di PC. Peserta cukup mengambil modul ini lalu memastikan lab jalan:
 
 ```powershell
-cd <folder-repo>
+cd C:\Lab\IAMLAB-BuildBag          # folder builder yang disiapkan fasilitator
+git clone <url-repo> Pelatihan_IAM  # modul ini
+cd Pelatihan_IAM
+cd ..\deploy; docker compose ps     # verifikasi stack jalan (atau: ..\build-lab.ps1 -Phase Status)
+```
+
+Tata letak di PC lab: `IAMLAB-BuildBag\{build-lab.ps1, deploy, lab, attack-sim, distribusi}` +
+`IAMLAB-BuildBag\Pelatihan_IAM` (modul). Semua perintah `docker compose …` dijalankan dari
+`IAMLAB-BuildBag\deploy` (dari folder modul: `cd ..\deploy`); file modul yang disalin ke container
+dirujuk `../Pelatihan_IAM/sesi-…`.
+
+Google Authenticator / FreeOTP di ponsel diperlukan untuk MFA (Sesi 2).
+
+---
+
+## Untuk fasilitator: membangun lab (sebelum pelatihan)
+
+Lab dibangun **sekali oleh fasilitator** dengan `build-lab.ps1` (ada di `IAMLAB-BuildBag`, bukan di
+repo modul) pada PC: **Windows 10/11 Pro**, RAM **16 GB**, disk ≥ 80 GB, virtualisasi aktif, hak
+**Administrator**. 🪟 **PowerShell sebagai Administrator**:
+
+```powershell
+cd C:\Lab\IAMLAB-BuildBag
 Set-ExecutionPolicy -Scope Process Bypass -Force
 .\build-lab.ps1                 # Check → Requirements → Download → Install → Build
 ```

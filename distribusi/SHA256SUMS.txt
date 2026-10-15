@@ -1,1 +1,0 @@
-# Diisi otomatis oleh download.sh / make-build-bag.ps1 (sha256 iam-images.tar)

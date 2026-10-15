@@ -1,45 +1,56 @@
-# Pelatihan: Manajemen Identitas dan Akses Terpusat (IAM)
+# Pelatihan: Manajemen Identitas dan Akses Terpusat (IAM) — Modul Peserta
 
-Modul praktik untuk membangun, mengamankan, dan memantau sistem identitas terpusat.
-Seluruh data bersifat **sintetis** (domain `iamlab.test`) dan lab berjalan **terisolasi**
-di PC peserta.
+Repositori ini berisi **modul praktik** untuk peserta pelatihan IAM: membangun, mengamankan, dan
+memantau sistem identitas terpusat. Seluruh data bersifat **sintetis** (domain `iamlab.test`) dan
+lab berjalan **terisolasi** (jaringan Host-Only, tanpa internet).
 
 > ⚠️ **Etika & lingkup.** Topik serangan (Pass-the-Hash, Kerberoasting) dibahas secara
 > **defensif** — hanya untuk menguji deteksi & mitigasi, memakai perkakas *open source*
-> standar yang dikunci ke target lab, di jaringan Host-Only tanpa internet.
+> standar yang dikunci ke target lab, di jaringan terisolasi.
 
-## Memulai
+## Lab sudah disiapkan fasilitator
 
-Seluruh lab dibangun satu skrip di **PowerShell (Administrator)** pada PC Windows peserta:
+Infrastruktur lab (Docker stack + Samba AD `dc1`, VM Ubuntu `srv1` & `client1`) **dibangun oleh
+fasilitator sebelum pelatihan** memakai paket **IAMLAB-BuildBag** (di luar repo ini). Peserta
+**tidak perlu** menjalankan `build-lab.ps1` atau memasang apa pun.
+
+**Yang dilakukan peserta** di PC lab yang sudah disiapkan:
+
 ```powershell
-cd <folder-repo>
-Set-ExecutionPolicy -Scope Process Bypass -Force
-.uild-lab.ps1          # Check -> Requirements -> Download -> Install -> Build
+# 1. masuk ke folder builder yang sudah disiapkan fasilitator
+cd C:\Lab\IAMLAB-BuildBag
+# 2. ambil modul (repo ini) ke dalam folder builder
+git clone <url-repo> Pelatihan_IAM
+# 3. mulai dari Sesi 0
+cd Pelatihan_IAM
 ```
-Skrip memasang VirtualBox + Docker Desktop (bila belum ada), menjalankan stack layanan
-(termasuk Samba AD `dc1`), lalu membuat VM Ubuntu `srv1` & `client1` di jaringan Host-Only
-`10.10.10.0/24`. Rinciannya di [Sesi 0](sesi-0-pengantar/README.md#deploy-awal-satu-skrip).
-Untuk kelas, panitia memakai **paket build** siap-serah ([`build-bag/`](build-bag/README.md)).
 
-> Setelah build: **OpenBao** menyala *sealed* (init/unseal di Sesi 3) dan **Warpgate** perlu
-> *setup* sekali (Sesi 3) — ini normal. Endpoint & pengelolaan: [`deploy/README.md`](deploy/README.md).
+Hasil akhir tata letak di PC lab:
 
-## Peta Direktori
+```
+IAMLAB-BuildBag\            <- disiapkan fasilitator (stack + VM sudah jalan)
+├─ build-lab.ps1  deploy\  lab\  attack-sim\  distribusi\
+└─ Pelatihan_IAM\          <- modul ini (git clone)
+   └─ sesi-0..4\ , README.md , ALUR-PESERTA.md
+```
 
-| Path | Isi | Dijalankan? |
-|------|-----|-------------|
-| `build-lab.ps1` | **Pembangun lab** di PC Windows (cek sistem, pasang deps, stack Docker, VM Ubuntu) | `.\build-lab.ps1` |
-| `ALUR-PESERTA.md` | **Storyboard** langkah peserta semua sesi + checklist validasi | baca |
-| `build-bag/` | Pembuat paket instalasi siap-serah untuk panitia | `build-bag/make-build-bag.ps1` |
-| `lab/` | Berkas untuk VM: cloud-init, skrip (`join-domain.sh`, `cis-scan.sh`), Alloy host, aturan auditd | dipakai `build-lab.ps1` |
-| `deploy/` | **Stack Docker**: `compose.yaml` + konfigurasi (Caddy, Keycloak, OpenBao, Warpgate, monitoring, **Samba AD**) + aplikasi | `docker compose up -d` |
-| `sesi-0-pengantar/` | Pengantar: topologi + teori dasar | baca dulu |
-| `sesi-1-direktori-akses-cis/` | Pengamanan Samba AD/LDAP, join domain, kebijakan akses & CIS + `import-ad.sh`, CSV | ikuti modul |
-| `sesi-2-sso-mfa/` | SSO & MFA (Keycloak) + App-Komentar RBAC | ikuti modul |
-| `sesi-3-pam/` | OpenBao (vault) + Warpgate (bastion) | ikuti modul |
-| `sesi-4-audit-monitoring/` | Alloy/Loki/Grafana + capstone | ikuti modul |
-| `attack-sim/` | Runner simulasi berpagar (dipakai Sesi 1) | via compose profil |
-| `distribusi/` | Aset berat offline (`iam-images.tar`, installer) dibagikan manual (tidak di Git) | lihat README-nya |
+> **Menjalankan perintah lab.** Stack Docker ada di `IAMLAB-BuildBag\deploy`. Dari folder modul
+> (`Pelatihan_IAM`), perintah `docker compose …` dijalankan setelah `cd ../deploy`. File modul yang
+> perlu disalin ke container dirujuk sebagai `../Pelatihan_IAM/sesi-…` (lihat tiap sesi).
+
+## Peta modul
+
+| Path | Isi |
+|------|-----|
+| `sesi-0-pengantar/` | Pengantar: topologi + teori dasar — **baca dulu** |
+| `sesi-1-direktori-akses-cis/` | Pengamanan Samba AD/LDAP, join domain, kebijakan akses & CIS (+ `import-ad.sh`, CSV) |
+| `sesi-2-sso-mfa/` | SSO & MFA (Keycloak) + App-Komentar RBAC |
+| `sesi-3-pam/` | OpenBao (vault) + Warpgate (bastion) |
+| `sesi-4-audit-monitoring/` | Alloy/Loki/Grafana + capstone |
+| `ALUR-PESERTA.md` | Storyboard langkah peserta semua sesi + checklist validasi |
+
+> Infrastruktur build (`build-lab.ps1`, `deploy/`, `lab/`, `attack-sim/`, `distribusi/`) **tidak**
+> ada di repo ini — semuanya di paket **IAMLAB-BuildBag** milik fasilitator.
 
 ## Alur Sesi (saling menyambung)
 
@@ -52,14 +63,10 @@ Sesi 1 (Samba AD: OU, grup GG-*, akun svc-*; join srv1/client1; kebijakan akses;
                  └─► Sesi 4 (audit event Sesi 1–3 + aktivitas user srv1/client1 → dashboard & deteksi)
 ```
 
-## Prasyarat PC peserta
+## Yang perlu peserta siapkan
 
-- Windows 10/11 Pro, RAM 16 GB, disk kosong ≥ 80 GB, virtualisasi (VT-x/AMD-V) aktif.
-- VirtualBox (VM Ubuntu `srv1`/`client1`) + Docker Desktop (layanan IAM & Samba AD) — keduanya dipasang otomatis oleh `build-lab.ps1`.
-- Google Authenticator / FreeOTP di ponsel.
-
-> Aset berat (image Docker, installer) **tidak** di Git — dibagikan manual lewat `distribusi/`
-> atau paket build (lihat [`build-bag/README.md`](build-bag/README.md)).
+- Akun di PC lab (disiapkan fasilitator) dengan VirtualBox + Docker Desktop sudah terpasang & lab berjalan.
+- Google Authenticator / FreeOTP di ponsel (untuk MFA di Sesi 2).
 
 ## Lisensi komponen
 

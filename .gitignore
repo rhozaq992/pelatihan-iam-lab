@@ -28,3 +28,11 @@ deploy/certs/*.cer
 
 # datastream SCAP besar (disertakan via build-bag/offline, bukan git)
 lab/cis/*.xml
+
+# === Infra build (pindah ke IAMLAB-BuildBag; repo ini = MODUL PESERTA saja) ===
+/build-lab.ps1
+/build-bag/
+/deploy/
+/lab/
+/attack-sim/
+/distribusi/

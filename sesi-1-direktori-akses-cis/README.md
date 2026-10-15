@@ -109,7 +109,7 @@ tier, kurangi/nonaktifkan NTLM (`ntlm auth = disabled` di Samba), kredensial adm
 Jalankan `samba-tool` **di dalam container `samba-dc`**. Buka shell DC:
 ```bash
 # 🖥️ terminal host (PowerShell/terminal apa pun dengan docker)
-cd deploy
+cd ../deploy        # stack di IAMLAB-BuildBag; modul diklon di IAMLAB-BuildBag/Pelatihan_IAM
 docker compose exec samba-dc bash      # masuk ke container dc1
 ```
 ```bash
@@ -141,7 +141,7 @@ samba-tool spn add HTTP/honey.iamlab.test svc-honey
 "ganti saat login pertama". Salin folder sesi ini ke container, lalu jalankan:
 ```bash
 # 🖥️ terminal host
-docker compose cp ../sesi-1-direktori-akses-cis samba-dc:/tmp/sesi1
+docker compose cp ../Pelatihan_IAM/sesi-1-direktori-akses-cis samba-dc:/tmp/sesi1
 # 🐳 di dalam container samba-dc — --send-email mengirim sandi awal ke Mailpit
 docker compose exec samba-dc bash /tmp/sesi1/import-ad.sh --csv /tmp/sesi1/users_dummy.csv --send-email
 docker compose exec samba-dc bash /tmp/sesi1/import-ad.sh --csv /tmp/sesi1/users_batch2.csv   # latihan +20
