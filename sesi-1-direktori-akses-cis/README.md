@@ -227,9 +227,10 @@ docker compose up -d --force-recreate keycloak openbao     # muat truststore CA
 > Docker — jadi perintah dijalankan di VM lewat SSH/konsol, bukan `docker compose exec`.)
 > CA ini otomatis dipercaya Keycloak/OpenBao via mount `deploy/certs`.
 > ⚠️ **Untuk OpenBao (Sesi 3) — sertifikat butuh SAN.** Cert auto-generate Samba hanya ber-CN
-> (tanpa SAN); klien Go (OpenBao) menolaknya (`x509: legacy Common Name`). Image samba-dc terbaru
-> meregenerasi cert ber-SAN otomatis. **Pada lab yang sudah terbangun dengan image lama**, jalankan
-> sekali di container untuk membuat cert ber-SAN, lalu re-ekspor CA:
+> (tanpa SAN); klien Go (OpenBao) menolaknya (`x509: legacy Common Name`). `build-lab.ps1` kini
+> **me-restart samba-dc sekali** setelah provisioning agar entrypoint meregen cert ber-SAN — jadi
+> build baru sudah beres. **Pada lab lama (dibangun sebelum perbaikan ini)**, jalankan sekali di
+> container untuk membuat cert ber-SAN, lalu re-ekspor CA:
 > ```bash
 > # 🐳 di dalam container samba-dc — regen cert LDAPS DENGAN SAN (idempoten)
 > docker compose exec samba-dc sh -c 'cd /var/lib/samba/private/tls; \

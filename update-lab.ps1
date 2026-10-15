@@ -46,7 +46,11 @@ if($ClearWarpgateBlocks){
   if(-not $vol){ Warn 'volume warpgate-data tak ditemukan'; }
   else {
     Push-Location $Deploy; try { Invoke-Native $docker @('compose','stop','warpgate') | Out-Null } finally { Pop-Location }
-    Invoke-Native $docker @('run','--rm','-v',"${vol}:/data",'alpine','sh','-c','apk add -q sqlite >/dev/null 2>&1; sqlite3 /data/db/db.sqlite3 "DELETE FROM ip_blocks; DELETE FROM failed_login_attempts;" 2>/dev/null; echo cleared') | Out-Null
+    # SQL via STDIN agar tak ada quote bersarang yg di-mangle PowerShell
+    $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
+    'DELETE FROM ip_blocks; DELETE FROM failed_login_attempts;' |
+      & $docker run -i --rm -v "${vol}:/data" alpine sh -c 'apk add -q sqlite >/dev/null 2>&1; sqlite3 /data/db/db.sqlite3' 2>&1 | Out-Host
+    $ErrorActionPreference=$old
     Push-Location $Deploy; try { Invoke-Native $docker @('compose','start','warpgate') | Out-Null } finally { Pop-Location }
     Ok 'blokir IP & percobaan gagal Warpgate dikosongkan; warpgate di-restart'
   }
@@ -68,9 +72,34 @@ try {
   }
   Invoke-Native $docker @('compose','up','-d','--no-build') | Out-Null
   Ok 'compose up -d (hanya service berubah yang dibuat ulang)'
-  Step '3. Restart samba-dc (regen sertifikat LDAPS ber-SAN bila perlu)'
-  Invoke-Native $docker @('compose','restart','samba-dc') | Out-Null; Ok 'samba-dc di-restart'
 } finally { Pop-Location }
+
+Step '3. Pastikan sertifikat LDAPS Samba ber-SAN (perbaikan OpenBao Sesi 3)'
+# Lab LAMA: cert LDAPS sering CN-only (tanpa SAN) -> OpenBao (Go) menolak. Regen cert ber-SAN
+# via helper alpine (tak bergantung openssl/entrypoint di image samba lama), pakai volume samba.
+$sambaVol = (& $docker volume ls --format '{{.Name}}' | Select-String -Pattern 'samba-data' | Select-Object -First 1)
+if ($sambaVol) {
+  $sambaVol = $sambaVol.ToString().Trim()
+  # skrip sh TANPA tanda kutip ganda (hindari mangling PowerShell); deteksi SAN via grep kata 'Alternative'
+  $gen = 'apk add -q openssl >/dev/null 2>&1; cd /d/private/tls 2>/dev/null || exit 0; ' +
+         'openssl x509 -in cert.pem -noout -text 2>/dev/null | grep -q Alternative && { echo has-san; exit 0; }; ' +
+         'openssl req -x509 -newkey rsa:4096 -keyout key.new -out cert.new -days 3650 -nodes ' +
+         '-subj /O=iamlab/CN=DC1.iamlab.test -addext subjectAltName=DNS:dc1.iamlab.test,IP:10.10.10.5 >/dev/null 2>&1; ' +
+         'mv cert.new cert.pem; mv key.new key.pem; cp cert.pem ca.pem; chmod 600 key.pem; chmod 644 cert.pem ca.pem; echo regenerated'
+  $o = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  $res = & $docker run --rm -v "${sambaVol}:/d" alpine sh -c $gen 2>&1 | Out-String
+  $ErrorActionPreference = $o
+  if ($res -match 'regenerated') {
+    Ok 'cert LDAPS ber-SAN dibuat; restart samba-dc + re-ekspor CA + recreate keycloak/openbao'
+    Push-Location $Deploy
+    try {
+      Invoke-Native $docker @('compose','restart','samba-dc') | Out-Null
+      Start-Sleep -Seconds 8
+      Invoke-Native $docker @('compose','cp','samba-dc:/var/lib/samba/private/tls/ca.pem','certs/ad-ca.pem') | Out-Null
+      Invoke-Native $docker @('compose','up','-d','--force-recreate','keycloak','openbao') | Out-Null
+    } finally { Pop-Location }
+  } else { Ok 'cert LDAPS sudah ber-SAN (tak perlu regen); restart samba-dc' ; Push-Location $Deploy; try { Invoke-Native $docker @('compose','restart','samba-dc') | Out-Null } finally { Pop-Location } }
+} else { Warn 'volume samba-data tak ditemukan - lewati pengecekan SAN' }
 
 if(-not $SkipGit){
   $modul=Join-Path $Root 'Pelatihan_IAM'

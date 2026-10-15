@@ -151,11 +151,12 @@ lalu **Sync LDAP groups**. Daftar provider federasi:
 - **Advanced → PKCE: S256** (aplikasi mewajibkannya — tanpa ini login gagal
   "Missing parameter: code_challenge_method").
 - Tambah **Group Membership mapper**: claim `groups`, **Full group path = Off**.
-- ⚠️ **Client scope `groups` (wajib).** App-Komentar meminta *scope* `groups` saat login; bila scope
-  itu tak ada, Keycloak menolak: *"Invalid scopes: … groups"* dan `/callback` gagal. Buat sekali:
-  **Client scopes → Create** nama `groups` (OpenID Connect), tambah **Group Membership mapper** di
-  dalamnya (claim `groups`, Full path Off, Add to userinfo On), lalu di client `app-komentar` →
-  **Client scopes → Add → groups** sebagai **Default**.
+- Klaim `groups` di token datang dari **Group Membership mapper pada client** (butir di atas),
+  **bukan** dari scope — `app.py` meminta `"openid profile email"` saja, jadi mapper sudah cukup.
+  ⚠️ **Hanya jika** aplikasi versi lama di lab Anda masih meminta *scope* `groups` dan Keycloak
+  menolak *"Invalid scopes: … groups"*: buat **Client scopes → Create** `groups` (OIDC) + Group
+  Membership mapper (claim `groups`, Full path Off, userinfo On), lalu jadikan **Default** di client
+  `app-komentar`. Pada image terbaru langkah ini **opsional**.
 
 Cocokkan layar pengaturan client:
 
