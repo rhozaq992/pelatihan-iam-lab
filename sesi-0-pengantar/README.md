@@ -96,12 +96,16 @@ Aktivitas* di bawahnya.
 | **1** | Pengguna membuka aplikasi/konsol lewat HTTPS; TLS diterminasi reverse proxy | Klien Ubuntu → **Caddy** |
 | **2** | Proxy meneruskan permintaan login ke Identity Provider (SSO) | Caddy → **Keycloak** |
 | **3** | Keycloak memverifikasi kredensial & menarik atribut/grup lewat LDAPS 636 | Keycloak → **Samba AD DC (dc1)** |
-| **4** | Klien & server Ubuntu bergabung ke domain (Kerberos/LDAP) untuk login akun direktori | Ubuntu srv1/client1 → **dc1** |
-| **5** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Pengguna → **Warpgate** |
-| **6** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
-| **7** | Sesi SSH diteruskan ke target **dan direkam** | Warpgate → **srv1** |
-| **8** | Komponen & host mengirim event audit (login, akses vault, perintah user, skor CIS) | Keycloak/OpenBao/dc1/srv1/client1 → **Alloy** |
-| **9** | Log terstruktur disimpan lalu divisualkan (dashboard & alert, UBA) | Alloy → **Loki** → **Grafana** |
+| **4** | Akses istimewa diarahkan ke bastion; login bastion memakai SSO Keycloak + MFA | Klien Ubuntu ⇢ **Warpgate** |
+| **5** | Bastion mengambil kredensial *break-glass* / meminta sertifikat SSH berumur pendek | Warpgate → **OpenBao (Vault/SSH CA)** |
+| **6** | Sesi SSH diteruskan ke VM target **dan direkam** | Warpgate → **VM Ubuntu (srv1/client1)** |
+| **7** | Komponen & host mengirim event audit (login, akses vault, perintah, skor CIS) | Keycloak/OpenBao/dc1 → **Alloy** |
+| **8** | Log terstruktur disimpan | Alloy → **Loki** |
+| **9** | Divisualkan: dashboard & alert, **UBA** | Loki → **Grafana** |
+
+> Nomor pada tabel cocok dengan badge di Gambar 1. Selain alur di atas, **VM `srv1`/`client1`
+> bergabung ke domain** `dc1` (Kerberos/LDAP) di **Sesi 1** — ini mendasari login akun direktori
+> di endpoint, dijelaskan penuh di sesi tersebut (bukan bagian alur layanan bernomor ini).
 
 Secara **jaringan/penempatan**, blok-blok tersebut berjalan sebagai berikut:
 
@@ -134,6 +138,103 @@ termasuk login & perintah di VM Ubuntu — mengalir sebagai log ke **Alloy → L
 > direktori + layanan — muat di satu PC 16 GB tanpa lisensi Windows Server. Konsep AD/LDAP,
 > *tiering*, dan kebijakan akses terpusat identik; yang berbeda hanya perkakas administrasinya
 > (`samba-tool` dan kebijakan sisi klien Linux, bukan GPMC).
+
+## Daftar Istilah & Singkatan
+
+Rujukan cepat singkatan yang dipakai berulang di seluruh modul.
+
+**Identitas & direktori**
+
+| Singkatan | Kepanjangan | Arti ringkas |
+|-----------|-------------|--------------|
+| IAM | Identity & Access Management | Manajemen identitas & akses |
+| IAAA | Identification, Authentication, Authorization, Accounting/Audit | Empat pilar kontrol identitas |
+| AD | Active Directory | Direktori + control plane identitas (di lab: **Samba AD**) |
+| DC | Domain Controller | Server pengendali domain (`dc1`) |
+| LDAP | Lightweight Directory Access Protocol | Protokol akses direktori (port 389) |
+| LDAPS | LDAP over TLS | LDAP terenkripsi (port 636) |
+| OU | Organizational Unit | Unit/wadah objek di direktori |
+| DN | Distinguished Name | Nama unik objek (mis. `CN=svc-keycloak,OU=AkunLayanan,…`) |
+| DNS | Domain Name System | Resolusi nama → alamat |
+| KDC | Key Distribution Center | Penerbit tiket Kerberos di DC |
+| SPN | Service Principal Name | Nama layanan ber-Kerberos pada akun layanan |
+| GPO | Group Policy Object | Kebijakan terpusat (padanan Linux: sssd + CIS) |
+| PSO | Password Settings Object | Kebijakan sandi khusus per grup |
+
+**SSO, token & MFA**
+
+| Singkatan | Kepanjangan | Arti ringkas |
+|-----------|-------------|--------------|
+| IdP | Identity Provider | Gerbang SSO (di lab: **Keycloak**) |
+| SP / RP | Service Provider / Relying Party | Aplikasi yang memercayai IdP |
+| SSO | Single Sign-On | Satu kali login untuk banyak aplikasi |
+| MFA | Multi-Factor Authentication | Autentikasi >1 faktor |
+| OTP / TOTP | One-Time Password / Time-based OTP | Kode sekali pakai (RFC 6238, Google Authenticator) |
+| SAML | Security Assertion Markup Language | Federasi berbasis XML Assertion |
+| OAuth 2.0 | Open Authorization | Kerangka otorisasi akses sumber daya |
+| OIDC | OpenID Connect | Lapisan identitas di atas OAuth 2.0 |
+| JWT | JSON Web Token | Format token (ID Token OIDC) |
+| PKCE | Proof Key for Code Exchange | Pengaman alur Authorization Code |
+| RBAC | Role-Based Access Control | Hak akses berbasis peran/grup |
+| AAL | Authenticator Assurance Level | Tingkat jaminan autentikasi (NIST SP 800-63B) |
+
+**PAM & kriptografi**
+
+| Singkatan | Kepanjangan | Arti ringkas |
+|-----------|-------------|--------------|
+| PAM | Privileged Access Management | Pengelolaan akses istimewa (OpenBao + Warpgate) |
+| CA | Certificate Authority | Penerbit sertifikat |
+| SSH CA | SSH Certificate Authority | Penandatangan sertifikat SSH berumur pendek (OpenBao) |
+| KV | Key-Value | Mesin rahasia OpenBao (brankas) |
+| TLS | Transport Layer Security | Enkripsi transport (HTTPS/LDAPS) |
+| AES / RC4 | Advanced Encryption Standard / Rivest Cipher 4 | Enctype Kerberos: AES (kuat) vs RC4 (lemah) |
+| NTLM | NT LAN Manager | Protokol autentikasi lama (dibatasi `ntlmv2-only`) |
+
+**Audit, kepatuhan & infrastruktur**
+
+| Singkatan | Kepanjangan | Arti ringkas |
+|-----------|-------------|--------------|
+| UBA | User Behavior Analytics | Deteksi perilaku tak lazim |
+| CIS | Center for Internet Security | Benchmark pengerasan (via OpenSCAP) |
+| SCAP | Security Content Automation Protocol | Standar isi audit kepatuhan |
+| LogQL | Log Query Language | Bahasa kueri log Loki |
+| NIST | National Institute of Standards and Technology | Rujukan standar (SP 800-53/63/92) |
+| SPBE / BSSN | Sistem Pemerintahan Berbasis Elektronik / Badan Siber dan Sandi Negara | Konteks kepatuhan audit di Indonesia |
+| VM / VDI | Virtual Machine / Virtual Disk Image | Mesin & disk virtual (VirtualBox) |
+| WSL | Windows Subsystem for Linux | Backend Docker Desktop |
+| GUI / CLI | Graphical / Command-Line Interface | Antarmuka grafis / baris perintah |
+| SMTP | Simple Mail Transfer Protocol | Pengiriman email (ke Mailpit) |
+
+## Kredensial Lab (sintetis)
+
+> ⚠️ **Semua kredensial di bawah HANYA untuk lab terisolasi & sintetis.** Jangan dipakai di
+> produksi; ganti di `deploy/.env` dan saat *setup* untuk lingkungan nyata.
+
+**Sistem & konsol**
+
+| Sistem | Akses | Username | Password | Catatan |
+|--------|-------|----------|----------|---------|
+| Domain AD (Samba `dc1`) | `samba-tool` (🐳) | `Administrator` | `Passw0rd#Lab2026` | admin domain `iamlab.test` |
+| VM `srv1` & `client1` (akun lokal) | SSH/konsol (🖥️) | `labadmin` | `Lab#Admin2026` | admin lokal VM |
+| Keycloak (konsol admin) | `https://kc.iamlab.test` | `admin` | `ChangeMe_Admin#2026` | dari `deploy/.env` |
+| Grafana | `https://grafana.iamlab.test` | `admin` | `ChangeMe_Grafana#2026` | dari `deploy/.env` |
+| Warpgate (bastion) | `https://pam.iamlab.test` | `admin` | `Warp#Lab2026` | diset saat `unattended-setup` (Sesi 3) |
+| Mailpit | `https://mail.iamlab.test` | — | *(tanpa autentikasi)* | kotak surat uji |
+| OpenBao | CLI `docker compose exec openbao bao` | *(root token)* | dibuat saat `operator init` | + 3 *unseal key* (2 utk buka); tak ada login statis |
+| PostgreSQL (internal Keycloak) | tak diekspos | `keycloak` | `ChangeMe_KcDb#2026` | hanya antar-container |
+
+**Akun direktori & layanan (dibuat di Sesi 1)**
+
+| Akun | Password | Peran |
+|------|----------|-------|
+| `svc-keycloak` | `Svc#Lab2026!` → direset `Svc#Lab2026baru` | *Bind credential* federasi LDAP Keycloak |
+| `svc-openbao` | `Svc#Lab2026!` | *Bind* auth LDAP OpenBao |
+| `svc-app`, `svc-honey` | `Svc#Lab2026!` | Akun layanan ber-SPN (AES-only) |
+| `adm-t1-anda` | `Adm1#Lab2026` | Admin Tier 1 (login OpenBao via LDAP) |
+| *break-glass* `srv1` (di OpenBao KV) | `labadmin` / `BreakGlass#2026` | kredensial darurat, teraudit |
+| Pengguna direktori (*bulk import*) | **sandi awal acak** | dikirim ke **Mailpit**; wajib ganti saat login pertama |
+
+> MFA (Sesi 2): butuh **Google Authenticator / FreeOTP** di ponsel untuk akun yang ditarget OTP.
 
 ## Peta Sesi
 
