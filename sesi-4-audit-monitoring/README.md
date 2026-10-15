@@ -132,6 +132,14 @@ host** (`lab/alloy/host.alloy`, sudah dipasang saat build) ke `http://10.10.10.5
 label `job="host"`, `host`, `source` (`auth`/`audit`/`cis`), `event`, dan `user`. Uji dari VM:
 `nc -vz 10.10.10.5 3100`.
 
+> **✅ Validasi.** `service_name/values` Loki memuat semua sumber (caddy, keycloak, samba-dc,
+> openbao, warpgate, app-komentar, dll.) **plus `host`** dari VM. Event Keycloak terparse ke label
+> `event` (LOGIN/LOGIN_ERROR), dan `job="host"` mengalir dari srv1/client1.
+
+![Terminal — Loki: daftar service_name (14 sumber + host), job=host & LOGIN terisi](gambar/loki-sumber.png)
+
+*Gambar 2. Terminal — sumber log di Loki (dipungut Alloy)*
+
 ### 2. 🌐 Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
 Buat panel di datasource Loki (sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
 tersedia sebagai *structured metadata* sehingga langsung dipakai di `sum by (...)`.
@@ -158,7 +166,7 @@ Dashboard akhir yang diharapkan (berisi data nyata dari lalu lintas lab):
 
 ![Grafana — dashboard Identity Audit: jumlah user, user aktif, email terkirim, password reset, login sukses vs gagal, top IP gagal, aktivitas per layanan](gambar/grafana-dashboard.png)
 
-*Gambar 2. Grafana — dashboard Identity Audit*
+*Gambar 3. Grafana — dashboard Identity Audit*
 
 > Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
 > `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
@@ -185,12 +193,16 @@ Untuk **discovery tanpa menulis LogQL**, buka **Explore → Drilldown → Logs**
 > login GUI `client1`) dan bind Keycloak. Bila panel login Samba kosong padahal grup berubah,
 > andalkan event login di sisi **host** (`{job="host", event=~"login_ok|login_fail"}`) dan Keycloak.
 
+![Grafana — User Activity Trace: login host, sudo, perintah audit, aktivitas per user](gambar/grafana-activity-trace.png)
+
+*Gambar 4. Grafana — dashboard User Activity Trace (data nyata lintas host)*
+
 ### 3. 🌐 Alert & UBA dasar
 Buat aturan alert dengan *contact point* Mailpit (kotak surat uji):
 
 ![Mailpit — kotak surat uji (menerima email alert & reset sandi)](gambar/mailpit.png)
 
-*Gambar 3. Mailpit — kotak surat uji (alert & reset sandi)*
+*Gambar 5. Mailpit — kotak surat uji (alert & reset sandi)*
 
 | Aturan | Logika (disederhanakan) | Ambang |
 |--------|-------------------------|--------|
@@ -216,6 +228,13 @@ LAB_PROFILE=normal LAB_TEST_USER=dewi.puspita001 LAB_TEST_PASS='<sandi-permanen>
   docker compose --profile load up -d locust      # UI di http://localhost:8089 → Start
 LAB_PROFILE=spray docker compose --profile load up -d --force-recreate locust   # ganti profil
 ```
+> **Catatan:** profil `spray` tak butuh kredensial (semua jadi `LOGIN_ERROR`); profil `normal`
+> perlu `LAB_TEST_USER`/`LAB_TEST_PASS` (sandi permanen, tanpa OTP) agar ada `LOGIN` sukses. Buka
+> **http://localhost:8089 → Start** lalu amati statistik & grafik beban.
+
+![Locust — UI beban login (STATUS RUNNING, host app.iamlab.test, request GET/POST)](gambar/locust-ui.png)
+
+*Gambar 6. Locust — generator beban login (statistik sesi berjalan)*
 
 ### 2. Deteksi & respons (kunci akun di SEMUA layanan)
 Dari dashboard & alert, identifikasi akun/IP terindikasi, lalu matikan aksesnya terpusat:

@@ -153,6 +153,10 @@ docker compose exec samba-dc samba-tool user list | wc -l       # verifikasi jum
 > department/title/mail. Email sandi awal tampak di Mailpit (`https://mail.iamlab.test`).
 > 🖥️ Butuh data ulang? `python3 gen_dummy_users.py --count 200 --out users_dummy.csv`.
 
+![Terminal — Samba AD: bulk import 200 pengguna (email awal ke Mailpit), dewi pwdLastSet 0](gambar/import-ad.png)
+
+*Gambar 5. Terminal Samba AD — bulk import pengguna + atribut `dewi`*
+
 ### 3. 🐳 Batasi admin domain & siapkan admin Tier 1
 Prinsip *least privilege*: jaga `Domain Admins` minimal, siapkan admin Tier 1 (dipakai login
 OpenBao via LDAP di Sesi 3):
@@ -205,6 +209,10 @@ samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # cat
 > > mengurangi PtH tanpa memutus federasi, cukup `ntlmv2-only` (NTLMv1 ditutup) + isolasi tier +
 > > kredensial admin unik per host. Diskusi PtH di atas tetap berlaku sebagai konsep.
 
+![Terminal — Samba AD: enctype akun layanan = 24 (AES-only) + ntlm auth = ntlmv2-only](gambar/hardening-aes.png)
+
+*Gambar 6. Terminal Samba AD — AES-only (enctype 24) & `ntlmv2-only`*
+
 ### 5b. 🐳🖥️ LDAPS: aktifkan Trust CA Samba ke layanan IAM
 Samba AD menyalakan LDAPS (636) dengan sertifikat yang dibuat otomatis. Agar Keycloak (Sesi 2)
 dan OpenBao (Sesi 3) memercayainya, ekspor CA Samba ke folder `deploy/certs/`:
@@ -218,6 +226,13 @@ docker compose up -d --force-recreate keycloak openbao     # muat truststore CA
 > menampilkan sertifikat ber-`CN = DC1.iamlab.test`. (`srv1`/`client1` adalah VM — bukan service
 > Docker — jadi perintah dijalankan di VM lewat SSH/konsol, bukan `docker compose exec`.)
 > CA ini otomatis dipercaya Keycloak/OpenBao via mount `deploy/certs`.
+> ⚠️ **Untuk OpenBao (Sesi 3):** sertifikat auto-generate Samba hanya ber-CN (tanpa SAN); klien Go
+> (OpenBao) menolaknya. Image samba-dc kini **meregenerasi cert ber-SAN otomatis**. Validasi:
+> `… | openssl x509 -noout -ext subjectAltName` menampilkan `DNS:dc1.iamlab.test, IP:10.10.10.5`.
+
+![Terminal — validasi LDAPS: subject CN=DC1.iamlab.test + SAN (DNS dc1 + IP)](gambar/ldaps-validasi.png)
+
+*Gambar 7. Terminal — validasi sertifikat LDAPS Samba (CN + SAN)*
 
 ### 6. 🖥️ Gabungkan `srv1` & `client1` ke domain
 Login ke VM sebagai admin lokal (`labadmin` / `Lab#Admin2026`), lalu jalankan skrip join
@@ -231,6 +246,10 @@ id dewi.puspita001                  # harus menampilkan UID/grup dari direktori
 > **✅ Validasi.** Skrip menampilkan `akun domain terbaca: …`; `id dewi.puspita001` memuat grup
 > `gg-pimpinan`, `gg-app-viewer`. Di `client1`, pada layar login GDM pilih "Not listed?" lalu
 > masuk sebagai `dewi.puspita001` (wajib ganti sandi awal).
+
+![Terminal — srv1: join-domain.sh + id dewi (gg-pimpinan, gg-app-viewer)](gambar/join-domain.png)
+
+*Gambar 8. Terminal srv1 — join domain & `id dewi.puspita001`*
 
 ### 7. 🖥️ Kebijakan akses terpusat (padanan GPO)
 Batasi **siapa** boleh login ke tiap host dan **hak sudo** berbasis grup AD. Edit di tiap VM:
@@ -252,6 +271,10 @@ sudo systemctl restart sssd
 > **ditolak**; `ssh adm-t1-anda@srv1.iamlab.test` **diterima** dan `sudo -l` menampilkan izin.
 > Perubahan akses ini berlaku terpusat: ubah keanggotaan grup di `dc1`, efeknya di semua host.
 
+![Terminal — srv1: sssctl user-checks dewi (ditolak) vs adm-t1-anda (diterima)](gambar/akses-sssd.png)
+
+*Gambar 9. Terminal srv1 — kebijakan akses `simple` (dewi ditolak, adm-t1 diterima)*
+
 ### 8. 🖥️ Audit kepatuhan CIS Benchmark
 `cis-scan.sh` (dibaking saat build) memakai **OpenSCAP + SCAP Security Guide**. Profil
 dideteksi otomatis: *server* di `srv1`, *workstation* di `client1`.
@@ -269,6 +292,10 @@ sudo cis-scan.sh                      # scan ulang — skor harus naik
 >
 > **Level 2 (informasi tambahan).** `sudo cis-scan.sh --level 2` menjalankan profil yang lebih
 > ketat; dibahas sebagai pengayaan, bukan target kelulusan Sesi 1.
+
+![Terminal — srv1: cis-scan.sh scan (67.2) -> remediasi -> scan ulang (67.7)](gambar/cis-scan.png)
+
+*Gambar 10. Terminal srv1 — audit CIS (skor naik 67.2 → 67.7 setelah remediasi)*
 
 ---
 
