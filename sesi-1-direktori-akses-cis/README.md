@@ -19,9 +19,9 @@ untuk bastion (Sesi 3). Jadi selesaikan sesi ini lebih dulu.
 ## a. Tujuan Sesi
 
 Peserta mampu:
-- Menata direktori terpusat (OU, *tiering*, grup) di Samba AD dan melakukan *bulk import* pengguna.
+- Mengatur direktori terpusat (OU, *tiering*, grup) di Samba AD dan melakukan *bulk import* pengguna.
 - Menerapkan kebijakan kata sandi domain dan PSO untuk akun istimewa.
-- Mengeraskan (*hardening*) direktori: LDAPS, AES-only Kerberos, menonaktifkan protokol lemah.
+- *Hardening* direktori: LDAPS, AES-only Kerberos, menonaktifkan protokol lemah.
 - Menggabungkan klien & server Linux ke domain dan menegakkan **kebijakan akses terpusat**
   (siapa boleh login ke mana, hak sudo berbasis grup).
 - Mengaudit kepatuhan endpoint terhadap **CIS Benchmark** (OpenSCAP), meremediasi, lalu menilai ulang.
@@ -42,14 +42,15 @@ Peserta mampu:
 
 *Active Directory* (di sini **Samba AD**) adalah direktori + *control plane* identitas:
 menyimpan pengguna/grup/komputer (LDAP), menerbitkan tiket **Kerberos** (KDC), dan menjadi
-sumber kebenaran identitas bagi layanan (Keycloak, OpenBao) maupun host (klien Linux).
+sumber kebenaran (source of truth) identitas bagi layanan (Keycloak, OpenBao) maupun host (klien Linux).
 
-Kompromi DC atau akun Tier 0 sama dengan kompromi seluruh domain. Karena itu direktori adalah
-aset paling bernilai yang harus dikeraskan lebih dulu.
+Kompromi pada Domain Controler (DC) atau akun Tier 0 sama dengan kompromi seluruh domain. Karena itu active direktori adalah aset paling bernilai yang harus di hardening lebih dulu.
 
-**Model tiering (Enterprise Access Model).** Tier 0 (DC, sinkronisasi identitas) = bidang
-kendali tertinggi; Tier 1 (server/aplikasi); Tier 2 (perangkat pengguna). Prinsipnya,
-kredensial tier tinggi tidak boleh terpapar di tier rendah, agar kompromi bidang bawah tidak
+**Model tiering (Enterprise Access Model).** 
+- Tier 0 (DC, sinkronisasi identitas) = bidang kendali tertinggi;
+- Tier 1 (server/aplikasi);
+- Tier 2 (perangkat pengguna).
+Prinsipnya, kredensial tier tinggi tidak boleh terpapar di tier rendah, agar kompromi zona bawah tidak
 naik ke atas.
 
 ### Kebijakan keamanan terpusat untuk endpoint Linux (padanan GPO)
@@ -65,8 +66,7 @@ sumber terpusat:
 | Baseline konfigurasi aman | **CIS Benchmark** via OpenSCAP (audit + remediasi), lihat bagian praktik |
 | Kebijakan sandi & penguncian | kebijakan domain Samba + PSO untuk admin |
 
-### Dua teknik serangan (dibahas untuk DITUTUP, bukan untuk menyerang)
-
+### Dua teknik serangan 
 **Kerberoasting.** *Setiap* akun domain boleh meminta tiket layanan (TGS) untuk akun layanan
 ber-SPN; bagian tiket terenkripsi dengan kunci turunan **sandi akun layanan**, lalu penyerang
 menebak sandi itu **luring** (di luar jaringan, tanpa menyentuh DC lagi — itulah yang membuatnya
@@ -174,8 +174,8 @@ samba-tool domain passwordsettings show
 > **✅ Validasi.** `Minimum password length: 14` dan `Password complexity: on`;
 > `samba-tool domain passwordsettings pso show PSO-Admin` menampilkan min length 20.
 
-### 5. 🐳 Hardening inti direktori
-Paksa Kerberos AES pada akun layanan (reset sandi agar kunci dibuat ulang) dan matikan NTLM:
+### 5. 🐳 Hardening active direktori
+Aktifkan Kerberos AES pada akun layanan (reset sandi agar kunci dibuat ulang) dan matikan NTLM:
 ```bash
 # 🐳 di dalam container samba-dc
 # AES-only untuk akun layanan ber-SPN: set enctype ke AES128+AES256 (24) — buang RC4 — lalu
@@ -201,11 +201,11 @@ samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # cat
 > ```
 > > ⚠️ **Jangan pakai `ntlm auth = disabled`.** Mematikan NTLM sepenuhnya juga mematahkan
 > > **LDAP simple-bind** (yang dipakai federasi Keycloak & auth LDAP OpenBao untuk memverifikasi
-> > sandi) — federasi akan gagal diam-diam setelah DC di-*restart* (`ldap_bind data 418`). Untuk
+> > sandi) — federasi akan gagal tanpa kode error setelah DC di-*restart* (`ldap_bind data 418`). Untuk
 > > mengurangi PtH tanpa memutus federasi, cukup `ntlmv2-only` (NTLMv1 ditutup) + isolasi tier +
 > > kredensial admin unik per host. Diskusi PtH di atas tetap berlaku sebagai konsep.
 
-### 5b. 🐳🖥️ LDAPS: percayakan CA Samba ke layanan IAM
+### 5b. 🐳🖥️ LDAPS: aktifkan Trust CA Samba ke layanan IAM
 Samba AD menyalakan LDAPS (636) dengan sertifikat yang dibuat otomatis. Agar Keycloak (Sesi 2)
 dan OpenBao (Sesi 3) memercayainya, ekspor CA Samba ke folder `deploy/certs/`:
 ```bash
