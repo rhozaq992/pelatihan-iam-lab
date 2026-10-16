@@ -220,6 +220,10 @@ ke Mailpit (`GF_SMTP_*`), jadi tinggal dibuat di UI Grafana `https://grafana.iam
 4. (opsional) **Alerting → Notification policies** → **Edit** default policy → **Default contact
    point = mailpit** → **Save** (agar semua alert terkirim ke Mailpit tanpa routing khusus).
 
+![Grafana — Alerting → Contact points (buat contact point email ke Mailpit)](gambar/gf-contact-points.png)
+
+*Gambar 4. Grafana — Contact points (email → Mailpit)*
+
 **Langkah B — buat satu alert rule (contoh: brute force), lalu ulangi utk baris tabel:**
 1. **Alerting → Alert rules → + New alert rule**.
 2. **Name** mis. `Brute force per IP`.
@@ -236,11 +240,15 @@ ke Mailpit (`GF_SMTP_*`), jadi tinggal dibuat di UI Grafana `https://grafana.iam
    (bila tak pakai notification policy default) · isi **Summary/annotation**.
 6. **Save rule and exit**. Picu dengan Locust (capstone) → alert *Firing* → email di Mailpit.
 
+![Grafana — New alert rule: nama, query Loki, Reduce + Threshold, Grafana-managed](gambar/gf-alert-new.png)
+
+*Gambar 5. Grafana — editor New alert rule (query Loki + Reduce/Threshold)*
+
 Ulangi Langkah B untuk tiap baris tabel di bawah (sesuaikan kueri & ambang):
 
 ![Mailpit — kotak surat uji (menerima email alert & reset sandi)](gambar/mailpit.png)
 
-*Gambar 4. Mailpit — kotak surat uji (alert & reset sandi)*
+*Gambar 6. Mailpit — kotak surat uji (alert & reset sandi)*
 
 | Aturan | Logika (disederhanakan) | Ambang |
 |--------|-------------------------|--------|
@@ -277,7 +285,7 @@ LAB_PROFILE=spray docker compose --profile load up -d --force-recreate locust   
 
 ![Locust — UI beban login (STATUS RUNNING, host app.iamlab.test, request GET/POST)](gambar/locust-ui.png)
 
-*Gambar 5. Locust — generator beban login (statistik sesi berjalan)*
+*Gambar 7. Locust — generator beban login (statistik sesi berjalan)*
 
 ### 2. Deteksi & respons (kunci akun di SEMUA layanan)
 Dari dashboard & alert, identifikasi akun/IP terindikasi, lalu matikan aksesnya terpusat:
