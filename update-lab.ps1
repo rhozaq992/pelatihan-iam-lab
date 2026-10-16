@@ -26,8 +26,11 @@ function Ok($m){ Write-Host "  [OK] $m" -ForegroundColor Green }
 function Warn($m){ Write-Host "  [!]  $m" -ForegroundColor Yellow }
 function Fail($m){ Write-Host "  [X]  $m" -ForegroundColor Red; throw $m }
 function Invoke-Native($exe,$argList){
+  # 2>&1 menggabung stderr native sbg ErrorRecord; render tiap baris sbg TEKS biasa (Write-Host)
+  # agar progres docker (mis. "Container ... Running", ditulis ke stderr) tidak tampil sbg blok
+  # merah NativeCommandError yang menakutkan. ErrorActionPreference='Continue' cegah terminasi.
   $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
-  try { & $exe @argList 2>&1 | Out-Host } finally { $ErrorActionPreference=$old }
+  try { & $exe @argList 2>&1 | ForEach-Object { Write-Host "$_" } } finally { $ErrorActionPreference=$old }
   return $LASTEXITCODE
 }
 # docker/git kadang menulis WARNING ke stderr (mis. "No blkio throttle...") -> dgn
@@ -69,7 +72,7 @@ if($ClearWarpgateBlocks){
     # SQL via STDIN agar tak ada quote bersarang yg di-mangle PowerShell
     $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
     'DELETE FROM ip_blocks; DELETE FROM failed_login_attempts;' |
-      & $docker run -i --rm -v "${vol}:/data" alpine sh -c 'apk add -q sqlite >/dev/null 2>&1; sqlite3 /data/db/db.sqlite3' 2>&1 | Out-Host
+      & $docker run -i --rm -v "${vol}:/data" alpine sh -c 'apk add -q sqlite >/dev/null 2>&1; sqlite3 /data/db/db.sqlite3' 2>&1 | ForEach-Object { Write-Host "$_" }
     $ErrorActionPreference=$old
     Push-Location $Deploy; try { Invoke-Native $docker @('compose','start','warpgate') | Out-Null } finally { Pop-Location }
     Ok 'blokir IP & percobaan gagal Warpgate dikosongkan; warpgate di-restart'
