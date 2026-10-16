@@ -130,9 +130,10 @@ if [ -z "$WG_ID" ]; then
 else ok "sudah ada ($WG_ID)"; fi
 WG_SECRET="$(kc get "clients/$WG_ID/client-secret" -r "$REALM" 2>/dev/null | jval value)"
 
-echo "==> Client SAML 'app-saml'"
-if [ -z "$(client_id app-saml)" ]; then
-  kc create clients -r "$REALM" -s clientId=app-saml -s enabled=true -s protocol=saml \
+echo "==> Client SAML (EntityID = SP mod_auth_mellon)"
+SAML_ENTITY='https://saml.iamlab.test/mellon/metadata'
+if [ -z "$(client_id "$SAML_ENTITY")" ]; then
+  kc create clients -r "$REALM" -s clientId="$SAML_ENTITY" -s enabled=true -s protocol=saml \
     -s 'redirectUris=["https://saml.iamlab.test/*"]' \
     -s 'attributes."saml.assertion.signature"="true"' \
     -s 'attributes."saml.client.signature"="false"' \

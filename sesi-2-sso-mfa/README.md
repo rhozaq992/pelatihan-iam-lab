@@ -336,14 +336,14 @@ Cocokkan layar client `warpgate` (perhatikan redirect URI khusus bastion & Direc
 > **SP (mod_auth_mellon) BELUM terkonfigurasi** di image (lihat `deploy/app-saml/Dockerfile`:
 > ada `# TODO PESERTA`). Jadi langkah **3 WAJIB dikerjakan**, bukan sekadar dicocokkan.
 
-1. Menu kiri **Clients → Create client → SAML**. **Client ID** `app-saml` — nilai ini menjadi
-   **SP EntityID** dan **harus sama persis** dengan konfigurasi mod_auth_mellon (langkah 3) serta
-   jalur cepat `setup-keycloak.sh` → **Next → Save**.
+1. Menu kiri **Clients → Create client → SAML**. **Client ID** = **SP EntityID** mod_auth_mellon =
+   **`https://saml.iamlab.test/mellon/metadata`** (URL metadata default mod_auth_mellon; **harus
+   sama persis** dengan `MellonSPMetadataFile` di langkah 3) → **Next → Save**.
 2. Tab **Settings** → **Valid redirect URIs** `https://saml.iamlab.test/*` · **Name ID format**
    `username` · **Sign assertions = On** → **Save**.
 3. **Konfigurasi sisi SP (mod_auth_mellon)** — TODO peserta di container `app-saml`:
    1. Unduh metadata IdP: `https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`.
-   2. Siapkan metadata + sertifikat SP (EntityID `app-saml`).
+   2. Siapkan metadata + sertifikat SP (EntityID `https://saml.iamlab.test/mellon/metadata`).
    3. Buat `/etc/apache2/conf-enabled/mellon.conf`: `MellonSPMetadataFile`, `MellonIdPMetadataFile`,
       dan blok `<Location /protected> MellonEnable "auth" … </Location>`.
    4. `docker compose up -d --build app-saml`, lalu uji `https://saml.iamlab.test/protected/`
