@@ -229,6 +229,10 @@ Daftar provider federasi:
 
 *Gambar 4. Keycloak — User federation (provider LDAP aktif)*
 
+![Keycloak — federasi ldap-ad → tab Mappers → group-ldap-mapper (kotak merah)](gambar/kc-ldap-group-mapper.png)
+
+*Gambar 5. Keycloak — group-ldap-mapper (tab Mappers pada provider LDAP)*
+
 
 ### 2. 🌐 Client OIDC untuk App-Komentar (+ klaim grup + client secret)
 Kerjakan **berurutan**:
@@ -291,19 +295,29 @@ Cocokkan layar pengaturan client:
 
 ![Keycloak — detail Client app-komentar (redirect URI, PKCE, akses)](gambar/kc-client-detail.png)
 
-*Gambar 5. Keycloak — detail Client app-komentar*
+*Gambar 6. Keycloak — detail Client app-komentar*
 
 
 Tab Advanced menampilkan PKCE S256 (wajib):
 
 ![Keycloak — Client app-komentar tab Advanced (PKCE S256)](gambar/kc-client-advanced.png)
 
-*Gambar 6. Keycloak — Client tab Advanced (PKCE S256)*
+*Gambar 7. Keycloak — Client tab Advanced (PKCE S256)*
 
 
 ![Keycloak — daftar Clients realm iamlab](gambar/kc-clients.png)
 
-*Gambar 7. Keycloak — daftar Clients realm iamlab*
+*Gambar 8. Keycloak — daftar Clients realm iamlab*
+
+
+![Keycloak — app-komentar-dedicated → Mappers → Group Membership mapper 'groups' (kotak merah)](gambar/kc-groups-mapper.png)
+
+*Gambar 9. Keycloak — dedicated scope app-komentar: mapper Group Membership `groups`*
+
+
+![Keycloak — Client scopes → Evaluate → Generated ID token memuat klaim groups (user dewi.puspita001)](gambar/kc-evaluate-groups.png)
+
+*Gambar 10. Keycloak — Evaluate: Generated ID token memuat `"groups": ["GG-App-Viewer", …]`*
 
 
 **6. Ambil Client secret** (untuk `deploy/.env`): **Clients → `app-komentar` → tab Credentials**
@@ -315,6 +329,10 @@ APP_OIDC_CLIENT_SECRET=<tempel secret dari tab Credentials>
 APP_FLASK_SECRET=<string-acak-panjang>   # ganti nilai contoh di .env.example (kunci cookie sesi)
 ```
 **7. Muat ulang aplikasi** 🖥️ (dari folder `deploy`): `docker compose up -d app-komentar`.
+
+![Keycloak — Clients → app-komentar → tab Credentials: Client secret / Regenerate (kotak merah)](gambar/kc-credentials.png)
+
+*Gambar 11. Keycloak — tab Credentials app-komentar (ambil/regenerate Client secret)*
 
 ### 3. 🌐 Client OIDC untuk Warpgate (dipakai Sesi 3)
 Langkah sama seperti §2 (1–3) dengan nilai berbeda:
@@ -329,7 +347,7 @@ Cocokkan layar client `warpgate` (perhatikan redirect URI khusus bastion & Direc
 
 ![Keycloak — detail Client warpgate (redirect URI bastion, Standard flow, Direct access grants Off)](gambar/kc-client-warpgate.png)
 
-*Gambar 8. Keycloak — detail Client warpgate (OIDC untuk bastion Sesi 3)*
+*Gambar 12. Keycloak — detail Client warpgate (OIDC untuk bastion Sesi 3)*
 
 ### 4. 🌐 Client SAML untuk App-SAML
 > ℹ️ App-SAML = **demonstrasi federasi SAML**. Sisi **IdP (Keycloak)** dibuat di sini; sisi
@@ -353,14 +371,14 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
 
 ![Keycloak — detail Client SAML app-saml (Name ID, Sign documents/assertions On, metadata descriptor)](gambar/kc-client-saml.png)
 
-*Gambar 9. Keycloak — detail Client SAML (assertion ditandatangani)*
+*Gambar 13. Keycloak — detail Client SAML (assertion ditandatangani)*
 
 ### 5. 🌐 MFA bersyarat (Google Authenticator)
 - **Authentication → Required actions**: *Configure OTP* = On.
 
   ![Keycloak — Required actions (Configure OTP aktif)](gambar/kc-required-actions.png)
 
-*Gambar 10. Keycloak — Required actions (Configure OTP aktif)*
+*Gambar 14. Keycloak — Required actions (Configure OTP aktif)*
 
 - **Buat realm role penanda admin + tempelkan ke grup admin** (WAJIB — kondisi MFA di bawah
   mengkondisikan lewat **role**, bukan grup langsung; role ini **belum ada** sampai Anda membuatnya):
@@ -387,7 +405,7 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
 
   ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
 
-*Gambar 11. Keycloak — Authentication flows (Conditional OTP = Required)*
+*Gambar 15. Keycloak — Authentication flows (Conditional OTP = Required)*
 
   > Catatan: App-Komentar menentukan **hak akses** dari klaim **grup** (`groups`), sedangkan
   > **penegakan MFA** ini memakai **role** `mfa-admin` yang ditempelkan ke grup admin — dua
@@ -421,21 +439,21 @@ Cocokkan layar Anda dengan tiga tangkapan berikut:
 
 ![Keycloak — Security defenses: Brute force detection aktif](gambar/kc-bruteforce.png)
 
-*Gambar 12. Keycloak — Brute force detection aktif*
+*Gambar 16. Keycloak — Brute force detection aktif*
 
 
 *Gambar: proteksi brute force menyala — akun dikunci sementara setelah sejumlah kegagalan login (mis. 10), waktu tunggu bertambah.*
 
 ![Keycloak — Realm settings → Email (SMTP ke Mailpit)](gambar/kc-email.png)
 
-*Gambar 13. Keycloak — Email (SMTP ke Mailpit)*
+*Gambar 17. Keycloak — Email (SMTP ke Mailpit)*
 
 
 *Gambar: SMTP diarahkan ke Mailpit (`mailpit:1025`) agar email reset/verifikasi tertangkap di kotak surat uji, bukan terkirim ke internet.*
 
 ![Keycloak — konfigurasi Events (user + admin, listener jboss-logging)](gambar/kc-events.png)
 
-*Gambar 14. Keycloak — konfigurasi Events*
+*Gambar 18. Keycloak — konfigurasi Events*
 
 
 *Gambar: pencatatan event diaktifkan sehingga login/perubahan admin terekam dan bisa dipanen Alloy → Loki di Sesi 4.*
@@ -448,13 +466,13 @@ yang tersedia berbeda, dan penolakan ditegakkan **di server** (bukan sekadar tom
 |---|---|---|
 | ![Viewer](gambar/app-viewer.png) | ![Editor](gambar/app-editor.png) | ![Admin](gambar/app-admin.png) |
 
-*Gambar 15. App-Komentar — tampilan peran Viewer, Editor, Admin*
+*Gambar 19. App-Komentar — tampilan peran Viewer, Editor, Admin*
 
 Halaman login SSO Keycloak yang muncul saat menekan "masuk":
 
 ![Halaman login Keycloak (SSO)](gambar/kc-login.png)
 
-*Gambar 16. Halaman login Keycloak (SSO)*
+*Gambar 20. Halaman login Keycloak (SSO)*
 
 
 ### (Terkait) Distribusi kata sandi awal via email
@@ -463,7 +481,7 @@ Keycloak juga mengirim email aksi akun (set sandi/verifikasi). Alurnya:
 
 ![Distribusi kata sandi awal via email (Mailpit) untuk akun AD & Keycloak](gambar/distribusi-sandi.png)
 
-*Gambar 17. Distribusi kata sandi awal via email*
+*Gambar 21. Distribusi kata sandi awal via email*
 
 
 > Catatan: realm Keycloak 26 punya aksi default **Verify Profile**. Pengguna AD sudah
