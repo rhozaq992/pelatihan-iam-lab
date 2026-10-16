@@ -83,6 +83,16 @@ panggung mana yang boleh dimasuki.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
+> ⚡ **Jalur Cepat (opsional, hanya bila stuck).** Seluruh konfigurasi Keycloak §1–§5 (kecuali
+> MFA §4) bisa disiapkan otomatis agar Anda bisa **lanjut ke lab berikutnya** tanpa terhenti:
+> ```bash
+> cd ../deploy
+> BIND_PW='<sandi svc-keycloak terbaru, Sesi 1 langkah 5>' \
+>   ../Pelatihan_IAM/sesi-2-sso-mfa/jalur-cepat/setup-keycloak.sh
+> ```
+> Rincian & catatan: [`jalur-cepat/README.md`](jalur-cepat/README.md). **Langkah manual di
+> bawah tetap jalur utama pembelajaran** — pakai pintasan ini hanya saat benar-benar macet.
+
 ### 0. 🖥️ Deploy (sudah disiapkan)
 Bagian ini hanya untuk diketahui saja. Konfigurasi detail (langkah 1–5) yang dikerjakan peserta.
 ```bash
