@@ -133,7 +133,9 @@ stage.match {
   stage.structured_metadata { values = { user = "bao_user", ip = "ip" } }
 }
 ```
-Lakukan serupa untuk Warpgate & sshd, lalu 🖥️ `docker compose restart alloy`.
+Lakukan serupa untuk **Warpgate** (`service="warpgate"`), lalu 🖥️ `docker compose restart alloy`.
+(⚠️ **Jangan** membuat blok "sshd" di `config.alloy` — log sshd TIDAK dipungut Alloy *container*;
+berasal dari VM `srv1`/`client1` via **Alloy host**, lihat paragraf di bawah.)
 Log direktori **Samba AD** sudah dipungut Alloy container (`service="samba-dc"`, event
 `login_ok`/`login_fail`/`group_change`). Log **endpoint** `srv1`/`client1` dikirim oleh **Alloy
 host** (`lab/alloy/host.alloy`, sudah dipasang saat build) ke `http://10.10.10.5:3100` dengan
@@ -146,8 +148,13 @@ VM; event Keycloak terparse ke label `event` (`LOGIN`/`LOGIN_ERROR`), dan `job="
 dari `srv1`/`client1`.
 
 ### 2. 🌐 Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
-Buat panel di datasource Loki (sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
-tersedia sebagai *structured metadata* sehingga langsung dipakai di `sum by (...)`.
+> ℹ️ Dashboard **"Identity Audit" SUDAH ter-provision** (folder **"IAM Lab"**, datasource Loki) —
+> buka langsung untuk melihatnya berisi data nyata. Tabel LogQL di bawah adalah **rujukan cara
+> panel dibangun** (bahan latihan bila ingin membuat/menyalin panel sendiri), **bukan** keharusan
+> membangun dari nol. (Bandingkan: §3 "User Activity Trace" juga sudah ter-provision.)
+
+Label `event` = tipe event Keycloak; `ip`/`user` tersedia sebagai *structured metadata* sehingga
+langsung dipakai di `sum by (...)`.
 
 **Empat panel ringkas (stat) di baris atas** — indikator identitas 24 jam:
 
@@ -216,10 +223,11 @@ ke Mailpit (`GF_SMTP_*`), jadi tinggal dibuat di UI Grafana `https://grafana.iam
 **Langkah B — buat satu alert rule (contoh: brute force), lalu ulangi utk baris tabel:**
 1. **Alerting → Alert rules → + New alert rule**.
 2. **Name** mis. `Brute force per IP`.
-3. **Query & condition** — pilih datasource **Loki**. Tulis kueri yang menghitung kegagalan,
-   mis. (per-IP; `ip` diekstrak sbg field, bukan label — samakan dgn panel dashboard):
+3. **Query & condition** — pilih datasource **Loki**. `ip` adalah **structured metadata** (dari
+   `config.alloy`), jadi langsung dipakai `sum by (ip)` **tanpa** parser `| logfmt` (sama persis
+   dgn panel "Top IP gagal" di dashboard):
    ```logql
-   sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"} | logfmt [5m]))
+   sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"} [5m]))
    ```
    Tambah ekspresi **Reduce** (Last) lalu **Threshold**: `IS ABOVE 10`.
 4. **Evaluation behavior** — pilih/buat **Evaluation group** (mis. `iam-5m`, interval `1m`),
@@ -241,6 +249,11 @@ Ulangi Langkah B untuk tiap baris tabel di bawah (sesuaikan kueri & ambang):
 | Perubahan grup istimewa | `event="group_change"` ke Domain Admins/GG-Tier0 (Samba) | tiap kejadian |
 | Perintah sudo tak lazim | `event="sudo"` di luar admin yang berwenang | tiap kejadian |
 | Skor CIS turun | skor `source="cis"` di bawah ambang | tiap scan |
+
+> ℹ️ Alert **tidak** ter-provision otomatis — dibuat **manual** (Langkah A/B). Dua aturan terakhir
+> ("Perintah sudo tak lazim", "Skor CIS turun") memakai log **`{job="host"}`** dari VM `srv1`/`client1`
+> (Alloy host); bila VM belum disetup keduanya kosong & tak bisa dipicu — fokuskan dulu 3 aturan
+> berbasis Keycloak (`service="keycloak"`) yang pasti berdata.
 
 ---
 

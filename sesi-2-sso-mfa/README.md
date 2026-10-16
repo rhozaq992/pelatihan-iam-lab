@@ -312,6 +312,7 @@ Tab Advanced menampilkan PKCE S256 (wajib):
 ```bash
 APP_OIDC_CLIENT_ID=app-komentar
 APP_OIDC_CLIENT_SECRET=<tempel secret dari tab Credentials>
+APP_FLASK_SECRET=<string-acak-panjang>   # ganti nilai contoh di .env.example (kunci cookie sesi)
 ```
 **7. Muat ulang aplikasi** 🖥️ (dari folder `deploy`): `docker compose up -d app-komentar`.
 
@@ -331,13 +332,22 @@ Cocokkan layar client `warpgate` (perhatikan redirect URI khusus bastion & Direc
 *Gambar 8. Keycloak — detail Client warpgate (OIDC untuk bastion Sesi 3)*
 
 ### 4. 🌐 Client SAML untuk App-SAML
-1. Menu kiri **Clients → Create client → SAML**. **Client ID** = **Entity ID** aplikasi
-   (mis. `https://saml.iamlab.test/metadata`, sesuai konfigurasi mod_auth_mellon) → **Next → Save**.
+> ℹ️ App-SAML = **demonstrasi federasi SAML**. Sisi **IdP (Keycloak)** dibuat di sini; sisi
+> **SP (mod_auth_mellon) BELUM terkonfigurasi** di image (lihat `deploy/app-saml/Dockerfile`:
+> ada `# TODO PESERTA`). Jadi langkah **3 WAJIB dikerjakan**, bukan sekadar dicocokkan.
+
+1. Menu kiri **Clients → Create client → SAML**. **Client ID** `app-saml` — nilai ini menjadi
+   **SP EntityID** dan **harus sama persis** dengan konfigurasi mod_auth_mellon (langkah 3) serta
+   jalur cepat `setup-keycloak.sh` → **Next → Save**.
 2. Tab **Settings** → **Valid redirect URIs** `https://saml.iamlab.test/*` · **Name ID format**
-   `username` · **Sign assertions = On** (Sign documents sesuai kebutuhan) → **Save**.
-3. **Metadata IdP untuk sisi SP:** unduh descriptor dari
-   `https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`, pasang di konfigurasi
-   mod_auth_mellon aplikasi (di lab sudah di-*bake* — cukup pastikan nilainya cocok).
+   `username` · **Sign assertions = On** → **Save**.
+3. **Konfigurasi sisi SP (mod_auth_mellon)** — TODO peserta di container `app-saml`:
+   1. Unduh metadata IdP: `https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`.
+   2. Siapkan metadata + sertifikat SP (EntityID `app-saml`).
+   3. Buat `/etc/apache2/conf-enabled/mellon.conf`: `MellonSPMetadataFile`, `MellonIdPMetadataFile`,
+      dan blok `<Location /protected> MellonEnable "auth" … </Location>`.
+   4. `docker compose up -d --build app-saml`, lalu uji `https://saml.iamlab.test/protected/`
+      (harus redirect ke login Keycloak). Scaffolding ada di `deploy/app-saml/Dockerfile`.
 
 Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign assertions On**:
 
@@ -352,6 +362,12 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
 
 *Gambar 10. Keycloak — Required actions (Configure OTP aktif)*
 
+- **Buat realm role penanda admin + tempelkan ke grup admin** (WAJIB — kondisi MFA di bawah
+  mengkondisikan lewat **role**, bukan grup langsung; role ini **belum ada** sampai Anda membuatnya):
+  1. Menu kiri **Realm roles → Create role** → **Role name** `mfa-admin` → **Save**.
+  2. **Groups → `GG-App-Admin` → tab Role mapping → Assign role** → pilih `mfa-admin` → **Assign**.
+     (Ulangi untuk `GG-Tier1-Admin` bila admin Tier-1 juga wajib MFA.)
+
 - **Authentication → Flows** — buat alur browser yang **memaksa OTP hanya untuk admin**.
   Di Keycloak 26 langkahnya:
   1. Menu kiri **Authentication** → tab **Flows** → baris **Browser** → ikon **⋮ (titik tiga,
@@ -359,8 +375,8 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
   2. Buka flow **`browser-mfa`**. Temukan sub-flow **"browser-mfa Browser - Conditional OTP"**
      (hasil duplikat). Di dalamnya ada **Condition - User Configured** dan **OTP Form**.
   3. Paksa untuk admin: pada sub-flow Conditional OTP klik **+ → Add condition** →
-     **Condition - User Role** → **Add**; set **User role** = `admin-app` (atau role yang
-     melekat pada grup `GG-App-Admin`/`GG-Tier1-Admin`) → **Save**. Set requirement
+     **Condition - User Role** → **Add**; set **User role** = **`mfa-admin`** (role yang baru Anda
+     buat & tempelkan ke grup admin di langkah di atas) → **Save**. Set requirement
      **Condition - User Role = Required**.
   4. Set **OTP Form = Required** (bukan Alternative). Biarkan **Condition - User Configured**
      (Required) agar pengguna tanpa OTP diminta mendaftar via required action *Configure OTP*.
@@ -373,9 +389,9 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
 
 *Gambar 11. Keycloak — Authentication flows (Conditional OTP = Required)*
 
-  > Catatan: "grup admin" ditargetkan lewat **role** yang melekat pada grup itu (Keycloak
-  > mengkondisikan via role, bukan grup langsung). Pastikan role admin sudah di-assign ke grup
-  > admin: **Groups → `GG-App-Admin` → Role mapping → Assign role**.
+  > Catatan: App-Komentar menentukan **hak akses** dari klaim **grup** (`groups`), sedangkan
+  > **penegakan MFA** ini memakai **role** `mfa-admin` yang ditempelkan ke grup admin — dua
+  > mekanisme berbeda yang keduanya perlu disiapkan.
 
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
   Google Authenticator.

@@ -135,7 +135,10 @@ samba-tool spn list svc-app                       # -> User CN=svc-app,... : HTT
 `user create` membalas `… added successfully`. `samba-tool ou list` memuat **enam** OU di atas,
 dan `samba-tool spn list svc-app` memuat `HTTP/app.iamlab.test`.
 
-### 2. 🐳 Bulk import pengguna
+### 2. 🖥️ Bulk import pengguna (dari HOST)
+> ⚠️ **Keluar dulu dari shell container §1** (`exit`). Langkah §2 dijalankan dari **terminal host**
+> (memakai `docker compose cp`/`exec`), **bukan** dari dalam shell samba-dc.
+
 `import-ad.sh` membaca CSV lalu membuat akun + keanggotaan grup + sandi awal acak + flag
 "ganti saat login pertama". Salin folder sesi ini ke container, lalu jalankan:
 ```bash
@@ -155,13 +158,21 @@ atribut department/title/mail. Email sandi awal tampak di Mailpit (`https://mail
 🖥️ Butuh data ulang? `python3 gen_dummy_users.py --count 200 --out users_dummy.csv`.
 
 ### 3. 🐳 Batasi admin domain & siapkan admin Tier 1
-Prinsip *least privilege*: jaga `Domain Admins` minimal, siapkan admin Tier 1 (dipakai login
-OpenBao via LDAP di Sesi 3):
+> ⚠️ **Masuk lagi ke container** untuk §3–§5.2 (perintah `samba-tool`/`ldbmodify`/`sed` berjalan
+> **di dalam** samba-dc): `docker compose exec samba-dc bash`. (Alternatif: awali tiap perintah
+> dengan `docker compose exec samba-dc …` dari host.)
+
+Prinsip *least privilege*: jaga `Domain Admins` minimal, siapkan admin Tier 1. Akun `adm-t1-anda`
+(sandi **`Adm1#Lab2026`**) **dipakai lagi di Sesi 3** untuk login LDAP ke OpenBao — catat sandinya:
 ```bash
 samba-tool group listmembers "Domain Admins"            # audit — sisakan seminimal mungkin
 samba-tool user create adm-t1-anda 'Adm1#Lab2026' --userou=OU=Pengguna --use-username-as-cn
 samba-tool group addmembers GG-Tier1-Admin adm-t1-anda
+# --- VALIDASI ---
+samba-tool group listmembers GG-Tier1-Admin             # -> adm-t1-anda
 ```
+**Keluaran yang diharapkan.** `adm-t1-anda` dibuat & menjadi anggota `GG-Tier1-Admin`;
+`Domain Admins` seminimal mungkin.
 
 ### 4. 🐳 Kebijakan kata sandi + PSO untuk admin
 ```bash
@@ -193,8 +204,11 @@ samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # CAT
 ldbsearch -H /var/lib/samba/private/sam.ldb '(cn=svc-app)' msDS-SupportedEncryptionTypes \
   | grep -i SupportedEncryptionTypes      # -> msDS-SupportedEncryptionTypes: 24  (AES128+AES256, tanpa RC4)
 ```
-> ⚠️ Sandi baru `svc-keycloak` (`Svc#Lab2026baru`) inilah yang diisi sebagai **Bind credential**
-> federasi LDAP Keycloak di Sesi 2 — catat baik-baik.
+> ⚠️ **Catatan AES & reset sandi.** `msDS-SupportedEncryptionTypes=24` sudah **memblokir tiket RC4
+> untuk SEMUA `svc-*`** — tak perlu reset sandi tiap akun. Reset di sini **hanya `svc-keycloak`**;
+> sandi barunya (`Svc#Lab2026baru`) dipakai sebagai **Bind credential** federasi LDAP Keycloak di
+> Sesi 2 — catat. **JANGAN reset `svc-openbao`**: sandinya tetap `Svc#Lab2026!` dan dipakai untuk
+> *bind* LDAP OpenBao di Sesi 3.
 
 **5.2 🐳 Batasi NTLM ke `ntlmv2-only`** — mitigasi Pass-the-Hash tanpa memutus LDAP simple-bind:
 ```bash
@@ -247,8 +261,9 @@ id dewi.puspita001                  # -> uid=...(dewi.puspita001) grup: gg-pimpi
 ```
 
 **Keluaran yang diharapkan.** Skrip menampilkan `akun domain terbaca: …`; `id dewi.puspita001`
-memuat grup `gg-pimpinan`, `gg-app-viewer`. Di `client1`, pada layar login GDM pilih
-"Not listed?" lalu masuk sebagai `dewi.puspita001` (wajib ganti sandi awal).
+memuat grup `gg-pimpinan`, `gg-app-viewer`. Di `client1`, pada layar login GDM **ketik langsung**
+`dewi.puspita001` di kolom username (daftar user dinonaktifkan di lab — tidak ada tombol
+"Not listed?"), lalu login (wajib ganti sandi awal).
 
 ### 7. 🖥️ Kebijakan akses terpusat (padanan GPO)
 Batasi **siapa** boleh login ke tiap host dan **hak sudo** berbasis grup AD. Edit di tiap VM:
@@ -256,7 +271,7 @@ Batasi **siapa** boleh login ke tiap host dan **hak sudo** berbasis grup AD. Edi
 # 🖥️ di srv1 — hanya admin TI & Tier 1 boleh SSH ke server
 sudo sed -i 's/^access_provider = .*/access_provider = simple/' /etc/sssd/sssd.conf
 echo 'simple_allow_groups = GG-TI,GG-Tier1-Admin' | sudo tee -a /etc/sssd/sssd.conf
-# sudo untuk anggota GG-Tier1-Admin (grup AD) — perhatikan tanda % dan \ untuk spasi
+# sudo untuk anggota grup AD GG-Tier1-Admin (awalan % menandai nama GRUP di sudoers)
 echo '%GG-Tier1-Admin ALL=(ALL) ALL' | sudo tee /etc/sudoers.d/iamlab-tier1
 sudo systemctl restart sssd
 # --- VALIDASI (tanpa perlu login; uji kebijakan akses sshd) ---

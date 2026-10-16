@@ -88,6 +88,9 @@ Peserta mengakses `srv1` **hanya** lewat bastion.
 >   sandi akun AD-nya (sandi awal di Mailpit, Sesi 1), + MFA/OTP bila diaktifkan di Sesi 2.
 
 ### A. OpenBao — brankas kredensial 🖥️
+> **Prasyarat:** `deploy/certs/ad-ca.pem` **ber-SAN** harus ada (diekspor di Sesi 1 §5.3; sudah
+> tersedia pada BuildBag). Dipakai `auth/ldap/config` di bawah (`certificate=@/openbao/certs/ad-ca.pem`).
+
 OpenBao di lab ini **berbasis CLI (tanpa web UI)**. Setiap perintah `bao …` dijalankan di dalam
 container **lewat `docker compose exec` dari terminal host** (alias di bawah) — Anda **tidak**
 membuka shell interaktif di container. Validasi ditulis inline sebagai `# →`.
@@ -106,8 +109,8 @@ bao auth enable ldap                                      # → Success
 bao write auth/ldap/config url="ldaps://dc1.iamlab.test:636" \
   certificate=@/openbao/certs/ad-ca.pem \
   userdn="DC=iamlab,DC=test" groupdn="OU=Grup,DC=iamlab,DC=test" \
-  binddn="CN=svc-openbao,OU=AkunLayanan,DC=iamlab,DC=test" bindpass="<sandi svc-openbao>" \
-  userattr=sAMAccountName                                 # → Success
+  binddn="CN=svc-openbao,OU=AkunLayanan,DC=iamlab,DC=test" bindpass="Svc#Lab2026!" \
+  userattr=sAMAccountName        # → Success  (bindpass = sandi svc-openbao dari Sesi 1 §1; TIDAK di-reset di §5)
 
 bao policy write admin-t1 - <<'HCL'                        # izin minimal (least privilege)
 path "kv/data/breakglass/*" { capabilities=["read"] }
@@ -137,6 +140,14 @@ bao token revoke <root-token>                               # cabut root HANYA s
 berhasil — bila gagal, Anda bisa terkunci dari brankas.
 
 ### B. Target `srv1` memercayai SSH CA 🖥️
+> ⚠️ **Urutan penting (jebakan).** Langkah ini **mematikan `PasswordAuthentication`** di `srv1`.
+> Warpgate mengakses `srv1` memakai **kunci klien SSH-nya sendiri** (public-key biasa, BUKAN
+> sertifikat CA) yang harus ada di `authorized_keys` `labadmin` (dipasang di **C4**). Maka:
+> **pasang kunci klien Warpgate ke `srv1` DULU** (C4, selagi sandi masih aktif), **atau** —
+> bila sandi sudah terlanjur dimatikan — pasang nanti lewat **SSH break-glass** memakai
+> sertifikat CA OpenBao (`bao write -field=signed_key ssh/sign/t1 public_key=@~/.ssh/id.pub`).
+> Tanpa kunci klien Warpgate di `srv1`, akses bastion (C6) gagal otentikasi.
+
 Ambil kunci publik CA OpenBao, pasang di `srv1` sebagai `TrustedUserCAKeys`, lalu matikan auth sandi:
 ```bash
 # 🖥️ terminal host — ambil kunci publik CA
@@ -228,16 +239,34 @@ docker compose restart warpgate
 >    `/data/warpgate.yaml` seksi `http:`, set `external_host: pam.iamlab.test`, `external_port: 443`,
 >    `trust_x_forwarded_headers: true` (lalu `docker compose restart warpgate`). Tanpa ini Keycloak
 >    menolak: *Invalid parameter: redirect_uri* (Warpgate mengirim `:8888`).
-> 3. **Email akun Keycloak terverifikasi** — Warpgate menolak SSO *"e-mail is not verified"*. Set
->    sekali: `docker compose exec keycloak /opt/keycloak/bin/kcadm.sh update users/<id> -r iamlab -s emailVerified=true`.
+> 3. **Email akun Keycloak terverifikasi** — Warpgate menolak SSO *"e-mail is not verified"*.
+>    Biasanya **sudah** teratasi oleh **Trust Email = On** (federasi LDAP, Sesi 2 §1). Bila masih
+>    tertolak, set manual via kcadm — **login dulu** lalu ambil `<id>`:
+>    ```bash
+>    # 🖥️ dari folder deploy. <admin>/<pass> = KC_BOOTSTRAP_ADMIN_* di .env; <user> = username peserta
+>    KC='/opt/keycloak/bin/kcadm.sh'
+>    docker compose exec keycloak $KC config credentials --server http://localhost:8080 \
+>      --realm master --user <admin> --password <pass>          # login (wajib sebelum kcadm apa pun)
+>    docker compose exec keycloak $KC get users -r iamlab -q username=<user> --fields id   # -> salin "id"
+>    docker compose exec keycloak $KC update users/<id> -r iamlab -s emailVerified=true
+>    ```
 >
 > *(Setelah menyunting `warpgate.yaml`, pastikan kepemilikannya uid 1000 & mode 600 agar Warpgate
 > mau memuatnya; dan isi `sso_providers` yang ADA — jangan menambah kunci `sso_providers` kedua.)*
 
 **C4. Tambah target `srv1` 🌐** — **Config → Targets → Add → SSH**: Name `srv1`, Host `10.10.10.20`,
 Port `22`, Username `labadmin`, Authentication **Public key**, Session recording **Enabled**.
-Warpgate masuk ke target memakai **kunci kliennya sendiri** (Config → *SSH keys*) yang dipasang di
-`authorized_keys` milik `labadmin` di `srv1` — bukan sandi (sandi target sudah dimatikan di bagian B).
+Warpgate masuk ke target memakai **kunci klien SSH-nya sendiri** (bukan sandi). **Pasang public
+key itu di `authorized_keys` `labadmin@srv1` — langkah WAJIB & tidak otomatis:**
+1. Ambil public key klien Warpgate: konsol admin **Config → SSH keys** → salin baris public key.
+   (Atau API: `curl -sk https://pam.iamlab.test/@warpgate/admin/api/ssh/own-keys`.)
+2. Tambahkan ke `srv1` **selagi sandi masih aktif** (lihat peringatan urutan di Bagian B):
+   ```bash
+   # 🖥️ di srv1 — tempel public key klien Warpgate
+   echo '<public key klien Warpgate>' | sudo tee -a /home/labadmin/.ssh/authorized_keys
+   ```
+3. **Jalur cepat:** langkah 1–2 + target + user + role dapat otomatis via
+   `deploy/warpgate/configure-target.sh` (jalankan dari folder `deploy`).
 
 ![Warpgate — tambah target SSH srv1 (host, user labadmin, Public key, recording Enabled)](gambar/warpgate-target.png)
 
@@ -274,6 +303,8 @@ Peserta **tidak** SSH langsung ke server — selalu lewat bastion. Format Warpga
 
 ```bash
 ssh -p 2222 peserta:srv1@pam.iamlab.test
+# → Please open this URL in your browser: https://pam.iamlab.test/@warpgate/...   (verifikasi SSO)
+# → Enter this security key: AB12-CD34                 (cocokkan dgn layar Authorize di browser)
 ```
 Warpgate **mencegat** koneksi lalu di terminal menampilkan **URL verifikasi + security key**
 (contoh: `Please open this URL in your browser: https://pam.iamlab.test/@warpgate/… · security
