@@ -150,13 +150,37 @@ lalu **Sync LDAP groups**. Daftar provider federasi:
 - Valid redirect URIs: `https://app.iamlab.test/callback` · Web origins: `https://app.iamlab.test`.
 - **Advanced → PKCE: S256** (aplikasi mewajibkannya — tanpa ini login gagal
   "Missing parameter: code_challenge_method").
-- Tambah **Group Membership mapper**: claim `groups`, **Full group path = Off**.
-- Klaim `groups` di token datang dari **Group Membership mapper pada client** (butir di atas),
-  **bukan** dari scope — `app.py` meminta `"openid profile email"` saja, jadi mapper sudah cukup.
-  ⚠️ **Hanya jika** aplikasi versi lama di lab Anda masih meminta *scope* `groups` dan Keycloak
-  menolak *"Invalid scopes: … groups"*: buat **Client scopes → Create** `groups` (OIDC) + Group
-  Membership mapper (claim `groups`, Full path Off, userinfo On), lalu jadikan **Default** di client
-  `app-komentar`. Pada image terbaru langkah ini **opsional**.
+- **Tambahkan klaim `groups` ke token** melalui **Group Membership mapper**.
+
+  > ⚠️ **Di Keycloak 26 mapper TIDAK ada di tab “Mappers” pada client.** Ia berada di dalam
+  > **dedicated scope** milik client (`app-komentar-dedicated`). Inilah sebab mapper sering
+  > "tidak ditemukan". Ikuti langkah berikut persis:
+  >
+  > 1. Menu kiri **Clients** → klik **`app-komentar`**.
+  > 2. Buka tab **Client scopes** (deretan tab atas: Settings · Keys · Credentials · Roles ·
+  >    **Client scopes** · Advanced).
+  > 3. Pada tabel, klik baris paling atas **`app-komentar-dedicated`**
+  >    (keterangan *"Dedicated scope and mappers for this client"*).
+  > 4. Klik tab **Mappers** → tombol **Add mapper** → **By configuration**.
+  > 5. Dari daftar jenis mapper, pilih **Group Membership**.
+  > 6. Isi formulir lalu **Save**:
+  >    - **Name**: `groups`
+  >    - **Token Claim Name**: `groups`
+  >    - **Full group path**: **Off**  *(agar nilai klaim `gg-app-viewer`, bukan `/Grup/gg-app-viewer`)*
+  >    - **Add to ID token**: **On** · **Add to access token**: **On** · **Add to userinfo**: **On**
+  >
+  > **Verifikasi (tanpa login aplikasi):** kembali ke **Clients → app-komentar → Client scopes →
+  > tab Evaluate**, pilih seorang user yang ada di grup `gg-app-*`, lihat panel **Generated ID
+  > Token** memuat `"groups": [ "gg-app-viewer", … ]`.
+
+- Klaim `groups` cukup dari **Group Membership mapper pada dedicated scope** di atas; `app.py`
+  hanya meminta scope `"openid profile email"`, jadi **tidak perlu** membuat client scope `groups`
+  terpisah.
+  ⚠️ **Hanya jika** versi aplikasi lama di lab Anda masih meminta *scope* `groups` dan Keycloak
+  menolak *"Invalid scopes: … groups"*: **Client scopes → Create client scope** `groups` (Type
+  OIDC) → tab **Mappers → Add mapper → By configuration → Group Membership** (isi sama seperti di
+  atas) → lalu **Clients → app-komentar → Client scopes → Add client scope → `groups` → Default**.
+  Pada image terbaru langkah ini **opsional**.
 
 Cocokkan layar pengaturan client:
 
