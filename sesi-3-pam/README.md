@@ -79,6 +79,14 @@ docker compose up -d openbao warpgate      # OpenBao BELUM di-init; Warpgate per
 **Target akses istimewa = VM `srv1`** (`10.10.10.20`, Ubuntu Server anggota domain Sesi 1).
 Peserta mengakses `srv1` **hanya** lewat bastion.
 
+> **🔑 User & login di Sesi 3 (dari mana akunnya).**
+> - **Konsol admin Warpgate** (`https://pam.iamlab.test`) → akun lokal **`admin`** / `Warp#Lab2026`
+>   (dibuat saat `unattended-setup`, C1).
+> - **OpenBao via LDAP** → akun **`adm-t1-anda`** (AD Tier-1 admin, anggota `GG-Tier1-Admin`,
+>   dibuat Sesi 1) — dipakai setelah root token dicabut.
+> - **Akses bastion ke `srv1` (SSO)** → akun pengguna domain **`peserta`** lewat Keycloak; sandi =
+>   sandi akun AD-nya (sandi awal di Mailpit, Sesi 1), + MFA/OTP bila diaktifkan di Sesi 2.
+
 ### A. OpenBao — brankas kredensial 🖥️
 OpenBao di lab ini **berbasis CLI (tanpa web UI)**. Setiap perintah `bao …` dijalankan di dalam
 container **lewat `docker compose exec` dari terminal host** (alias di bawah) — Anda **tidak**
@@ -117,16 +125,16 @@ JSON
 
 # GATED — buktikan login LDAP admin Tier 1 (adm-t1-anda, anggota GG-Tier1-Admin) BERHASIL,
 # token harus memuat policy admin-t1. Simpan unseal key dulu, BARU cabut root:
-bao login -method=ldap username=adm-t1-anda                 # → token_policies ["admin-t1" "default"]
-bao token revoke <root-token>                               # cabut root (akses selanjutnya via LDAP)
+bao login -method=ldap username=adm-t1-anda                 # → token_policies ["admin-t1" "default"]  (WAJIB sukses dulu)
+# --- VALIDASI (sebelum cabut root) ---
+bao status                                                  # → Initialized true · Sealed false · Total Shares 3 · Threshold 2
+bao audit list                                              # → file/  dan  stdout/  (dua device)
+bao token revoke <root-token>                               # cabut root HANYA setelah login LDAP di atas sukses
 ```
-> **Cek akhir:** `bao status` → `Initialized true`, `Sealed false`, `Total Shares 3`,
-> `Threshold 2`; `bao audit list` → **dua** device (`file/` dan `stdout/`). Jangan cabut root
-> sebelum `bao login -method=ldap` menampilkan `policies [admin-t1 default]`.
-
-![Terminal — OpenBao via docker exec: status (3/2), audit, engine kv & ssh](gambar/openbao-cli.png)
-
-*Gambar 2. Terminal OpenBao (via `docker compose exec`) — status, audit, engine kv & ssh*
+**Keluaran yang diharapkan.** `bao status` → `Initialized true`, `Sealed false`, `Total Shares 3`,
+`Threshold 2`; `bao audit list` → **dua** device (`file/`, `stdout/`); `bao login -method=ldap` →
+`policies [admin-t1 default]`. ⚠️ **Jangan cabut root** sebelum login LDAP admin Tier 1 terbukti
+berhasil — bila gagal, Anda bisa terkunci dari brankas.
 
 ### B. Target `srv1` memercayai SSH CA 🖥️
 Ambil kunci publik CA OpenBao, pasang di `srv1` sebagai `TrustedUserCAKeys`, lalu matikan auth sandi:
@@ -145,12 +153,10 @@ sudo systemctl restart ssh
 sudo sshd -T | grep -E 'passwordauthentication|trustedusercakeys'
 # → passwordauthentication no   |   trustedusercakeys /etc/ssh/openbao_ca.pub
 ```
-Login sandi ke `srv1` kini **ditolak** (`Permission denied (publickey)`); yang diterima hanya
-sertifikat SSH dari CA (break-glass) atau koneksi via bastion.
-
-![Terminal — srv1: TrustedUserCAKeys, sandi dimatikan, login via sertifikat OpenBao](gambar/srv1-ssh-ca.png)
-
-*Gambar 3. Terminal srv1 — percaya SSH CA, sandi dimatikan, login via sertifikat (break-glass)*
+**Keluaran yang diharapkan.** `sshd -T` menampilkan `passwordauthentication no` dan
+`trustedusercakeys /etc/ssh/openbao_ca.pub`. Login **sandi** ke `srv1` kini **ditolak**
+(`Permission denied (publickey)`); yang diterima hanya sertifikat SSH dari CA (break-glass) atau
+koneksi via bastion.
 
 ### C. Warpgate — bastion + rekam sesi
 
@@ -163,17 +169,15 @@ docker compose run --rm warpgate unattended-setup \
 docker compose up -d warpgate
 docker compose ps warpgate      # → Up … (healthy) dalam ±15 dtk
 ```
-
-![Terminal — Warpgate unattended-setup (sekali) + up -d](gambar/warpgate-setup.png)
-
-*Gambar 4. Terminal — setup Warpgate sekali (buat config + akun admin)*
+**Keluaran yang diharapkan.** `docker compose ps warpgate` → `Up … (healthy)` dalam ±15 dtk
+(config + akun admin dibuat sekali oleh `unattended-setup`).
 
 **C2. Buka konsol admin 🌐** — `https://pam.iamlab.test` (lewat Caddy, **bukan** `:8888`), login
 `admin` / `Warp#Lab2026`. Semua konfigurasi berikut ada di menu **Config**:
 
 ![Warpgate — konsol admin, menu Config (Targets, Users, Access roles, Sessions, SSH keys)](gambar/warpgate-admin.png)
 
-*Gambar 5. Warpgate — konsol admin (menu Config)*
+*Gambar 2. Warpgate — konsol admin (menu Config)*
 
 **C3. Arahkan login bastion ke SSO Keycloak 🖥️** — agar MFA (Sesi 2) ikut berlaku. Provider SSO
 diatur di `/data/warpgate.yaml` (bukan web UI), memakai client `warpgate` dari **Sesi 2 §3**.
@@ -237,7 +241,7 @@ Warpgate masuk ke target memakai **kunci kliennya sendiri** (Config → *SSH key
 
 ![Warpgate — tambah target SSH srv1 (host, user labadmin, Public key, recording Enabled)](gambar/warpgate-target.png)
 
-*Gambar 6. Warpgate — target SSH `srv1`*
+*Gambar 3. Warpgate — target SSH `srv1`*
 
 **C5. Tambah pengguna & peran 🌐.** Di Warpgate, user hanya bisa membuka target **jika keduanya
 berbagi role yang sama** — jadi role harus di-*grant* ke **dua sisi** (user dan target). Langkah:
@@ -249,63 +253,62 @@ berbagi role yang sama** — jadi role harus di-*grant* ke **dua sisi** (user da
 4. **Grant ke target:** buka **Targets → `srv1` → tab Roles** (Allowed roles) → **Add role →
    `pam-ssh`**.
 5. **Verifikasi:** login bastion sebagai `peserta` (via SSO) → target `srv1` tampil di daftar.
-   Bila target tidak muncul, role belum ter-grant di salah satu sisi (ulangi 3–4).
+
+> **🔧 TROUBLESHOOT — target `srv1` tidak muncul setelah login.** Role belum ter-*grant* di salah
+> satu sisi. Pastikan `pam-ssh` ada di **Users → peserta → Roles** **DAN** **Targets → srv1 →
+> Roles** (ulangi langkah 3–4). User & target **harus berbagi role yang sama**.
 
 ![Warpgate — user peserta: kredensial SSO Keycloak + role pam-ssh ke target srv1](gambar/warpgate-user.png)
 
-*Gambar 7. Warpgate — pengguna `peserta` (SSO + role `pam-ssh`)*
+*Gambar 4. Warpgate — pengguna `peserta` (SSO + role `pam-ssh`)*
 
 > **Otomasi (fasilitator, opsional).** Target+user+role dapat didaftarkan via Admin API dengan
 > `configure-target.sh` (di `IAMLAB-BuildBag/deploy/warpgate/`) — mempercepat penyiapan kelas.
 
-### C.1 Akses target via SSH melalui bastion 🖥️
+### C6. Akses target via SSH melalui bastion 🖥️
 Peserta **tidak** SSH langsung ke server — selalu lewat bastion. Format Warpgate: `user:target@bastion`.
 
 ![Diagram akses SSH ke srv1 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
 
-*Gambar 8. Akses SSH ke srv1 via bastion Warpgate*
+*Gambar 5. Akses SSH ke srv1 via bastion Warpgate*
 
 ```bash
 ssh -p 2222 peserta:srv1@pam.iamlab.test
 ```
-Warpgate **mencegat** koneksi lalu menampilkan **URL** + **security key** untuk diverifikasi di browser:
-
-![Terminal — SSH via bastion: Warpgate meminta verifikasi autentikasi SSO di browser + security key](gambar/bastion-ssh.png)
-
-*Gambar 9. Terminal — bastion meminta autentikasi SSO (URL + security key)*
-
-Buka URL → **Keycloak** meminta login (SSO). Bila **MFA/OTP** diaktifkan (Sesi 2), Keycloak juga
+Warpgate **mencegat** koneksi lalu di terminal menampilkan **URL verifikasi + security key**
+(contoh: `Please open this URL in your browser: https://pam.iamlab.test/@warpgate/… · security
+key: AB12-CD34`). Buka URL → **Keycloak** meminta login (SSO). Bila **MFA/OTP** diaktifkan (Sesi 2), Keycloak juga
 meminta kode OTP di langkah ini:
 
 ![Keycloak — halaman login SSO saat akses bastion (realm iamlab)](gambar/bastion-sso.png)
 
-*Gambar 10. Keycloak — login SSO saat akses bastion*
+*Gambar 6. Keycloak — login SSO saat akses bastion*
 
 Setelah login, Warpgate menampilkan **permintaan otorisasi**: cocokkan **security key** di layar
 dengan yang tampil di terminal, lalu klik **Authorize** (konfirmasi *out-of-band*):
 
 ![Warpgate — authorization request: cocokkan security key lalu Authorize](gambar/bastion-approve.png)
 
-*Gambar 11. Warpgate — persetujuan sesi SSH (security key, *out-of-band*)*
+*Gambar 7. Warpgate — persetujuan sesi SSH (security key, *out-of-band*)*
 
 Sesi lalu diteruskan ke `srv1` sebagai `labadmin` **tanpa peserta memegang sandi server**. Akses
 dapat lewat klien SSH atau **terminal web** di portal Warpgate (`https://pam.iamlab.test`):
 
 ![Warpgate — terminal web ke srv1 (labadmin), hostname srv1](gambar/bastion-webterm.png)
 
-*Gambar 12. Terminal web Warpgate ke `srv1` (via bastion, tersambung)*
+*Gambar 8. Terminal web Warpgate ke `srv1` (via bastion, tersambung)*
 
 Setiap sesi **terekam** dan tampil di **Status → Sessions** (SSH `peserta on srv1`):
 
 ![Warpgate — Status: daftar sesi, SSH peserta on srv1 (aktif & lampau)](gambar/warpgate-sessions.png)
 
-*Gambar 13. Warpgate — Status/Sessions (sesi `peserta on srv1`)*
+*Gambar 9. Warpgate — Status/Sessions (sesi `peserta on srv1`)*
 
 Detail sesi menampilkan **rekaman (Live view)** dan **log perintah** — bukti audit untuk Sesi 4:
 
 ![Warpgate — detail sesi: live view shell + log perintah (whoami; hostname; uptime)](gambar/warpgate-session-detail.png)
 
-*Gambar 14. Warpgate — detail sesi (rekaman + log perintah)*
+*Gambar 10. Warpgate — detail sesi (rekaman + log perintah)*
 
 ### D. Serah-terima kredensial via email + formulir
 Akses istimewa tidak diberikan lisan — alurnya berbasis **email + formulir yang dikembalikan**.
