@@ -281,6 +281,19 @@ untuk OpenBao Sesi 3); volume data & VM **tidak** disentuh. Untuk lab **baru** g
 `build-lab.ps1` (fasilitator), bukan skrip ini. Opsi berguna: `-ClearWarpgateBlocks` (bersihkan
 blokir IP brute-force Warpgate). Detail langkah: [`../ALUR-PESERTA.md`](../ALUR-PESERTA.md) → Babak 0.
 
+**Validasi & laporan update.** Skrip otomatis **memverifikasi SHA256 `iam-images.tar`** terhadap
+`SHA256SUMS.txt` (memastikan image = versi perbaikan, bukan lama), lalu menjalankan **Validasi
+(Step 5)**: hash image, kesehatan container (`docker compose ps`), **LDAPS ber-SAN**, dan commit
+modul. Hasil ditulis ke dua berkas di `IAMLAB-BuildBag\.lab\logs\`:
+- `update-report-<stamp>.txt` — **laporan ringkas** (hash, daftar image, status, verdict PASS/PERLU DICEK).
+- `update-<stamp>.log` — transcript lengkap.
+
+> 📨 **Bila ragu lab sudah benar**, kirim `update-report-<stamp>.txt` ke fasilitator untuk dicek
+> (hash image di laporan harus **COCOK** dan verdict **PASS**). Verifikasi hash manual kapan saja:
+> ```powershell
+> (Get-FileHash -Algorithm SHA256 ..\distribusi\offline-images\iam-images.tar).Hash   # bandingkan dgn SHA256SUMS.txt
+> ```
+
 Google Authenticator / FreeOTP di ponsel diperlukan untuk MFA (Sesi 2).
 
 > **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):
