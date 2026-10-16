@@ -92,32 +92,35 @@ LogQL), **bukan** label — agar kardinalitas tidak meledak dan Loki tetap cepat
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
+> **🔑 User & login di Sesi 4 (dari mana akunnya).**
+> - **Grafana** (`https://grafana.iamlab.test`) → user **`admin`**, sandi = `GRAFANA_ADMIN_PASSWORD`
+>   pada `deploy/.env` (default `ChangeMe_Grafana#2026`).
+> - **Mailpit** (`https://mail.iamlab.test`) → **tanpa login** (kotak surat catch-all uji).
+> - **Locust** (`http://localhost:8089`) → tanpa login; `LAB_TEST_USER` = akun AD bersandi
+>   **permanen tanpa OTP** (mis. `dewi.puspita001` setelah mengganti sandi awalnya).
+
 ### 0. 🖥️ Deploy (sudah disiapkan)
 Loki, Grafana, dan Alloy berjalan dari `docker compose up -d`; datasource Loki sudah
 ter-*provision* di Grafana. Pipeline Keycloak sudah terisi sebagai contoh; sumber lain
 Anda lengkapi.
 
-> **✅ Validasi / Output yang diharapkan.** Pastikan pipeline log hidup sebelum membuat
-> panel. Uji nyata (amd64):
-> ```bash
-> # 🐳 Loki & Grafana sehat
-> docker compose exec -T loki    wget -qO- http://localhost:3100/ready        # → "ready"
-> docker compose exec -T grafana wget -qO- http://localhost:3000/api/health   # → {"database":"ok",...}
-> # 🐳 Loki benar-benar menerima log dari semua container (Alloy → Loki)
-> docker compose exec -T loki wget -qO- 'http://localhost:3100/loki/api/v1/label/service_name/values'
-> ```
-> Keluaran query terakhir harus memuat layanan-layanan yang berjalan, mis.:
-> ```json
-> {"status":"success","data":["alloy","app-komentar","app-saml","caddy","grafana",
->  "keycloak","loki","mailpit","openbao","postgres","samba-dc","warpgate"]}
-> ```
-> Container `warpgate` muncul **setelah** setup Sesi 3; `attacker` hanya saat profil `attack`
-> aktif. Selain container, Loki juga menerima `job="host"` dari VM `srv1` & `client1` (Alloy host).
-> Yang penting **titik akses inti** ada: `caddy` (HTTPS), `keycloak` (SSO), `samba-dc` (direktori),
-> `openbao` (vault), `warpgate` (bastion), plus host `srv1`/`client1`.
-> **Jika** `/ready` membalas `503 Service Unavailable` → Loki masih pemanasan; tunggu
-> ±30–60 dtk lalu ulangi. **Jika** `data` kosong `[]` → Alloy belum mengirim; cek
-> `docker compose logs alloy` dan pastikan `/var/run/docker.sock` ter-mount.
+Pastikan pipeline log hidup sebelum membuat panel:
+```bash
+# 🐳 Loki & Grafana sehat
+docker compose exec -T loki    wget -qO- http://localhost:3100/ready        # → "ready"
+docker compose exec -T grafana wget -qO- http://localhost:3000/api/health   # → {"database":"ok",...}
+# 🐳 Loki menerima log dari semua container (Alloy → Loki)
+docker compose exec -T loki wget -qO- 'http://localhost:3100/loki/api/v1/label/service_name/values'
+```
+**Keluaran yang diharapkan.** Query terakhir memuat layanan yang berjalan, mis.
+`["alloy","app-komentar","app-saml","caddy","grafana","keycloak","loki","mailpit","openbao",
+"postgres","samba-dc","warpgate"]`. (`warpgate` muncul **setelah** setup Sesi 3; `attacker` hanya
+saat profil `attack`.) Loki juga menerima `job="host"` dari VM `srv1`/`client1`. Yang penting
+titik akses inti ada: `caddy`, `keycloak`, `samba-dc`, `openbao`, `warpgate`, plus host.
+
+> **🔧 TROUBLESHOOT.** `/ready` → `503 Service Unavailable`? Loki masih pemanasan — tunggu
+> ±30–60 dtk lalu ulangi. `data` kosong `[]`? Alloy belum mengirim — cek `docker compose logs
+> alloy` dan pastikan `/var/run/docker.sock` ter-mount.
 
 ### 1. 🐳 Lengkapi pipeline Alloy
 Edit `deploy/monitoring/alloy/config.alloy`, tambahkan satu blok per sumber. Label hanya
@@ -137,13 +140,10 @@ host** (`lab/alloy/host.alloy`, sudah dipasang saat build) ke `http://10.10.10.5
 label `job="host"`, `host`, `source` (`auth`/`audit`/`cis`), `event`, dan `user`. Uji dari VM:
 `nc -vz 10.10.10.5 3100`.
 
-> **✅ Validasi.** `service_name/values` Loki memuat semua sumber (caddy, keycloak, samba-dc,
-> openbao, warpgate, app-komentar, dll.) **plus `host`** dari VM. Event Keycloak terparse ke label
-> `event` (LOGIN/LOGIN_ERROR), dan `job="host"` mengalir dari srv1/client1.
-
-![Terminal — Loki: daftar service_name (14 sumber + host), job=host & LOGIN terisi](gambar/loki-sumber.png)
-
-*Gambar 2. Terminal — sumber log di Loki (dipungut Alloy)*
+**Keluaran yang diharapkan.** Setelah `restart alloy`, ulangi query label Loki (§0) — kini memuat
+semua sumber (`caddy, keycloak, samba-dc, openbao, warpgate, app-komentar, …`) **plus `host`** dari
+VM; event Keycloak terparse ke label `event` (`LOGIN`/`LOGIN_ERROR`), dan `job="host"` mengalir
+dari `srv1`/`client1`.
 
 ### 2. 🌐 Dashboard "Identity Audit" (`https://grafana.iamlab.test`)
 Buat panel di datasource Loki (sudah ada). Label `event` = tipe event Keycloak; `ip`/`user`
@@ -171,12 +171,12 @@ Dashboard akhir yang diharapkan (berisi data nyata dari lalu lintas lab):
 
 ![Grafana — dashboard Identity Audit: jumlah user, user aktif, email terkirim, password reset, login sukses vs gagal, top IP gagal, aktivitas per layanan](gambar/grafana-dashboard.png)
 
-*Gambar 3. Grafana — dashboard Identity Audit*
+*Gambar 2. Grafana — dashboard Identity Audit*
 
 > Catatan: event **LOGIN (sukses)** muncul karena stack menyetel
 > `KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL=info` (default DEBUG tersaring).
 
-### 2b. 🌐 Dashboard "User Activity Trace" + penelusuran (discovery)
+### 3. 🌐 Dashboard "User Activity Trace" + penelusuran (discovery)
 Dashboard **User Activity Trace** sudah ter-*provision* (folder "IAM Lab"). Fungsinya menelusuri
 **aktivitas satu pengguna lintas host**: pilih variabel **`host`** dan **`user`** di atas
 dashboard (daftar terisi otomatis dari label log — inilah *discovery*), lalu panel menampilkan:
@@ -200,9 +200,9 @@ Untuk **discovery tanpa menulis LogQL**, buka **Explore → Drilldown → Logs**
 
 ![Grafana — User Activity Trace: login host, sudo, perintah audit, aktivitas per user](gambar/grafana-activity-trace.png)
 
-*Gambar 4. Grafana — dashboard User Activity Trace (data nyata lintas host)*
+*Gambar 3. Grafana — dashboard User Activity Trace (data nyata lintas host)*
 
-### 3. 🌐 Alert & UBA dasar
+### 4. 🌐 Alert & UBA dasar
 Buat aturan alert dengan *contact point* Mailpit (kotak surat uji). SMTP Grafana sudah diarahkan
 ke Mailpit (`GF_SMTP_*`), jadi tinggal dibuat di UI Grafana `https://grafana.iamlab.test`:
 
@@ -232,7 +232,7 @@ Ulangi Langkah B untuk tiap baris tabel di bawah (sesuaikan kueri & ambang):
 
 ![Mailpit — kotak surat uji (menerima email alert & reset sandi)](gambar/mailpit.png)
 
-*Gambar 5. Mailpit — kotak surat uji (alert & reset sandi)*
+*Gambar 4. Mailpit — kotak surat uji (alert & reset sandi)*
 
 | Aturan | Logika (disederhanakan) | Ambang |
 |--------|-------------------------|--------|
@@ -264,7 +264,7 @@ LAB_PROFILE=spray docker compose --profile load up -d --force-recreate locust   
 
 ![Locust — UI beban login (STATUS RUNNING, host app.iamlab.test, request GET/POST)](gambar/locust-ui.png)
 
-*Gambar 6. Locust — generator beban login (statistik sesi berjalan)*
+*Gambar 5. Locust — generator beban login (statistik sesi berjalan)*
 
 ### 2. Deteksi & respons (kunci akun di SEMUA layanan)
 Dari dashboard & alert, identifikasi akun/IP terindikasi, lalu matikan aksesnya terpusat:
