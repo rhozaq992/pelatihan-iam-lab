@@ -192,9 +192,28 @@ Daftar provider federasi:
   >    - **Full group path**: **Off**  *(agar nilai klaim `gg-app-viewer`, bukan `/Grup/gg-app-viewer`)*
   >    - **Add to ID token**: **On** · **Add to access token**: **On** · **Add to userinfo**: **On**
   >
-  > **Verifikasi (tanpa login aplikasi):** kembali ke **Clients → app-komentar → Client scopes →
-  > tab Evaluate**, pilih seorang user yang ada di grup `gg-app-*`, lihat panel **Generated ID
-  > Token** memuat `"groups": [ "gg-app-viewer", … ]`.
+  > **Verifikasi klaim `groups` (tanpa perlu login aplikasi) — lewat tab Evaluate:**
+  >
+  > 1. Buka **Clients → `app-komentar` → tab Client scopes**. Di dalam tab ini ada dua sub-tab:
+  >    **Setup** dan **Evaluate** — klik **Evaluate**.
+  > 2. Cari kolom **Users** (sisi kanan atas panel Evaluate). **Ketik nama seorang pengguna yang
+  >    menjadi anggota grup `gg-app-*`**, mis. `dewi.puspita001`, lalu **klik nama itu** dari
+  >    daftar saran yang muncul (kolom harus terisi satu user — ini "memilih user").
+  >    - *Belum tahu user mana yang ada di grup?* Buka **Groups → `gg-app-viewer` → tab Members**
+  >      untuk melihat satu nama; **atau** masukkan user ke grup dulu: **Users → (cari & klik
+  >      user) → tab Groups → Join Group → centang `gg-app-viewer` → Join**.
+  > 3. Setelah kolom Users terisi, lihat bagian hasil dan klik sub-tab **Generated ID token**
+  >    (bersebelahan dengan *Generated access token*, *Generated user info*, *Effective protocol
+  >    mappers*).
+  > 4. Pada JSON yang tampil, pastikan ada klaim:
+  >    ```json
+  >    "groups": [ "gg-app-viewer" ]
+  >    ```
+  >    - Jika `groups` **tidak** muncul → mapper belum tersimpan di dedicated scope (ulangi
+  >      langkah 1–6 pembuatan mapper di atas).
+  >    - Jika muncul `"/Grup/gg-app-viewer"` (ada awalan path) → setel **Full group path = Off**
+  >      pada mapper.
+  >    - Jika kosong padahal mapper benar → user yang dipilih belum anggota grup (lihat langkah 2).
 
 - Klaim `groups` cukup dari **Group Membership mapper pada dedicated scope** di atas; `app.py`
   hanya meminta scope `"openid profile email"`, jadi **tidak perlu** membuat client scope `groups`
