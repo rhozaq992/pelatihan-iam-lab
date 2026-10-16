@@ -55,6 +55,18 @@ masa berlaku singkat membuat kredensial curian tak berguna lama.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
+> ⚡ **Jalur Cepat (opsional, hanya bila stuck pada Warpgate).** Pendaftaran **target + user +
+> role** Warpgate (bagian C4–C5 di konsol web) bisa diotomasi via Admin API agar Anda bisa
+> **lanjut ke lab berikutnya**:
+> ```bash
+> cd ../deploy
+> ./warpgate/configure-target.sh     # buat role pam-ssh, user peserta, target srv1, pasang kunci
+> ```
+> Rincian opsi env ada di `deploy/warpgate/README.md`. Bagian **SSO Keycloak (C3)** tetap edit
+> `warpgate.yaml` manual (singkat) karena menyangkut `client_secret` spesifik lab Anda. **OpenBao
+> (bagian A) sepenuhnya CLI** — cukup salin-tempel perintah `bao …` berurutan. Langkah manual
+> tetap jalur utama; pintasan ini hanya agar tidak terhenti di satu lab.
+
 ### 0. Deploy (sudah disiapkan)
 ```bash
 cd ../deploy
