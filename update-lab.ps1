@@ -197,8 +197,14 @@ try {
   Push-Location $Deploy; try { $psText = Get-NativeOut $docker @('compose','ps') } finally { Pop-Location }
   Rep ""; Rep "docker compose ps:"
   if($psText){ $psText | ForEach-Object { Rep ("  " + $_) } } else { Rep "  <gagal baca>" }
-  $bad = @(); if($psText){ $bad = $psText | Where-Object { $_ -match '(?i)\b(exited|restarting|unhealthy|dead|created|paused)\b' } }
-  if($bad.Count -gt 0){ $script:Issues += "ada container tidak sehat ($($bad.Count))"; Warn "ada container tidak sehat (lihat laporan)" } else { Ok 'semua container tampak running/healthy' }
+  # Abaikan baris HEADER (punya kolom "CREATED"/"STATUS" -> jangan sampai kata "CREATED" dikira
+  # status). Juga abaikan "health: starting" yang transient (container baru restart, mis. samba-dc
+  # di Step 3) — itu bukan status gagal. Hanya tandai status yang benar-benar bermasalah.
+  $bad = @()
+  if($psText){ $bad = $psText | Where-Object {
+    $_ -notmatch '(?i)\bNAME\s' -and $_ -notmatch '(?i)health:\s*starting' -and
+    $_ -match '(?i)\b(exited|restarting|unhealthy|dead|created|paused)\b' } }
+  if($bad.Count -gt 0){ $script:Issues += "ada container tidak sehat ($($bad.Count))"; Warn "ada container tidak sehat (lihat laporan)" } else { Ok 'semua container running/healthy (starting transien diabaikan)' }
   # 5d. LDAPS SAN
   $sanOk = $false
   if($sambaVol){
