@@ -4,6 +4,11 @@ Indikator 4.1 (audit autentikasi/otorisasi) dan 4.2 (deteksi anomali). Membangun
 audit identitas *end-to-end* dan dashboard pemantauan. Penanda: 🖥️ **terminal peserta**
 · 🐳 **container** · 🌐 **web UI (Grafana)**.
 
+> **Konvensi validasi.** Langkah **🖥️/🐳 (CLI)** menyertakan hasil yang diharapkan
+> (`# →` atau **✅ Validasi**). Langkah **🌐 (web UI Grafana)** **tidak** memakai blok validasi
+> teks — cukup **cocokkan dashboard Anda dengan screenshot**; catatan yang tersisa pada langkah
+> web UI hanya bersifat *troubleshooting* (bila data tak muncul), bukan validasi.
+
 ## Keterhubungan dengan sesi sebelumnya
 
 Sesi ini **menutup rangkaian**: ia memanen event dari **Sesi 1** (Samba AD: autentikasi
@@ -183,9 +188,9 @@ Untuk **discovery tanpa menulis LogQL**, buka **Explore → Drilldown → Logs**
 *Logs Drilldown*, sudah terpasang): pilih label `job="host"`, lalu jelajahi field (`user`,
 `event`, `host`) dan pola log yang muncul otomatis.
 
-> **✅ Validasi.** Variabel `user` pada dashboard memuat nama pengguna yang pernah beraktivitas
-> (mis. `dewi.puspita001` setelah login di `client1`). Pilih satu user → seluruh panel menyaring
-> ke aktivitasnya. Perubahan grup direktori muncul di `{service="samba-dc", event="group_change"}`.
+> **🔧 Troubleshooting (bila data tak muncul).** Perubahan grup direktori muncul di
+> `{service="samba-dc", event="group_change"}`. Pilih satu `user` pada variabel dashboard →
+> seluruh panel menyaring ke aktivitasnya (cocokkan dengan screenshot di bawah).
 >
 > **Catatan sumber event Samba.** `group_change` (mis. menambah anggota grup istimewa) sudah
 > pasti tercatat. Event **login_ok/login_fail** dari Samba bergantung pada audit autentikasi yang

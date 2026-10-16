@@ -5,6 +5,10 @@ memusatkan akses istimewa lewat **bastion yang merekam sesi**. Penanda: 🖥️ 
 🌐 **web UI**. OpenBao & Warpgate dijalankan lewat `docker compose` **dari terminal host** (bukan
 shell interaktif di dalam container).
 
+> **Konvensi validasi.** Langkah **🖥️ (CLI)** — termasuk OpenBao yang sepenuhnya CLI —
+> menyertakan hasil yang diharapkan (`# →` atau **✅ Validasi**). Langkah **🌐 (web UI Warpgate)**
+> **tidak** memakai blok validasi teks — cukup **cocokkan dengan screenshot** yang menyertainya.
+
 ## Keterhubungan dengan sesi sebelumnya
 
 Memakai **Sesi 1 & 2**: login bastion lewat **SSO Keycloak** (Sesi 2, MFA wajib); OpenBao

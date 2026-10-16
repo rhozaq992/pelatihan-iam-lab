@@ -4,6 +4,11 @@ Indikator 2.1 (integrasi SSO SAML/OIDC) dan 2.2 (penegakan MFA). Sebagian besar
 dikerjakan di 🌐 **Keycloak admin** (`https://kc.iamlab.test`); beberapa langkah di
 🖥️ **terminal peserta** dan 🐳 **container**.
 
+> **Konvensi validasi.** Langkah **🖥️/🐳 (CLI)** menyertakan hasil yang diharapkan
+> (`# →` atau blok **✅ Validasi**) karena tak ada tampilan grafis. Langkah **🌐 (web UI)**
+> **tidak** memakai blok validasi teks — cukup **cocokkan layar Anda dengan screenshot** yang
+> menyertai tiap langkah; bila layar sudah sama, langkah itu benar.
+
 ## Keterhubungan dengan sesi sebelumnya
 
 Sesi ini **memakai direktori hasil Sesi 1**: Keycloak berfederasi ke AD memakai akun
