@@ -64,7 +64,16 @@ Sesi 1 (Samba AD: OU, grup GG-*, akun svc-*; join srv1/client1; kebijakan akses;
 - Akun di PC lab (disiapkan fasilitator) dengan VirtualBox + Docker Desktop sudah terpasang & lab berjalan.
 - Google Authenticator / FreeOTP di ponsel (untuk MFA di Sesi 2).
 
-## Lisensi komponen
+## Lisensi
+
+Modul ini (dokumen, skrip, konfigurasi, dan contoh di repositori ini) dirilis di bawah lisensi
+**[MIT](LICENSE)** — bebas dipakai, diubah, dan didistribusikan dengan mempertahankan notis
+hak cipta & lisensi. Data di dalamnya **sintetis**; tidak ada kredensial/identitas nyata.
+
+Lisensi MIT ini **hanya** untuk materi repo ini. Komponen pihak ketiga yang digunakan/dirujuk
+lab berlaku lisensinya masing-masing (lihat di bawah).
+
+### Lisensi komponen (pihak ketiga)
 
 Komponen inti *open source*: Samba (GPL-3.0), Keycloak (Apache-2.0), OpenBao (MPL-2.0),
 Warpgate (Apache-2.0), Grafana/Loki (AGPL-3.0), Caddy (Apache-2.0), Locust (MIT),
