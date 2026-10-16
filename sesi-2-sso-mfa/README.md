@@ -88,8 +88,8 @@ panggung mana yang boleh dimasuki.
 
 ## d. Praktik: Instalasi dan Konfigurasi
 
-> ⚡ **Jalur Cepat (opsional, hanya bila stuck).** Seluruh konfigurasi Keycloak §1–§5 (kecuali
-> MFA §4) bisa disiapkan otomatis agar Anda bisa **lanjut ke lab berikutnya** tanpa terhenti:
+> ⚡ **Jalur Cepat (opsional, hanya bila stuck).** Seluruh konfigurasi Keycloak §1–§6 (kecuali
+> MFA §5) bisa disiapkan otomatis agar Anda bisa **lanjut ke lab berikutnya** tanpa terhenti:
 > ```bash
 > cd ../deploy
 > BIND_PW='<sandi svc-keycloak terbaru, Sesi 1 langkah 5>' \
@@ -126,9 +126,30 @@ federasi/MFA** — semua itu Anda buat berikut.
 > Perbaikan: bebaskan port 443 di host (hentikan `vmware-hostd`/aplikasi lain) — lihat
 > cek kesiapan host di **Sesi 0**.
 
+> **🔑 Dari mana user & bagaimana login (penting).**
+> - **Konsol admin Keycloak** (`https://kc.iamlab.test`) — login sebagai **admin bootstrap**:
+>   username/sandi dari `deploy/.env` (`KC_BOOTSTRAP_ADMIN_USERNAME` / `KC_BOOTSTRAP_ADMIN_PASSWORD`),
+>   pada realm **master**. Akun ini dipakai untuk **semua konfigurasi** di Sesi 2.
+> - **Login ke APLIKASI** (uji SSO/RBAC, mis. App-Komentar `https://app.iamlab.test`) — pakai
+>   **akun pengguna domain hasil federasi** dari Samba AD (dibuat di Sesi 1), mis.
+>   `dewi.puspita001` (anggota `GG-App-Viewer`), ditambah satu akun `GG-App-Editor` dan satu
+>   `GG-App-Admin` untuk menguji beda peran.
+> - **Sandi awal** tiap akun pengguna ada di **Mailpit** (`https://mail.iamlab.test`) — email
+>   *"Akun Lab IAM"* yang dikirim saat import Sesi 1; **login pertama wajib ganti sandi**.
+>   Belum ada email / lupa sandi? Reset di container DC:
+>   `docker compose exec samba-dc samba-tool user setpassword <user> --newpassword='Ganti#2026'`.
+
 ### 1. 🌐 Realm + federasi LDAP ke AD
-**Prasyarat (Sesi 1 langkah 5b):** CA Samba sudah disalin ke `deploy/certs/ad-ca.pem` dan
-Keycloak di-*recreate* — tanpa itu koneksi LDAPS gagal dengan galat sertifikat (PKIX).
+**Prasyarat — salin CA Samba agar Keycloak percaya LDAPS** (bila belum dilakukan di Sesi 1
+langkah 5.3). 🖥️ terminal host, dari folder `deploy`:
+```bash
+docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem   # salin CA Samba
+docker compose up -d --force-recreate keycloak openbao                          # muat truststore CA
+# validasi CA tersalin
+ls -l certs/ad-ca.pem                                                            # -> file ada (>0 byte)
+```
+Tanpa ini koneksi LDAPS gagal dengan galat sertifikat (**PKIX**). Sertifikat **wajib ber-SAN** —
+bila `Test authentication` gagal, lihat Sesi 1 langkah **5.3** (regen cert ber-SAN).
 
 **Langkah A — buat realm `iamlab`:**
 1. Login konsol admin `https://kc.iamlab.test` (realm **master**, user admin).
@@ -175,7 +196,7 @@ Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu — **berurutan
 5. **Verifikasi:** menu kiri **Groups** memuat `GG-App-Viewer`, `GG-App-Editor`, `GG-App-Admin`,
    `GG-Tier1-Admin`, dst. Tanpa ini, klaim `groups` di §2 akan kosong.
 
-> **⚠️ Grup muncul tapi tab Members KOSONG (atau klaim `groups` kosong di §2)?**
+> **🔧 TROUBLESHOOT — grup muncul tapi tab Members KOSONG (atau klaim `groups` kosong di §2).**
 > Keanggotaan **ada di Samba** (dibuat di Sesi 1 dari CSV — mis. `GG-App-Viewer` ±35 anggota),
 > tetapi Keycloak belum me-*resolve*-nya. Keanggotaan hanya di-resolve saat **sinkron USER**, dan
 > **harus setelah group-ldap-mapper dibuat**. Perbaiki berurutan:
@@ -209,13 +230,13 @@ Daftar provider federasi:
 *Gambar 4. Keycloak — User federation (provider LDAP aktif)*
 
 
-### 2. 🌐 Client OIDC untuk App-Komentar
-**Clients → Create → OpenID Connect**, Client ID `app-komentar`:
-- Client authentication **On**; Standard flow **On**; **Direct access grants Off**.
-- Valid redirect URIs: `https://app.iamlab.test/callback` · Web origins: `https://app.iamlab.test`.
-- **Advanced → PKCE: S256** (aplikasi mewajibkannya — tanpa ini login gagal
-  "Missing parameter: code_challenge_method").
-- **Tambahkan klaim `groups` ke token** melalui **Group Membership mapper**.
+### 2. 🌐 Client OIDC untuk App-Komentar (+ klaim grup + client secret)
+Kerjakan **berurutan**:
+1. Menu kiri **Clients → Create client → OpenID Connect**. **Client ID** `app-komentar` → **Next**.
+2. **Capability config:** **Client authentication On** · **Standard flow On** · **Direct access grants Off** → **Next → Save**.
+3. Tab **Settings** → **Valid redirect URIs** `https://app.iamlab.test/callback` · **Web origins** `https://app.iamlab.test` → **Save**.
+4. Tab **Advanced** → *Advanced settings* → **Proof Key for Code Exchange Code Challenge Method = S256** → **Save**. (Wajib; tanpa ini login gagal *"Missing parameter: code_challenge_method"*.)
+5. **Tambahkan klaim `groups`** ke token (ikuti langkah rinci di kotak tepat di bawah — mapper ada di *dedicated scope*, bukan tab Mappers client).
 
   > ⚠️ **Di Keycloak 26 mapper TIDAK ada di tab “Mappers” pada client.** Ia berada di dalam
   > **dedicated scope** milik client (`app-komentar-dedicated`). Inilah sebab mapper sering
@@ -257,14 +278,14 @@ Daftar provider federasi:
   >      pada mapper.
   >    - Jika kosong padahal mapper benar → user yang dipilih belum anggota grup (lihat langkah 2).
 
-- Klaim `groups` cukup dari **Group Membership mapper pada dedicated scope** di atas; `app.py`
-  hanya meminta scope `"openid profile email"`, jadi **tidak perlu** membuat client scope `groups`
-  terpisah.
-  ⚠️ **Hanya jika** versi aplikasi lama di lab Anda masih meminta *scope* `groups` dan Keycloak
-  menolak *"Invalid scopes: … groups"*: **Client scopes → Create client scope** `groups` (Type
-  OIDC) → tab **Mappers → Add mapper → By configuration → Group Membership** (isi sama seperti di
-  atas) → lalu **Clients → app-komentar → Client scopes → Add client scope → `groups` → Default**.
-  Pada image terbaru langkah ini **opsional**.
+> **🔧 TROUBLESHOOT — klaim `groups` kosong / *"Invalid scopes"*.**
+> - Klaim `groups` cukup dari **Group Membership mapper pada dedicated scope** (langkah 5); `app.py`
+>   hanya meminta scope `openid profile email`, jadi **tidak perlu** client scope `groups` terpisah.
+> - **Hanya jika** versi app lama menolak *"Invalid scopes: … groups"*: **Client scopes → Create
+>   client scope** `groups` (Type OIDC) → **Mappers → Add mapper → By configuration → Group
+>   Membership** (isi sama langkah 5) → **Clients → app-komentar → Client scopes → Add client scope
+>   → `groups` → Default**. Pada image terbaru ini **opsional**.
+> - Klaim muncul sbg `/GG-App-Viewer` (ada awalan path)? setel **Full group path Off** pada mapper.
 
 Cocokkan layar pengaturan client:
 
@@ -285,34 +306,46 @@ Tab Advanced menampilkan PKCE S256 (wajib):
 *Gambar 7. Keycloak — daftar Clients realm iamlab*
 
 
-Lalu 🖥️ salin **Client secret** ke `deploy/.env` (`APP_OIDC_CLIENT_SECRET=…`) dan muat
-ulang aplikasi: `docker compose up -d app-komentar`.
+**6. Ambil Client secret** (untuk `deploy/.env`): **Clients → `app-komentar` → tab Credentials**
+→ pastikan **Client Authenticator = Client Id and Secret** → klik ikon **salin** di sebelah
+**Client secret** (atau **Regenerate** lalu salin). Lalu 🖥️ di `deploy/.env` isi:
+```bash
+APP_OIDC_CLIENT_ID=app-komentar
+APP_OIDC_CLIENT_SECRET=<tempel secret dari tab Credentials>
+```
+**7. Muat ulang aplikasi** 🖥️ (dari folder `deploy`): `docker compose up -d app-komentar`.
 
-### 2b. 🌐 Client OIDC untuk Warpgate (dipakai Sesi 3)
-**Clients → Create → OpenID Connect**, Client ID `warpgate`:
-- Client authentication **On**; Standard flow **On**; Direct access grants **Off**.
-- Valid redirect URIs: `https://pam.iamlab.test/@warpgate/api/sso/return`.
-- Simpan **Client secret** — diisi di konfigurasi SSO Warpgate pada Sesi 3 bagian C.
+### 3. 🌐 Client OIDC untuk Warpgate (dipakai Sesi 3)
+Langkah sama seperti §2 (1–3) dengan nilai berbeda:
+1. **Clients → Create client → OpenID Connect** → **Client ID** `warpgate` → **Next**.
+2. **Capability config:** **Client authentication On** · **Standard flow On** · **Direct access grants Off** → **Next → Save**.
+3. Tab **Settings** → **Valid redirect URIs** `https://pam.iamlab.test/@warpgate/api/sso/return` → **Save**.
+4. **Ambil Client secret:** tab **Credentials** → salin **Client secret** → **simpan baik-baik**;
+   diisi di konfigurasi SSO Warpgate pada **Sesi 3 bagian C** (`warpgate.yaml`). (Klien ini **tidak**
+   perlu klaim `groups`.)
 
-Cocokkan layar client `warpgate` Anda dengan tangkapan berikut (perhatikan redirect URI khusus
-bastion dan Direct access grants **Off**):
+Cocokkan layar client `warpgate` (perhatikan redirect URI khusus bastion & Direct access grants **Off**):
 
 ![Keycloak — detail Client warpgate (redirect URI bastion, Standard flow, Direct access grants Off)](gambar/kc-client-warpgate.png)
 
 *Gambar 8. Keycloak — detail Client warpgate (OIDC untuk bastion Sesi 3)*
 
-### 3. 🌐 Client SAML untuk App-SAML
-**Clients → Create → SAML**. Tukar metadata IdP
-(`https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`) untuk konfigurasi SP
-(mod_auth_mellon); assertion **signed**.
+### 4. 🌐 Client SAML untuk App-SAML
+1. Menu kiri **Clients → Create client → SAML**. **Client ID** = **Entity ID** aplikasi
+   (mis. `https://saml.iamlab.test/metadata`, sesuai konfigurasi mod_auth_mellon) → **Next → Save**.
+2. Tab **Settings** → **Valid redirect URIs** `https://saml.iamlab.test/*` · **Name ID format**
+   `username` · **Sign assertions = On** (Sign documents sesuai kebutuhan) → **Save**.
+3. **Metadata IdP untuk sisi SP:** unduh descriptor dari
+   `https://kc.iamlab.test/realms/iamlab/protocol/saml/descriptor`, pasang di konfigurasi
+   mod_auth_mellon aplikasi (di lab sudah di-*bake* — cukup pastikan nilainya cocok).
 
-Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign assertions On**:
+Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign assertions On**:
 
 ![Keycloak — detail Client SAML app-saml (Name ID, Sign documents/assertions On, metadata descriptor)](gambar/kc-client-saml.png)
 
 *Gambar 9. Keycloak — detail Client SAML (assertion ditandatangani)*
 
-### 4. 🌐 MFA bersyarat (Google Authenticator)
+### 5. 🌐 MFA bersyarat (Google Authenticator)
 - **Authentication → Required actions**: *Configure OTP* = On.
 
   ![Keycloak — Required actions (Configure OTP aktif)](gambar/kc-required-actions.png)
@@ -350,7 +383,7 @@ Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan 
 > Keamanan: Keycloak menampilkan banner "temporary admin user". Buat akun admin
 > permanen (Realm master → Users) lalu hapus akun sementara sebelum produksi.
 
-### 5. 🌐 Brute force, SMTP, events
+### 6. 🌐 Brute force, SMTP, events (Realm settings)
 - **Brute force detection:** menu kiri **Realm settings** → tab **Security defenses** →
   sub-tab **Brute force detection** → **Mode: Lockout temporarily** (atau "Enabled") → set
   **Max login failures** mis. `10`, **Wait increment** `1 minute` → **Save**.

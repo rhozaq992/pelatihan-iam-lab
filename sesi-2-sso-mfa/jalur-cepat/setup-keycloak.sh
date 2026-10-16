@@ -5,7 +5,7 @@
 # realm + federasi LDAP ke Samba AD + mapper grup + clients (app-komentar/warpgate/app-saml)
 # + Group Membership mapper (klaim `groups`) + brute-force + events + SMTP(Mailpit).
 #
-# GUNAKAN HANYA BILA STUCK melakukan langkah manual di konsol (README §1–§5) agar bisa lanjut
+# GUNAKAN HANYA BILA STUCK melakukan langkah manual di konsol (README §1–§6) agar bisa lanjut
 # ke lab lain. Langkah manual TETAP jalur utama pembelajaran — ini pintasan darurat.
 #
 # Jalankan DI HOST dari folder deploy (stack harus up, keycloak healthy):
@@ -13,7 +13,7 @@
 #   BIND_PW='<sandi svc-keycloak terbaru dari Sesi 1 langkah 5>' \
 #     ../Pelatihan_IAM/sesi-2-sso-mfa/jalur-cepat/setup-keycloak.sh
 #
-# Yang TIDAK diotomasi (tetap manual, lihat README §4): MFA bersyarat (Conditional OTP flow) —
+# Yang TIDAK diotomasi (tetap manual, lihat README §5): MFA bersyarat (Conditional OTP flow) —
 # alur autentikasi terlalu rinci/variatif antar versi untuk diskrip dengan aman.
 # =============================================================================
 set -euo pipefail
@@ -147,7 +147,7 @@ kc update "realms/$REALM" \
   -s 'eventsListeners=["jboss-logging"]' \
   -s 'smtpServer.host=mailpit' -s 'smtpServer.port=1025' -s 'smtpServer.from=no-reply@iamlab.test' \
   -s 'smtpServer.ssl=false' -s 'smtpServer.starttls=false' -s 'smtpServer.auth=false' >/dev/null \
-  && ok "brute-force/events/SMTP diset" || echo "  [!] sebagian setelan realm gagal — set manual (README §5)"
+  && ok "brute-force/events/SMTP diset" || echo "  [!] sebagian setelan realm gagal — set manual (README §6)"
 
 # ---- tulis secret ke deploy/.env agar app-komentar langsung jalan ----
 if [ -n "$AK_SECRET" ] && [ -f "$ENV_FILE" ]; then
@@ -166,7 +166,7 @@ echo "  Client secret warpgate     : ${WG_SECRET:-<gagal baca>}   (untuk Sesi 3 
 echo ""
 echo "  LANGKAH LANJUTAN (masih manual):"
 echo "   1. docker compose up -d app-komentar   # muat ulang app dengan secret baru"
-echo "   2. MFA bersyarat (Conditional OTP) — ikuti README §4 (tidak diotomasi)."
+echo "   2. MFA bersyarat (Conditional OTP) — ikuti README §5 (tidak diotomasi)."
 echo "   3. Verifikasi klaim groups — README §2 (Clients>app-komentar>Client scopes>Evaluate)."
 echo "   4. Bila Members grup kosong — README §1 kotak troubleshooting (sync ulang)."
 echo "======================================================================================="

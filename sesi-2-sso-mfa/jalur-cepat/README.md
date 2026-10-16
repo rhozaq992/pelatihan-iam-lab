@@ -1,7 +1,7 @@
 # Jalur Cepat (opsional) — Sesi 2
 
 > **Kapan dipakai?** HANYA bila Anda **stuck** melakukan konfigurasi manual di konsol Keycloak
-> (README §1–§5) dan ingin **lanjut ke lab berikutnya**. Langkah manual tetap jalur utama
+> (README §1–§6) dan ingin **lanjut ke lab berikutnya**. Langkah manual tetap jalur utama
 > pembelajaran — skrip ini pintasan darurat, bukan pengganti pemahaman.
 
 ## Isi
@@ -31,7 +31,7 @@ Skrip **idempoten** — aman dijalankan ulang (yang sudah ada dilewati).
 ## Setelah skrip selesai (masih manual — sengaja)
 1. `docker compose up -d app-komentar` — muat ulang app dengan `APP_OIDC_CLIENT_SECRET` baru
    (skrip sudah menuliskannya ke `deploy/.env`).
-2. **MFA bersyarat (Conditional OTP)** — **tidak** diotomasi; ikuti **README §4**. Alur
+2. **MFA bersyarat (Conditional OTP)** — **tidak** diotomasi; ikuti **README §5**. Alur
    autentikasi terlalu rinci/variatif antar versi untuk diskrip dengan aman.
 3. Secret `warpgate` dicetak di akhir skrip — pakai di **Sesi 3** (`warpgate.yaml`).
 

@@ -176,7 +176,7 @@ docker compose ps warpgate      # → Up … (healthy) dalam ±15 dtk
 *Gambar 5. Warpgate — konsol admin (menu Config)*
 
 **C3. Arahkan login bastion ke SSO Keycloak 🖥️** — agar MFA (Sesi 2) ikut berlaku. Provider SSO
-diatur di `/data/warpgate.yaml` (bukan web UI), memakai client `warpgate` dari **Sesi 2 langkah 2b**.
+diatur di `/data/warpgate.yaml` (bukan web UI), memakai client `warpgate` dari **Sesi 2 §3**.
 Tiga langkah jelas:
 ```bash
 # (1) salin config keluar dari container
