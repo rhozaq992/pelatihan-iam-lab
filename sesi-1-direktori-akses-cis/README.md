@@ -126,16 +126,14 @@ for s in svc-keycloak svc-openbao svc-app svc-honey; do
 # SPN: svc-app = layanan nyata (sasaran simulasi), svc-honey = umpan deteksi
 samba-tool spn add HTTP/app.iamlab.test   svc-app
 samba-tool spn add HTTP/honey.iamlab.test svc-honey
+# --- VALIDASI (bagian dari langkah — jalankan juga) ---
+samba-tool ou list | sort                        # -> OU=AkunLayanan, OU=Grup, OU=Pengguna, OU=Server, OU=Tier0, OU=Workstations
+samba-tool spn list svc-app                       # -> User CN=svc-app,... : HTTP/app.iamlab.test
 ```
 
-> **✅ Validasi / Output yang diharapkan** (ditangkap nyata). Tiap OU membalas
-> `Added ou "OU=…"`, tiap akun `User '…' added successfully`. Cek:
-> `samba-tool user getgroups svc-app` dan `samba-tool spn list svc-app` memuat
-> `HTTP/app.iamlab.test`.
-
-![Terminal — Samba AD DC: domain, OU, grup, kebijakan sandi](gambar/samba-cli.png)
-
-*Gambar 4. Terminal Samba AD DC — domain, OU, grup, kebijakan sandi*
+**Keluaran yang diharapkan.** Tiap `ou create` membalas `Added ou "OU=…"`; tiap `group add` /
+`user create` membalas `… added successfully`. `samba-tool ou list` memuat **enam** OU di atas,
+dan `samba-tool spn list svc-app` memuat `HTTP/app.iamlab.test`.
 
 ### 2. 🐳 Bulk import pengguna
 `import-ad.sh` membaca CSV lalu membuat akun + keanggotaan grup + sandi awal acak + flag
@@ -146,16 +144,15 @@ docker compose cp ../Pelatihan_IAM/sesi-1-direktori-akses-cis samba-dc:/tmp/sesi
 # 🐳 di dalam container samba-dc — --send-email mengirim sandi awal ke Mailpit
 docker compose exec samba-dc bash /tmp/sesi1/import-ad.sh --csv /tmp/sesi1/users_dummy.csv --send-email
 docker compose exec samba-dc bash /tmp/sesi1/import-ad.sh --csv /tmp/sesi1/users_batch2.csv   # latihan +20
-docker compose exec samba-dc samba-tool user list | wc -l       # verifikasi jumlah
+docker compose exec samba-dc samba-tool user list | wc -l       # -> jumlah user (±223: 220 impor + svc-* + admin)
+# --- VALIDASI ---
+docker compose exec samba-dc samba-tool user show dewi.puspita001 | grep -Ei 'pwdLastSet|department|mail'  # -> pwdLastSet: 0 + atribut
 ```
-> **✅ Validasi.** Ringkasan `Selesai: dibuat 200, …` (batch2: `dibuat 20`). `samba-tool user
-> show dewi.puspita001` menampilkan `pwdLastSet: 0` (wajib ganti saat login) dan atribut
-> department/title/mail. Email sandi awal tampak di Mailpit (`https://mail.iamlab.test`).
-> 🖥️ Butuh data ulang? `python3 gen_dummy_users.py --count 200 --out users_dummy.csv`.
 
-![Terminal — Samba AD: bulk import 200 pengguna (email awal ke Mailpit), dewi pwdLastSet 0](gambar/import-ad.png)
-
-*Gambar 5. Terminal Samba AD — bulk import pengguna + atribut `dewi`*
+**Keluaran yang diharapkan.** Ringkasan `Selesai: dibuat 200, …` (batch2: `dibuat 20`).
+`user show dewi.puspita001` menampilkan `pwdLastSet: 0` (wajib ganti saat login pertama) plus
+atribut department/title/mail. Email sandi awal tampak di Mailpit (`https://mail.iamlab.test`).
+🖥️ Butuh data ulang? `python3 gen_dummy_users.py --count 200 --out users_dummy.csv`.
 
 ### 3. 🐳 Batasi admin domain & siapkan admin Tier 1
 Prinsip *least privilege*: jaga `Domain Admins` minimal, siapkan admin Tier 1 (dipakai login
@@ -173,81 +170,70 @@ samba-tool domain passwordsettings set --account-lockout-threshold=10 --account-
 # PSO lebih ketat khusus admin Tier 0:
 samba-tool domain passwordsettings pso create PSO-Admin 10 --min-pwd-length=20 --complexity=on
 samba-tool domain passwordsettings pso apply PSO-Admin GG-Tier0-Admin
-samba-tool domain passwordsettings show
+# --- VALIDASI ---
+samba-tool domain passwordsettings show                 # -> Minimum password length: 14 · Password complexity: on
+samba-tool domain passwordsettings pso show PSO-Admin   # -> Minimum password length: 20
 ```
-> **✅ Validasi.** `Minimum password length: 14` dan `Password complexity: on`;
-> `samba-tool domain passwordsettings pso show PSO-Admin` menampilkan min length 20.
 
-### 5. 🐳 Hardening active direktori
-Aktifkan Kerberos AES pada akun layanan (reset sandi agar kunci dibuat ulang) dan matikan NTLM:
+**Keluaran yang diharapkan.** `Minimum password length: 14` dan `Password complexity: on` pada
+kebijakan domain; `PSO-Admin` menampilkan min length **20**.
+
+### 5. 🐳🖥️ Hardening direktori: AES-only, NTLM, & LDAPS (Trust CA)
+Tiga pengerasan berurutan dalam **satu langkah**. Jalankan semuanya — **termasuk baris validasi `# →`**.
+
+**5.1 🐳 Kerberos AES-only untuk akun layanan** — buang RC4; reset sandi agar kunci Kerberos dibuat ulang (svc-app = sasaran simulasi, svc-keycloak = Sesi 2):
 ```bash
 # 🐳 di dalam container samba-dc
-# AES-only untuk akun layanan ber-SPN: set enctype ke AES128+AES256 (24) — buang RC4 — lalu
-# reset sandi agar kunci Kerberos baru dibuat. (svc-app = sasaran simulasi; svc-keycloak = Sesi 2.)
 for s in svc-app svc-keycloak svc-openbao svc-honey; do
   printf 'dn: CN=%s,OU=AkunLayanan,DC=iamlab,DC=test\nchangetype: modify\nreplace: msDS-SupportedEncryptionTypes\nmsDS-SupportedEncryptionTypes: 24\n' "$s" \
     | ldbmodify -H /var/lib/samba/private/sam.ldb
 done
-samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # catat utk Sesi 2 (Bind credential)
+samba-tool user setpassword svc-keycloak --newpassword='Svc#Lab2026baru'   # CATAT -> Bind credential Sesi 2
+# --- VALIDASI ---
+ldbsearch -H /var/lib/samba/private/sam.ldb '(cn=svc-app)' msDS-SupportedEncryptionTypes \
+  | grep -i SupportedEncryptionTypes      # -> msDS-SupportedEncryptionTypes: 24  (AES128+AES256, tanpa RC4)
 ```
-> ⚠️ Sandi baru `svc-keycloak` inilah yang diisi sebagai *Bind credential* federasi LDAP
-> Keycloak di Sesi 2 — catat baik-baik.
->
-> **NTLM & AES di Samba (smb.conf).** Mitigasi PtH/Kerberoasting di tingkat domain diset lewat
-> `smb.conf` DC: batasi NTLM ke **`ntlm auth = ntlmv2-only`** (matikan NTLMv1 yang lemah; NTLMv2
-> tetap hidup) dan batasi enctype ke AES. Di lab, edit lewat container lalu muat ulang:
-> ```bash
-> # 🐳 di dalam container samba-dc — sisipkan DI DALAM seksi [global] (bukan di akhir berkas,
-> # yang akan masuk ke seksi [netlogon] dan tak berlaku)
-> sed -i '/^\[global\]/a\    ntlm auth = ntlmv2-only' /etc/samba/smb.conf
-> smbcontrol all reload-config
-> testparm -sv 2>/dev/null | grep -i 'ntlm auth'    # validasi -> "ntlm auth = ntlmv2-only"
-> ```
-> > ⚠️ **Jangan pakai `ntlm auth = disabled`.** Mematikan NTLM sepenuhnya juga mematahkan
-> > **LDAP simple-bind** (yang dipakai federasi Keycloak & auth LDAP OpenBao untuk memverifikasi
-> > sandi) — federasi akan gagal tanpa kode error setelah DC di-*restart* (`ldap_bind data 418`). Untuk
-> > mengurangi PtH tanpa memutus federasi, cukup `ntlmv2-only` (NTLMv1 ditutup) + isolasi tier +
-> > kredensial admin unik per host. Diskusi PtH di atas tetap berlaku sebagai konsep.
+> ⚠️ Sandi baru `svc-keycloak` (`Svc#Lab2026baru`) inilah yang diisi sebagai **Bind credential**
+> federasi LDAP Keycloak di Sesi 2 — catat baik-baik.
 
-![Terminal — Samba AD: enctype akun layanan = 24 (AES-only) + ntlm auth = ntlmv2-only](gambar/hardening-aes.png)
-
-*Gambar 6. Terminal Samba AD — AES-only (enctype 24) & `ntlmv2-only`*
-
-### 5b. 🐳🖥️ LDAPS: aktifkan Trust CA Samba ke layanan IAM
-Samba AD menyalakan LDAPS (636) dengan sertifikat yang dibuat otomatis. Agar Keycloak (Sesi 2)
-dan OpenBao (Sesi 3) memercayainya, ekspor CA Samba ke folder `deploy/certs/`:
+**5.2 🐳 Batasi NTLM ke `ntlmv2-only`** — mitigasi Pass-the-Hash tanpa memutus LDAP simple-bind:
 ```bash
-# 🖥️ terminal host (dari folder deploy)
-docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem
-docker compose up -d --force-recreate keycloak openbao     # muat truststore CA
+# 🐳 sisipkan DI DALAM seksi [global] smb.conf (bukan di akhir berkas -> akan masuk [netlogon] & tak berlaku)
+sed -i '/^\[global\]/a\    ntlm auth = ntlmv2-only' /etc/samba/smb.conf
+smbcontrol all reload-config
+# --- VALIDASI ---
+testparm -sv 2>/dev/null | grep -i 'ntlm auth'          # -> ntlm auth = ntlmv2-only
 ```
-> **✅ Validasi.** Dari host (git bash) atau dari `srv1` (SSH):
-> `echo | openssl s_client -connect 10.10.10.5:636 2>/dev/null | openssl x509 -noout -subject`
-> menampilkan sertifikat ber-`CN = DC1.iamlab.test`. (`srv1`/`client1` adalah VM — bukan service
-> Docker — jadi perintah dijalankan di VM lewat SSH/konsol, bukan `docker compose exec`.)
-> CA ini otomatis dipercaya Keycloak/OpenBao via mount `deploy/certs`.
-> ⚠️ **Untuk OpenBao (Sesi 3) — sertifikat butuh SAN.** Cert auto-generate Samba hanya ber-CN
-> (tanpa SAN); klien Go (OpenBao) menolaknya (`x509: legacy Common Name`). `build-lab.ps1` kini
-> **me-restart samba-dc sekali** setelah provisioning agar entrypoint meregen cert ber-SAN — jadi
-> build baru sudah beres. **Pada lab lama (dibangun sebelum perbaikan ini)**, jalankan sekali di
-> container untuk membuat cert ber-SAN, lalu re-ekspor CA:
-> ```bash
-> # 🐳 di dalam container samba-dc — regen cert LDAPS DENGAN SAN (idempoten)
-> docker compose exec samba-dc sh -c 'cd /var/lib/samba/private/tls; \
->   openssl x509 -in cert.pem -noout -text | grep -q "Subject Alternative Name" || { \
->   openssl req -x509 -newkey rsa:4096 -keyout key.new -out cert.new -days 3650 -nodes \
->     -subj "/O=Samba Administration/CN=DC1.iamlab.test" \
->     -addext "subjectAltName=DNS:dc1.iamlab.test,IP:10.10.10.5"; \
->   mv cert.new cert.pem; mv key.new key.pem; cp cert.pem ca.pem; chmod 600 key.pem; }'
-> docker compose restart samba-dc
-> docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem
-> docker compose up -d --force-recreate keycloak openbao
-> ```
-> Validasi: `… | openssl x509 -noout -ext subjectAltName` menampilkan `DNS:dc1.iamlab.test, IP:10.10.10.5`.
+> ⚠️ **Jangan pakai `ntlm auth = disabled`.** Mematikan NTLM sepenuhnya juga mematahkan **LDAP
+> simple-bind** (dipakai federasi Keycloak & auth LDAP OpenBao) — federasi gagal tanpa error
+> setelah DC di-restart (`ldap_bind data 418`). `ntlmv2-only` sudah menutup NTLMv1 yang lemah.
 
-![Terminal — validasi LDAPS: subject CN=DC1.iamlab.test + SAN (DNS dc1 + IP)](gambar/ldaps-validasi.png)
+**5.3 🖥️ LDAPS: ekspor CA Samba ke layanan IAM** — agar Keycloak (Sesi 2) & OpenBao (Sesi 3)
+memercayai LDAPS 636; sertifikat **wajib ber-SAN** untuk OpenBao (klien Go menolak CN-only:
+`x509: legacy Common Name`). **Keluar dari shell container dulu**, lalu di terminal host dari folder `deploy`:
+```bash
+# 🖥️ terminal host (folder deploy) — pastikan cert LDAPS ber-SAN (idempoten; build baru sudah beres)
+docker compose exec samba-dc sh -c 'cd /var/lib/samba/private/tls; \
+  openssl x509 -in cert.pem -noout -text | grep -q "Subject Alternative Name" || { \
+  openssl req -x509 -newkey rsa:4096 -keyout key.new -out cert.new -days 3650 -nodes \
+    -subj "/O=Samba Administration/CN=DC1.iamlab.test" \
+    -addext "subjectAltName=DNS:dc1.iamlab.test,IP:10.10.10.5"; \
+  mv cert.new cert.pem; mv key.new key.pem; cp cert.pem ca.pem; chmod 600 key.pem; }'
+docker compose restart samba-dc
+docker compose cp samba-dc:/var/lib/samba/private/tls/ca.pem certs/ad-ca.pem   # ekspor CA
+docker compose up -d --force-recreate keycloak openbao                         # muat truststore CA
+# --- VALIDASI (dari host git-bash, atau dari srv1 via SSH — bukan docker compose exec) ---
+echo | openssl s_client -connect 10.10.10.5:636 2>/dev/null \
+  | openssl x509 -noout -subject -ext subjectAltName
+#  -> subject= ... CN = DC1.iamlab.test
+#  -> X509v3 Subject Alternative Name: DNS:dc1.iamlab.test, IP:10.10.10.5
+```
 
-*Gambar 7. Terminal — validasi sertifikat LDAPS Samba (CN + SAN)*
+**Keluaran yang diharapkan (langkah 5).** `msDS-SupportedEncryptionTypes: 24` (AES-only, tanpa RC4);
+`testparm` menampilkan `ntlm auth = ntlmv2-only`; `openssl s_client` ke `:636` menampilkan subjek
+`CN=DC1.iamlab.test` **dan** SAN `DNS:dc1.iamlab.test, IP:10.10.10.5`. CA otomatis dipercaya
+Keycloak/OpenBao via mount `deploy/certs`. (`srv1`/`client1` adalah VM — validasi di VM lewat
+SSH/konsol, bukan `docker compose exec`.)
 
 ### 6. 🖥️ Gabungkan `srv1` & `client1` ke domain
 Login ke VM sebagai admin lokal (`labadmin` / `Lab#Admin2026`), lalu jalankan skrip join
@@ -256,15 +242,13 @@ DC langsung.
 ```bash
 # 🖥️ di srv1 (SSH: ssh labadmin@srv1.iamlab.test) DAN di client1 (konsol VirtualBox)
 sudo join-domain.sh                 # minta sandi Administrator domain (Passw0rd#Lab2026)
-id dewi.puspita001                  # harus menampilkan UID/grup dari direktori
+# --- VALIDASI ---
+id dewi.puspita001                  # -> uid=...(dewi.puspita001) grup: gg-pimpinan, gg-app-viewer, ...
 ```
-> **✅ Validasi.** Skrip menampilkan `akun domain terbaca: …`; `id dewi.puspita001` memuat grup
-> `gg-pimpinan`, `gg-app-viewer`. Di `client1`, pada layar login GDM pilih "Not listed?" lalu
-> masuk sebagai `dewi.puspita001` (wajib ganti sandi awal).
 
-![Terminal — srv1: join-domain.sh + id dewi (gg-pimpinan, gg-app-viewer)](gambar/join-domain.png)
-
-*Gambar 8. Terminal srv1 — join domain & `id dewi.puspita001`*
+**Keluaran yang diharapkan.** Skrip menampilkan `akun domain terbaca: …`; `id dewi.puspita001`
+memuat grup `gg-pimpinan`, `gg-app-viewer`. Di `client1`, pada layar login GDM pilih
+"Not listed?" lalu masuk sebagai `dewi.puspita001` (wajib ganti sandi awal).
 
 ### 7. 🖥️ Kebijakan akses terpusat (padanan GPO)
 Batasi **siapa** boleh login ke tiap host dan **hak sudo** berbasis grup AD. Edit di tiap VM:
@@ -275,6 +259,10 @@ echo 'simple_allow_groups = GG-TI,GG-Tier1-Admin' | sudo tee -a /etc/sssd/sssd.c
 # sudo untuk anggota GG-Tier1-Admin (grup AD) — perhatikan tanda % dan \ untuk spasi
 echo '%GG-Tier1-Admin ALL=(ALL) ALL' | sudo tee /etc/sudoers.d/iamlab-tier1
 sudo systemctl restart sssd
+# --- VALIDASI (tanpa perlu login; uji kebijakan akses sshd) ---
+sudo sssctl user-checks dewi.puspita001 -s sshd   # -> access denied  (pimpinan, bukan TI/Tier1)
+sudo sssctl user-checks adm-t1-anda   -s sshd     # -> access granted
+sudo -l -U adm-t1-anda                            # -> (ALL) ALL  (hak sudo dari grup AD)
 ```
 ```bash
 # 🖥️ di client1 — hanya pengguna umum & pimpinan boleh login workstation
@@ -282,13 +270,10 @@ sudo sed -i 's/^access_provider = .*/access_provider = simple/' /etc/sssd/sssd.c
 echo 'simple_allow_groups = GG-Pimpinan,GG-SDM,GG-TI,GG-Keuangan,GG-Operasional,GG-Layanan,GG-Hukum' | sudo tee -a /etc/sssd/sssd.conf
 sudo systemctl restart sssd
 ```
-> **✅ Validasi.** Di `srv1`, `ssh dewi.puspita001@srv1.iamlab.test` (pimpinan, bukan TI)
-> **ditolak**; `ssh adm-t1-anda@srv1.iamlab.test` **diterima** dan `sudo -l` menampilkan izin.
-> Perubahan akses ini berlaku terpusat: ubah keanggotaan grup di `dc1`, efeknya di semua host.
-
-![Terminal — srv1: sssctl user-checks dewi (ditolak) vs adm-t1-anda (diterima)](gambar/akses-sssd.png)
-
-*Gambar 9. Terminal srv1 — kebijakan akses `simple` (dewi ditolak, adm-t1 diterima)*
+**Keluaran yang diharapkan.** `sssctl user-checks dewi.puspita001` → **access denied**;
+`adm-t1-anda` → **access granted** dengan `sudo -l` memuat `(ALL) ALL`. Uji nyata via SSH:
+`ssh dewi.puspita001@srv1.iamlab.test` **ditolak**, `ssh adm-t1-anda@srv1.iamlab.test`
+**diterima**. Kebijakan berlaku terpusat: ubah keanggotaan grup di `dc1` → efek di semua host.
 
 ### 8. 🖥️ Audit kepatuhan CIS Benchmark
 `cis-scan.sh` (dibaking saat build) memakai **OpenSCAP + SCAP Security Guide**. Profil
@@ -299,18 +284,18 @@ sudo cis-scan.sh                      # scan CIS Level 1 (±3–10 menit)
 sudo cis-scan.sh --list-fail | head   # rule yang gagal, diurut tingkat keparahan
 sudo cis-scan.sh --fix <rule-id>      # remediasi SATU rule (terarah), lalu:
 sudo cis-scan.sh                      # scan ulang — skor harus naik
+# --- VALIDASI ---
+tail -n 2 /var/log/cis/summary.log    # -> 2 baris JSON; "score" scan KEDUA > scan pertama
+ls -1 /var/log/cis/report-latest.html # -> laporan HTML ada
 ```
-> **✅ Validasi / Output yang diharapkan.** Tiap scan menulis satu baris JSON ke
-> `/var/log/cis/summary.log` (`{"host":"srv1","profile":"cis_level1_server","pass":…,"fail":…,
-> "score":…}`) dan laporan HTML di `/var/log/cis/report-latest.html`. Skor scan **kedua** lebih
-> tinggi dari scan pertama. Ringkasan ini dikirim ke Grafana (Sesi 4, panel skor CIS per host).
->
-> **Level 2 (informasi tambahan).** `sudo cis-scan.sh --level 2` menjalankan profil yang lebih
-> ketat; dibahas sebagai pengayaan, bukan target kelulusan Sesi 1.
 
-![Terminal — srv1: cis-scan.sh scan (67.2) -> remediasi -> scan ulang (67.7)](gambar/cis-scan.png)
+**Keluaran yang diharapkan.** Tiap scan menulis satu baris JSON ke `/var/log/cis/summary.log`
+(`{"host":"srv1","profile":"cis_level1_server","pass":…,"fail":…,"score":…}`) + laporan HTML
+`/var/log/cis/report-latest.html`. Skor scan **kedua** lebih tinggi (mis. 67.2 → 67.7). Ringkasan
+dikirim ke Grafana (Sesi 4, panel skor CIS per host).
 
-*Gambar 10. Terminal srv1 — audit CIS (skor naik 67.2 → 67.7 setelah remediasi)*
+> **Level 2 (pengayaan, bukan target kelulusan Sesi 1).** `sudo cis-scan.sh --level 2`
+> menjalankan profil yang lebih ketat.
 
 ---
 
@@ -333,10 +318,11 @@ mata mengenali pola Kerberoasting/PtH dan merasakan efek mitigasi secara langsun
    # 🐳 (target harus ada di attack-sim/TARGETS.lab; konfirmasi wajib)
    docker compose exec -e IAMLAB_CONFIRM=1 attacker bash /attack-sim/run.sh dc1.iamlab.test kerberoast
    ```
-   > **✅ Validasi.** Di lab terisolasi, runner mencetak (tidak mengeksekusi) perintah contoh.
-   > Bila dijalankan instruktur terhadap `svc-app`, hasilnya hash tiket. **Sebelum** mitigasi
-   > terlihat `$krb5tgs$23$` (RC4); **sesudah** AES-only terlihat `$krb5tgs$18$` (AES256).
-   > Hash tidak dipecahkan di kelas — cukup amati perubahan enctype sebagai bukti mitigasi.
+   **Keluaran yang diharapkan.** Di lab terisolasi, runner **mencetak** (tidak mengeksekusi)
+   perintah contoh. Bila dijalankan instruktur terhadap `svc-app`, hasilnya hash tiket:
+   **sebelum** mitigasi terlihat `$krb5tgs$23$` (RC4); **sesudah** AES-only terlihat
+   `$krb5tgs$18$` (AES256). Hash tidak dipecahkan di kelas — cukup amati perubahan enctype
+   sebagai bukti mitigasi.
 3. 🐳 Terapkan mitigasi pada akun layanan sasaran (AES-only), lalu ulangi langkah 2:
    ```bash
    # 🐳 di dalam container samba-dc — paksa AES-only utk svc-app, lalu reset sandi (kunci AES baru)
