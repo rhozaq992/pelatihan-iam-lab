@@ -272,6 +272,10 @@ key itu di `authorized_keys` `labadmin@srv1` — langkah WAJIB & tidak otomatis:
 
 *Gambar 3. Warpgate — target SSH `srv1`*
 
+![Warpgate — Config → Targets: daftar target (srv1 SSH)](gambar/wg-targets.png)
+
+*Gambar 4. Warpgate — Config → Targets (srv1)*
+
 **C5. Tambah pengguna & peran 🌐.** Di Warpgate, user hanya bisa membuka target **jika keduanya
 berbagi role yang sama** — jadi role harus di-*grant* ke **dua sisi** (user dan target). Langkah:
 1. **Config → Users → Add user**: **Username** `peserta`. Buka user itu → **Credentials → Add
@@ -289,7 +293,11 @@ berbagi role yang sama** — jadi role harus di-*grant* ke **dua sisi** (user da
 
 ![Warpgate — user peserta: kredensial SSO Keycloak + role pam-ssh ke target srv1](gambar/warpgate-user.png)
 
-*Gambar 4. Warpgate — pengguna `peserta` (SSO + role `pam-ssh`)*
+*Gambar 5. Warpgate — pengguna `peserta` (SSO + role `pam-ssh`)*
+
+![Warpgate — Targets → srv1 → tab Roles: Allow access for roles, pam-ssh ON (kotak merah)](gambar/wg-target-roles.png)
+
+*Gambar 6. Warpgate — srv1 → Roles: `pam-ssh` di-grant ke target (sisi target dari C5)*
 
 > **Otomasi (fasilitator, opsional).** Target+user+role dapat didaftarkan via Admin API dengan
 > `configure-target.sh` (di `IAMLAB-BuildBag/deploy/warpgate/`) — mempercepat penyiapan kelas.
@@ -299,7 +307,7 @@ Peserta **tidak** SSH langsung ke server — selalu lewat bastion. Format Warpga
 
 ![Diagram akses SSH ke srv1 melalui bastion Warpgate (SSO+MFA, SSH CA, rekam sesi)](gambar/ssh-bastion.png)
 
-*Gambar 5. Akses SSH ke srv1 via bastion Warpgate*
+*Gambar 7. Akses SSH ke srv1 via bastion Warpgate*
 
 ```bash
 ssh -p 2222 peserta:srv1@pam.iamlab.test
@@ -313,33 +321,33 @@ meminta kode OTP di langkah ini:
 
 ![Keycloak — halaman login SSO saat akses bastion (realm iamlab)](gambar/bastion-sso.png)
 
-*Gambar 6. Keycloak — login SSO saat akses bastion*
+*Gambar 8. Keycloak — login SSO saat akses bastion*
 
 Setelah login, Warpgate menampilkan **permintaan otorisasi**: cocokkan **security key** di layar
 dengan yang tampil di terminal, lalu klik **Authorize** (konfirmasi *out-of-band*):
 
 ![Warpgate — authorization request: cocokkan security key lalu Authorize](gambar/bastion-approve.png)
 
-*Gambar 7. Warpgate — persetujuan sesi SSH (security key, *out-of-band*)*
+*Gambar 9. Warpgate — persetujuan sesi SSH (security key, *out-of-band*)*
 
 Sesi lalu diteruskan ke `srv1` sebagai `labadmin` **tanpa peserta memegang sandi server**. Akses
 dapat lewat klien SSH atau **terminal web** di portal Warpgate (`https://pam.iamlab.test`):
 
 ![Warpgate — terminal web ke srv1 (labadmin), hostname srv1](gambar/bastion-webterm.png)
 
-*Gambar 8. Terminal web Warpgate ke `srv1` (via bastion, tersambung)*
+*Gambar 10. Terminal web Warpgate ke `srv1` (via bastion, tersambung)*
 
 Setiap sesi **terekam** dan tampil di **Status → Sessions** (SSH `peserta on srv1`):
 
 ![Warpgate — Status: daftar sesi, SSH peserta on srv1 (aktif & lampau)](gambar/warpgate-sessions.png)
 
-*Gambar 9. Warpgate — Status/Sessions (sesi `peserta on srv1`)*
+*Gambar 11. Warpgate — Status/Sessions (sesi `peserta on srv1`)*
 
 Detail sesi menampilkan **rekaman (Live view)** dan **log perintah** — bukti audit untuk Sesi 4:
 
 ![Warpgate — detail sesi: live view shell + log perintah (whoami; hostname; uptime)](gambar/warpgate-session-detail.png)
 
-*Gambar 10. Warpgate — detail sesi (rekaman + log perintah)*
+*Gambar 12. Warpgate — detail sesi (rekaman + log perintah)*
 
 ### D. Serah-terima kredensial via email + formulir
 Akses istimewa tidak diberikan lisan — alurnya berbasis **email + formulir yang dikembalikan**.
