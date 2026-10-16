@@ -198,7 +198,32 @@ Untuk **discovery tanpa menulis LogQL**, buka **Explore → Drilldown → Logs**
 *Gambar 4. Grafana — dashboard User Activity Trace (data nyata lintas host)*
 
 ### 3. 🌐 Alert & UBA dasar
-Buat aturan alert dengan *contact point* Mailpit (kotak surat uji):
+Buat aturan alert dengan *contact point* Mailpit (kotak surat uji). SMTP Grafana sudah diarahkan
+ke Mailpit (`GF_SMTP_*`), jadi tinggal dibuat di UI Grafana `https://grafana.iamlab.test`:
+
+**Langkah A — contact point (sekali):**
+1. Menu kiri **Alerting → Contact points → + Add contact point**.
+2. **Name** `mailpit` · **Integration** = **Email** · **Addresses** `soc@iamlab.test`.
+3. **Test** → cek email masuk di `https://mail.iamlab.test` → **Save contact point**.
+4. (opsional) **Alerting → Notification policies** → **Edit** default policy → **Default contact
+   point = mailpit** → **Save** (agar semua alert terkirim ke Mailpit tanpa routing khusus).
+
+**Langkah B — buat satu alert rule (contoh: brute force), lalu ulangi utk baris tabel:**
+1. **Alerting → Alert rules → + New alert rule**.
+2. **Name** mis. `Brute force per IP`.
+3. **Query & condition** — pilih datasource **Loki**. Tulis kueri yang menghitung kegagalan,
+   mis. (per-IP; `ip` diekstrak sbg field, bukan label — samakan dgn panel dashboard):
+   ```logql
+   sum by (ip) (count_over_time({service="keycloak", event="LOGIN_ERROR"} | logfmt [5m]))
+   ```
+   Tambah ekspresi **Reduce** (Last) lalu **Threshold**: `IS ABOVE 10`.
+4. **Evaluation behavior** — pilih/buat **Evaluation group** (mis. `iam-5m`, interval `1m`),
+   **Pending period** `0`–`5m`.
+5. **Folder** `IAM Lab` · **Labels** (mis. `severity=high`) · **Contact point** = `mailpit`
+   (bila tak pakai notification policy default) · isi **Summary/annotation**.
+6. **Save rule and exit**. Picu dengan Locust (capstone) → alert *Firing* → email di Mailpit.
+
+Ulangi Langkah B untuk tiap baris tabel di bawah (sesuaikan kueri & ambang):
 
 ![Mailpit — kotak surat uji (menerima email alert & reset sandi)](gambar/mailpit.png)
 

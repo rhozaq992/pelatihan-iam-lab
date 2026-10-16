@@ -223,9 +223,17 @@ Warpgate masuk ke target memakai **kunci kliennya sendiri** (Config → *SSH key
 
 *Gambar 6. Warpgate — target SSH `srv1`*
 
-**C5. Tambah pengguna & peran 🌐** — **Config → Users**: buat `peserta`, kredensial **Single
-sign-on** (Keycloak, email = akun AD-nya). **Config → Access roles**: buat role `pam-ssh`, lalu
-beri *grant* user→role dan target→role.
+**C5. Tambah pengguna & peran 🌐.** Di Warpgate, user hanya bisa membuka target **jika keduanya
+berbagi role yang sama** — jadi role harus di-*grant* ke **dua sisi** (user dan target). Langkah:
+1. **Config → Users → Add user**: **Username** `peserta`. Buka user itu → **Credentials → Add
+   credential → Single sign-on (SSO)**; isi **e-mail = email akun AD** pengguna (harus sama
+   dengan yang di Keycloak) → **Save**.
+2. **Config → Roles** (Access roles) → **Add role** → **Name** `pam-ssh` → **Save**.
+3. **Grant ke user:** buka **Users → `peserta` → tab Roles** → **Add role → `pam-ssh`**.
+4. **Grant ke target:** buka **Targets → `srv1` → tab Roles** (Allowed roles) → **Add role →
+   `pam-ssh`**.
+5. **Verifikasi:** login bastion sebagai `peserta` (via SSO) → target `srv1` tampil di daftar.
+   Bila target tidak muncul, role belum ter-grant di salah satu sisi (ulangi 3–4).
 
 ![Warpgate — user peserta: kredensial SSO Keycloak + role pam-ssh ke target srv1](gambar/warpgate-user.png)
 

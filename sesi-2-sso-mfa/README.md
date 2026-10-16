@@ -115,7 +115,13 @@ federasi/MFA** — semua itu Anda buat berikut.
 **Prasyarat (Sesi 1 langkah 5b):** CA Samba sudah disalin ke `deploy/certs/ad-ca.pem` dan
 Keycloak di-*recreate* — tanpa itu koneksi LDAPS gagal dengan galat sertifikat (PKIX).
 
-Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis seperti ini:
+**Langkah A — buat realm `iamlab`:**
+1. Login konsol admin `https://kc.iamlab.test` (realm **master**, user admin).
+2. Di **pojok kiri atas** klik dropdown realm (bertuliskan **Keycloak**/**master**) → **Create realm**.
+3. **Realm name**: `iamlab` → **Create**.
+4. Pastikan dropdown kiri-atas kini menampilkan **iamlab** — **semua langkah Sesi 2 dilakukan di realm `iamlab`**, bukan master.
+
+**Langkah B — tambah provider LDAP:** menu kiri **User federation** → klik kartu **Add LDAP providers** (atau **Add provider → LDAP**). Isi formulir **persis** seperti ini:
 - Vendor: *Active Directory* (Samba AD kompatibel-AD) · Connection URL: `ldaps://dc1.iamlab.test:636`
 - Bind DN: `CN=svc-keycloak,OU=AkunLayanan,DC=iamlab,DC=test` · Bind credential: sandi
   svc-keycloak **terbaru** (yang Anda set saat reset di Sesi 1 langkah 5)
@@ -126,8 +132,13 @@ Buat realm `iamlab`. Lalu **User federation → Add Ldap provider**, isi persis 
   ini, **Warpgate SSO menolak** mereka (*"e-mail is not verified"*, Sesi 3) dan Keycloak bisa
   memaksa aksi *Verify Email*. "Trust Email" menandai email dari direktori sebagai terverifikasi.
 
-Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu **Save → Test
-connection & authentication → Synchronize all users**:
+Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu — **berurutan**:
+1. Klik **Save** (provider tersimpan; halaman memuat ulang dengan tab tambahan).
+2. Pada halaman provider, jalankan **Test connection** → harus **Success**, lalu **Test
+   authentication** → **Success** (memvalidasi Bind DN + sandi `svc-keycloak`). Bila gagal
+   PKIX/sertifikat → ulang prasyarat 5b (salin `ad-ca.pem` + recreate Keycloak).
+3. Klik **Action** (dropdown kanan atas) → **Sync all users** → notifikasi "N users imported"
+   (±220). Cek menu kiri **Users** sudah terisi.
 
 ![Keycloak — form User federation LDAP terisi (Vendor AD, Connection URL ke AD)](gambar/kc-ldap-detail.png)
 
@@ -136,8 +147,20 @@ connection & authentication → Synchronize all users**:
 
 *Gambar: form federasi LDAP terisi — Vendor *Active Directory*, Connection URL `ldaps://dc1.iamlab.test:636`. Cocokkan nilai di layar Anda dengan ini sebelum menekan Save.*
 
-Tambahkan **Mappers → group-ldap-mapper** (LDAP Groups DN `OU=Grup,DC=iamlab,DC=test`)
-lalu **Sync LDAP groups**. Daftar provider federasi:
+**Langkah C — mapper grup** (agar grup AD ikut terbaca di Keycloak, dipakai RBAC §2):
+1. Masih di provider LDAP (**User federation → ldap**), buka tab **Mappers**.
+2. Cari mapper **`group-ldap-mapper`** (sering dibuat otomatis). Bila belum ada:
+   **Add mapper** → **Mapper type: `group-ldap-mapper`**.
+3. Isi lalu **Save**: **LDAP Groups DN** `OU=Grup,DC=iamlab,DC=test` · **Group Name LDAP
+   Attribute** `cn` · **Membership LDAP Attribute** `member` · **Mode** `READ_ONLY` ·
+   **Preserve Group Inheritance** `Off`.
+4. Pada tab **Mappers**, klik mapper tersebut → **Action/Sync → Sync LDAP groups to Keycloak**
+   (atau pada provider: **Action → Sync changed users** tidak menarik grup — gunakan menu sync
+   grup pada mapper).
+5. **Verifikasi:** menu kiri **Groups** memuat `gg-app-viewer`, `gg-app-editor`, `gg-app-admin`,
+   `GG-Tier1-Admin`, dst. Tanpa ini, klaim `groups` di §2 akan kosong.
+
+Daftar provider federasi:
 
 ![Keycloak — User federation: provider LDAP (Enabled)](gambar/kc-user-federation.png)
 
@@ -235,12 +258,30 @@ Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan 
 
 *Gambar 10. Keycloak — Required actions (Configure OTP aktif)*
 
-- **Authentication → Flows**: duplikat *Browser*, tambah sub-flow **Conditional OTP** →
-  *OTP Form* **Required**, targetkan ke grup admin & client kritikal (Warpgate).
+- **Authentication → Flows** — buat alur browser yang **memaksa OTP hanya untuk admin**.
+  Di Keycloak 26 langkahnya:
+  1. Menu kiri **Authentication** → tab **Flows** → baris **Browser** → ikon **⋮ (titik tiga,
+     kanan) → Duplicate** → **Name**: `browser-mfa` → **Duplicate**.
+  2. Buka flow **`browser-mfa`**. Temukan sub-flow **"browser-mfa Browser - Conditional OTP"**
+     (hasil duplikat). Di dalamnya ada **Condition - User Configured** dan **OTP Form**.
+  3. Paksa untuk admin: pada sub-flow Conditional OTP klik **+ → Add condition** →
+     **Condition - User Role** → **Add**; set **User role** = `admin-app` (atau role yang
+     melekat pada grup `gg-app-admin`/`GG-Tier1-Admin`) → **Save**. Set requirement
+     **Condition - User Role = Required**.
+  4. Set **OTP Form = Required** (bukan Alternative). Biarkan **Condition - User Configured**
+     (Required) agar pengguna tanpa OTP diminta mendaftar via required action *Configure OTP*.
+  5. **Aktifkan alur** — pilih salah satu target:
+     - **Realm-wide:** tab **Flows** → `browser-mfa` → **Action → Bind flow → Browser flow → Save**.
+     - **Per client kritikal (Warpgate):** **Clients → `warpgate` → Advanced → Authentication
+       flow overrides → Browser Flow = `browser-mfa` → Save** (hanya klien ini yang wajib MFA).
 
   ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
 
 *Gambar 11. Keycloak — Authentication flows (Conditional OTP = Required)*
+
+  > Catatan: "grup admin" ditargetkan lewat **role** yang melekat pada grup itu (Keycloak
+  > mengkondisikan via role, bukan grup langsung). Pastikan role admin sudah di-assign ke grup
+  > admin: **Groups → `gg-app-admin` → Role mapping → Assign role**.
 
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
   Google Authenticator.
@@ -249,10 +290,22 @@ Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan 
 > permanen (Realm master → Users) lalu hapus akun sementara sebelum produksi.
 
 ### 5. 🌐 Brute force, SMTP, events
-- **Realm settings → Security defenses → Brute force detection: On**.
-- **Realm settings → Email**: Host `mailpit`, Port `1025` (reset & verifikasi sandi).
-- **Realm settings → Sessions/Tokens**: perpendek masa hidup sesi & token.
-- **Realm settings → Events**: *Save events* (user + admin) + listener `jboss-logging`.
+- **Brute force detection:** menu kiri **Realm settings** → tab **Security defenses** →
+  sub-tab **Brute force detection** → **Mode: Lockout temporarily** (atau "Enabled") → set
+  **Max login failures** mis. `10`, **Wait increment** `1 minute` → **Save**.
+- **Email (SMTP ke Mailpit):** **Realm settings → tab Email** → **Host** `mailpit`, **Port**
+  `1025`, **From** `no-reply@iamlab.test` (Encryption/Auth **Off** — Mailpit uji) → **Save**
+  → **Test connection** (cek email masuk di `https://mail.iamlab.test`). Dipakai reset &
+  verifikasi sandi.
+- **Sesi & token:** **Realm settings → tab Sessions** dan tab **Tokens** → perpendek
+  *SSO Session Idle/Max* dan *Access Token Lifespan* sesuai kebijakan → **Save**.
+- **Events (audit, dipakai Sesi 4):** buka konfigurasi event realm (**Realm settings**, cari
+  bagian/tab **"User events config" & "Admin events config"** — pada sebagian versi di bawah
+  menu **⋮ (overflow)** halaman Realm settings):
+  - **User events settings** → **Save events = On** → **Save**.
+  - **Admin events settings** → **Save events = On**, **Include representation = On** → **Save**.
+  - Pastikan **Event listeners** memuat **`jboss-logging`** (default aktif) agar event mengalir
+    ke stdout → Alloy → Loki (Sesi 4).
 
 Cocokkan layar Anda dengan tiga tangkapan berikut:
 
