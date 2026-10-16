@@ -386,6 +386,14 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
   2. **Groups → `GG-App-Admin` → tab Role mapping → Assign role** → pilih `mfa-admin` → **Assign**.
      (Ulangi untuk `GG-Tier1-Admin` bila admin Tier-1 juga wajib MFA.)
 
+  ![Keycloak — Realm roles: role mfa-admin (kotak merah)](gambar/kc-realm-role-mfa.png)
+
+*Gambar 15. Keycloak — Realm roles: `mfa-admin` dibuat*
+
+  ![Keycloak — Groups → GG-App-Admin → Role mapping: mfa-admin ter-assign (kotak merah)](gambar/kc-group-rolemap.png)
+
+*Gambar 16. Keycloak — GG-App-Admin → Role mapping: `mfa-admin` ditempelkan ke grup*
+
 - **Authentication → Flows** — buat alur browser yang **memaksa OTP hanya untuk admin**.
   Di Keycloak 26 langkahnya:
   1. Menu kiri **Authentication** → tab **Flows** → baris **Browser** → ikon **⋮ (titik tiga,
@@ -405,7 +413,11 @@ Layar client SAML — perhatikan badge **SAML**, Name ID format, dan **Sign asse
 
   ![Keycloak — Authentication flows (duplikat Browser lalu tambah sub-flow Conditional OTP = Required)](gambar/kc-auth-flows.png)
 
-*Gambar 15. Keycloak — Authentication flows (Conditional OTP = Required)*
+*Gambar 17. Keycloak — Authentication flows (Conditional OTP = Required)*
+
+![Keycloak — flow browser-mfa (Not in use): sub-flow Conditional OTP berisi Condition - user role (mfa-admin) + OTP Form](gambar/kc-browser-mfa-flow.png)
+
+*Gambar 18. Keycloak — flow `browser-mfa` hasil langkah §5 (sub-flow Conditional OTP + kondisi `mfa-admin`)*
 
   > Catatan: App-Komentar menentukan **hak akses** dari klaim **grup** (`groups`), sedangkan
   > **penegakan MFA** ini memakai **role** `mfa-admin` yang ditempelkan ke grup admin — dua
@@ -439,21 +451,21 @@ Cocokkan layar Anda dengan tiga tangkapan berikut:
 
 ![Keycloak — Security defenses: Brute force detection aktif](gambar/kc-bruteforce.png)
 
-*Gambar 16. Keycloak — Brute force detection aktif*
+*Gambar 19. Keycloak — Brute force detection aktif*
 
 
 *Gambar: proteksi brute force menyala — akun dikunci sementara setelah sejumlah kegagalan login (mis. 10), waktu tunggu bertambah.*
 
 ![Keycloak — Realm settings → Email (SMTP ke Mailpit)](gambar/kc-email.png)
 
-*Gambar 17. Keycloak — Email (SMTP ke Mailpit)*
+*Gambar 20. Keycloak — Email (SMTP ke Mailpit)*
 
 
 *Gambar: SMTP diarahkan ke Mailpit (`mailpit:1025`) agar email reset/verifikasi tertangkap di kotak surat uji, bukan terkirim ke internet.*
 
 ![Keycloak — konfigurasi Events (user + admin, listener jboss-logging)](gambar/kc-events.png)
 
-*Gambar 18. Keycloak — konfigurasi Events*
+*Gambar 21. Keycloak — konfigurasi Events*
 
 
 *Gambar: pencatatan event diaktifkan sehingga login/perubahan admin terekam dan bisa dipanen Alloy → Loki di Sesi 4.*
@@ -466,13 +478,13 @@ yang tersedia berbeda, dan penolakan ditegakkan **di server** (bukan sekadar tom
 |---|---|---|
 | ![Viewer](gambar/app-viewer.png) | ![Editor](gambar/app-editor.png) | ![Admin](gambar/app-admin.png) |
 
-*Gambar 19. App-Komentar — tampilan peran Viewer, Editor, Admin*
+*Gambar 22. App-Komentar — tampilan peran Viewer, Editor, Admin*
 
 Halaman login SSO Keycloak yang muncul saat menekan "masuk":
 
 ![Halaman login Keycloak (SSO)](gambar/kc-login.png)
 
-*Gambar 20. Halaman login Keycloak (SSO)*
+*Gambar 23. Halaman login Keycloak (SSO)*
 
 
 ### (Terkait) Distribusi kata sandi awal via email
@@ -481,7 +493,7 @@ Keycloak juga mengirim email aksi akun (set sandi/verifikasi). Alurnya:
 
 ![Distribusi kata sandi awal via email (Mailpit) untuk akun AD & Keycloak](gambar/distribusi-sandi.png)
 
-*Gambar 21. Distribusi kata sandi awal via email*
+*Gambar 24. Distribusi kata sandi awal via email*
 
 
 > Catatan: realm Keycloak 26 punya aksi default **Verify Profile**. Pengguna AD sudah
