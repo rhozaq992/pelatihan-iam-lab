@@ -30,6 +30,20 @@ function Invoke-Native($exe,$argList){
   try { & $exe @argList 2>&1 | Out-Host } finally { $ErrorActionPreference=$old }
   return $LASTEXITCODE
 }
+# docker/git kadang menulis WARNING ke stderr (mis. "No blkio throttle...") -> dgn
+# $ErrorActionPreference='Stop', PowerShell 5.1 membungkusnya jadi NativeCommandError yg
+# MELEMPAR walau exit code 0. Helper ini menilai berdasarkan exit code, bukan stderr.
+function Test-NativeOk($exe,$argList){
+  $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
+  try { & $exe @argList 2>&1 | Out-Null } finally { $ErrorActionPreference=$old }
+  return ($LASTEXITCODE -eq 0)
+}
+function Get-DockerVolumeName($docker,$pattern){
+  $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
+  try { $m = & $docker volume ls --format '{{.Name}}' 2>&1 | Select-String -Pattern $pattern | Select-Object -First 1 }
+  finally { $ErrorActionPreference=$old }
+  if($m){ return $m.ToString().Trim() } else { return $null }
+}
 $Root=$PSScriptRoot
 # Skrip ini butuh folder BUILDER (ada deploy/). Bila dijalankan dari subfolder modul
 # (IAMLAB-BuildBag\Pelatihan_IAM, hasil git pull), naik satu level ke builder.
@@ -40,7 +54,7 @@ $Deploy=Join-Path $Root 'deploy'
 $Tar=Join-Path $Root 'distribusi\offline-images\iam-images.tar'
 $docker=(Get-Command docker.exe -ErrorAction SilentlyContinue).Source
 if(-not $docker){ Fail 'docker.exe tak ada - pastikan Docker Desktop terpasang dan berjalan.' }
-& $docker info *> $null; if($LASTEXITCODE -ne 0){ Fail 'Docker Desktop tidak berjalan.' }
+if(-not (Test-NativeOk $docker @('info'))){ Fail 'Docker Desktop tidak berjalan.' }
 
 Write-Host "Update Lab IAM (tanpa hapus data/VM)" -ForegroundColor White
 
@@ -48,7 +62,7 @@ if($ClearWarpgateBlocks){
   Step 'Bersihkan blokir IP brute-force Warpgate (lab)'
   # Warpgate memblokir IP sumber setelah banyak login gagal (umum saat uji-coba SSO / banyak klien
   # di balik satu NAT). Kosongkan tabel blokir di DB Warpgate, lalu restart.
-  $vol = (& $docker volume ls --format '{{.Name}}' | Select-String -Pattern 'warpgate-data' | Select-Object -First 1).ToString().Trim()
+  $vol = Get-DockerVolumeName $docker 'warpgate-data'
   if(-not $vol){ Warn 'volume warpgate-data tak ditemukan'; }
   else {
     Push-Location $Deploy; try { Invoke-Native $docker @('compose','stop','warpgate') | Out-Null } finally { Pop-Location }
@@ -83,9 +97,8 @@ try {
 Step '3. Pastikan sertifikat LDAPS Samba ber-SAN (perbaikan OpenBao Sesi 3)'
 # Lab LAMA: cert LDAPS sering CN-only (tanpa SAN) -> OpenBao (Go) menolak. Regen cert ber-SAN
 # via helper alpine (tak bergantung openssl/entrypoint di image samba lama), pakai volume samba.
-$sambaVol = (& $docker volume ls --format '{{.Name}}' | Select-String -Pattern 'samba-data' | Select-Object -First 1)
+$sambaVol = Get-DockerVolumeName $docker 'samba-data'
 if ($sambaVol) {
-  $sambaVol = $sambaVol.ToString().Trim()
   # skrip sh TANPA tanda kutip ganda (hindari mangling PowerShell); deteksi SAN via grep kata 'Alternative'
   $gen = 'apk add -q openssl >/dev/null 2>&1; cd /d/private/tls 2>/dev/null || exit 0; ' +
          'openssl x509 -in cert.pem -noout -text 2>/dev/null | grep -q Alternative && { echo has-san; exit 0; }; ' +
