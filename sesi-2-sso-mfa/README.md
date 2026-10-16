@@ -157,8 +157,35 @@ Cocokkan layar Anda dengan tangkapan berikut (form terisi), lalu — **berurutan
 4. Pada tab **Mappers**, klik mapper tersebut → **Action/Sync → Sync LDAP groups to Keycloak**
    (atau pada provider: **Action → Sync changed users** tidak menarik grup — gunakan menu sync
    grup pada mapper).
-5. **Verifikasi:** menu kiri **Groups** memuat `gg-app-viewer`, `gg-app-editor`, `gg-app-admin`,
+5. **Verifikasi:** menu kiri **Groups** memuat `GG-App-Viewer`, `GG-App-Editor`, `GG-App-Admin`,
    `GG-Tier1-Admin`, dst. Tanpa ini, klaim `groups` di §2 akan kosong.
+
+> **⚠️ Grup muncul tapi tab Members KOSONG (atau klaim `groups` kosong di §2)?**
+> Keanggotaan **ada di Samba** (dibuat di Sesi 1 dari CSV — mis. `GG-App-Viewer` ±35 anggota),
+> tetapi Keycloak belum me-*resolve*-nya. Keanggotaan hanya di-resolve saat **sinkron USER**, dan
+> **harus setelah group-ldap-mapper dibuat**. Perbaiki berurutan:
+>
+> 1. **Re-sync (penyebab tersering — lakukan ini dulu):** **User federation → ldap → Action →
+>    Sync all users** SEKALI LAGI (setelah membuat group-ldap-mapper). Sinkron user pertama
+>    (sebelum mapper ada) tidak mengisi keanggotaan.
+> 2. **Cek sumber (pastikan datanya memang ada):**
+>    ```bash
+>    docker compose exec samba-dc samba-tool group listmembers GG-App-Viewer   # → daftar ±35 user
+>    ```
+>    Jika di sini **kosong** → masalah ada di Sesi 1 (import-ad.sh belum dijalankan / kolom
+>    `groups` CSV kosong), bukan di Keycloak.
+> 3. **Periksa setelan group-ldap-mapper** (User federation → ldap → Mappers → `group-ldap-mapper`):
+>    - **LDAP Groups DN** `OU=Grup,DC=iamlab,DC=test` · **Group Name LDAP Attribute** `cn`
+>    - **Membership LDAP Attribute** `member` · **Membership Attribute Type** `DN`
+>    - **Membership User LDAP Attribute** `cn` *(user dibuat `--use-username-as-cn`, jadi cn=username)*
+>    - **User Groups Retrieve Strategy** `LOAD_GROUPS_BY_MEMBER_ATTRIBUTE`
+>    - **Preserve Group Inheritance = Off** *(On sering menggagalkan impor keanggotaan di AD)* · **Mode** `READ_ONLY`
+>    Ubah → **Save** → tab Mappers → **Sync LDAP groups** → lalu **Action → Sync all users** lagi.
+> 4. **Pastikan user tercakup:** provider **Users DN = `DC=iamlab,DC=test`** (root) agar
+>    `OU=Pengguna` ikut — semua anggota `GG-App-*` berada di sana.
+> 5. **Cek sisi user (paling otoritatif):** **Users → `dewi.puspita001` → tab Groups** harus
+>    memuat `GG-App-Viewer`. Bila di sini **ADA** tapi tab *Members* grup tetap kosong, itu hanya
+>    tampilan Members yang *lazy* — klaim `groups` tetap jalan (buktikan via **Evaluate**, §2).
 
 Daftar provider federasi:
 
@@ -189,7 +216,7 @@ Daftar provider federasi:
   > 6. Isi formulir lalu **Save**:
   >    - **Name**: `groups`
   >    - **Token Claim Name**: `groups`
-  >    - **Full group path**: **Off**  *(agar nilai klaim `gg-app-viewer`, bukan `/Grup/gg-app-viewer`)*
+  >    - **Full group path**: **Off**  *(agar nilai klaim `GG-App-Viewer`, bukan `/GG-App-Viewer`)*
   >    - **Add to ID token**: **On** · **Add to access token**: **On** · **Add to userinfo**: **On**
   >
   > **Verifikasi klaim `groups` (tanpa perlu login aplikasi) — lewat tab Evaluate:**
@@ -197,21 +224,21 @@ Daftar provider federasi:
   > 1. Buka **Clients → `app-komentar` → tab Client scopes**. Di dalam tab ini ada dua sub-tab:
   >    **Setup** dan **Evaluate** — klik **Evaluate**.
   > 2. Cari kolom **Users** (sisi kanan atas panel Evaluate). **Ketik nama seorang pengguna yang
-  >    menjadi anggota grup `gg-app-*`**, mis. `dewi.puspita001`, lalu **klik nama itu** dari
+  >    menjadi anggota grup `GG-App-*`**, mis. `dewi.puspita001`, lalu **klik nama itu** dari
   >    daftar saran yang muncul (kolom harus terisi satu user — ini "memilih user").
-  >    - *Belum tahu user mana yang ada di grup?* Buka **Groups → `gg-app-viewer` → tab Members**
+  >    - *Belum tahu user mana yang ada di grup?* Buka **Groups → `GG-App-Viewer` → tab Members**
   >      untuk melihat satu nama; **atau** masukkan user ke grup dulu: **Users → (cari & klik
-  >      user) → tab Groups → Join Group → centang `gg-app-viewer` → Join**.
+  >      user) → tab Groups → Join Group → centang `GG-App-Viewer` → Join**.
   > 3. Setelah kolom Users terisi, lihat bagian hasil dan klik sub-tab **Generated ID token**
   >    (bersebelahan dengan *Generated access token*, *Generated user info*, *Effective protocol
   >    mappers*).
   > 4. Pada JSON yang tampil, pastikan ada klaim:
   >    ```json
-  >    "groups": [ "gg-app-viewer" ]
+  >    "groups": [ "GG-App-Viewer" ]
   >    ```
   >    - Jika `groups` **tidak** muncul → mapper belum tersimpan di dedicated scope (ulangi
   >      langkah 1–6 pembuatan mapper di atas).
-  >    - Jika muncul `"/Grup/gg-app-viewer"` (ada awalan path) → setel **Full group path = Off**
+  >    - Jika muncul `"/GG-App-Viewer"` (ada awalan path) → setel **Full group path = Off**
   >      pada mapper.
   >    - Jika kosong padahal mapper benar → user yang dipilih belum anggota grup (lihat langkah 2).
 
@@ -285,7 +312,7 @@ Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan 
      (hasil duplikat). Di dalamnya ada **Condition - User Configured** dan **OTP Form**.
   3. Paksa untuk admin: pada sub-flow Conditional OTP klik **+ → Add condition** →
      **Condition - User Role** → **Add**; set **User role** = `admin-app` (atau role yang
-     melekat pada grup `gg-app-admin`/`GG-Tier1-Admin`) → **Save**. Set requirement
+     melekat pada grup `GG-App-Admin`/`GG-Tier1-Admin`) → **Save**. Set requirement
      **Condition - User Role = Required**.
   4. Set **OTP Form = Required** (bukan Alternative). Biarkan **Condition - User Configured**
      (Required) agar pengguna tanpa OTP diminta mendaftar via required action *Configure OTP*.
@@ -300,7 +327,7 @@ Layar pengaturan client SAML — perhatikan badge **SAML**, Name ID format, dan 
 
   > Catatan: "grup admin" ditargetkan lewat **role** yang melekat pada grup itu (Keycloak
   > mengkondisikan via role, bukan grup langsung). Pastikan role admin sudah di-assign ke grup
-  > admin: **Groups → `gg-app-admin` → Role mapping → Assign role**.
+  > admin: **Groups → `GG-App-Admin` → Role mapping → Assign role**.
 
 - Uji: pengguna biasa login App-Komentar tanpa OTP; **admin dipaksa memindai QR**
   Google Authenticator.
