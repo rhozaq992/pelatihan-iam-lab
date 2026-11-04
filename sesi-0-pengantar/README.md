@@ -294,6 +294,24 @@ modul. Hasil ditulis ke dua berkas di `IAMLAB-BuildBag\.lab\logs\`:
 > (Get-FileHash -Algorithm SHA256 ..\distribusi\offline-images\iam-images.tar).Hash   # bandingkan dgn SHA256SUMS.txt
 > ```
 
+### Reset total lab (hapus deployment & bangun ulang dari awal)
+
+Bila lab rusak/tak konsisten (mis. container crash, sertifikat basi), fasilitator dapat mereset
+total dari **PowerShell Administrator** (folder modul atau folder builder):
+
+```powershell
+cd C:\Lab\IAMLAB-BuildBag\Pelatihan_IAM
+.\reset-lab.ps1      # konfirmasi "YA"; -Yes = tanpa tanya, -AutoJoin = VM langsung join domain
+```
+
+Yang **dihapus**: VM `srv1`/`client1`, container + **volume data** (user AD, realm Keycloak,
+OpenBao, Warpgate, log), CA Caddy, `deploy\certs\*.pem`. Yang **dipertahankan**: image Docker,
+cache unduhan, adapter Host-Only, `deploy\.env`. Skrip lalu membangun ulang (`build-lab.ps1`) dan
+**gagal tegas** bila ada service tak running atau port lab (88/389/636/443/2222) tak terjangkau di
+`10.10.10.5` — gejala umum: Docker Desktop memublikasikan port hanya di `127.0.0.1` (Settings →
+Docker Engine `"ip": "127.0.0.1"`), sehingga VM tak bisa join domain & validasi LDAPS Sesi 1 §5.3
+gagal. Log: `IAMLAB-BuildBag\.lab\logs\reset-<stamp>.log`. Sesudah reset, peserta mulai lagi dari Sesi 1.
+
 Google Authenticator / FreeOTP di ponsel diperlukan untuk MFA (Sesi 2).
 
 > **Gambaran lengkap langkah peserta** (semua sesi, dengan validasi tiap perintah):
